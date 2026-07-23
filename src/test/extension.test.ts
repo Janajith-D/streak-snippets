@@ -5,7 +5,11 @@ import * as fs from "fs";
 // You can import and use all API from the 'vscode' module
 // as well as import your extension to test it
 import * as vscode from "vscode";
-import { analyzeDocument } from "../server/parser/analyzer";
+import { analyzeAndParseDocument } from "../server/parser/analyzer";
+import { runRules } from "../server/rules/runner";
+import { widgetPlaceholderRule } from "../server/rules/widgetPlaceholderRule";
+import { dataHandlerStatusRule } from "../server/rules/dataHandlerStatusRule";
+import { missingDefaultExportRule } from "../server/rules/missingDefaultExportRule";
 
 suite("Extension Test Suite", () => {
   vscode.window.showInformationMessage("Start all tests.");
@@ -27,12 +31,12 @@ suite("Extension Test Suite", () => {
       
       export default getData;
     `;
-    const result = analyzeDocument("file:///test/handler.ts", code);
-    assert.strictEqual(result.errors.length, 0);
-    assert.strictEqual(result.imports.length, 1);
-    assert.strictEqual(result.imports[0].moduleSpecifier, "streak-forge/components");
-    assert.ok(result.imports[0].namedImports.includes("WidgetPlaceholder"));
-    assert.ok(result.exports.some((e) => e.isDefault));
+    const { analysis } = analyzeAndParseDocument("file:///test/handler.ts", code);
+    assert.strictEqual(analysis.errors.length, 0);
+    assert.strictEqual(analysis.imports.length, 1);
+    assert.strictEqual(analysis.imports[0].moduleSpecifier, "streak-forge/components");
+    assert.ok(analysis.imports[0].namedImports.includes("WidgetPlaceholder"));
+    assert.ok(analysis.exports.some((e) => e.isDefault));
   });
 
   test("AST Analyzer parses JSX elements and components from TSX file", () => {
@@ -48,13 +52,101 @@ suite("Extension Test Suite", () => {
         );
       }
     `;
-    assert.doesNotThrow(() => {
-      const result = analyzeDocument("file:///test/Home.tsx", code);
-      assert.strictEqual(result.errors.length, 0);
-      assert.ok(result.components.includes("Home"));
-      assert.ok(result.jsxElements.includes("WidgetPlaceholder"));
-      assert.ok(result.jsxElements.includes("Preload"));
-    });
+    const { analysis } = analyzeAndParseDocument("file:///test/Home.tsx", code);
+    assert.strictEqual(analysis.errors.length, 0);
+    assert.ok(analysis.components.includes("Home"));
+    assert.ok(analysis.jsxElements.includes("WidgetPlaceholder"));
+    assert.ok(analysis.jsxElements.includes("Preload"));
+  });
+
+  // ── Validation Rules Tests ─────────────────────────────────────────
+
+  test("WidgetPlaceholder rule flags missing id and type attributes with streak:S101 and streak:S102", () => {
+    const code = `
+      import { WidgetPlaceholder } from "streak-forge/components";
+      
+      export default function Component() {
+        return <WidgetPlaceholder />;
+      }
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/Comp.tsx", code);
+    const diags = widgetPlaceholderRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 2);
+    assert.ok(diags.some((d) => d.code === "streak:S101"));
+    assert.ok(diags.some((d) => d.code === "streak:S102"));
+  });
+
+  test("WidgetPlaceholder rule passes when valid id and type are provided", () => {
+    const code = `
+      import { WidgetPlaceholder } from "streak-forge/components";
+      
+      export default function Component() {
+        return <WidgetPlaceholder id="header" type="banner" />;
+      }
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/ValidComp.tsx", code);
+    const diags = widgetPlaceholderRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 0);
+  });
+
+  test("Data Handler status rule flags return objects missing status property with streak:S201", () => {
+    const code = `
+      const getData = async () => {
+        return { message: "hello" };
+      };
+      export default getData;
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/HomeDataHandler.ts", code);
+    const diags = dataHandlerStatusRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 1);
+    assert.strictEqual(diags[0].code, "streak:S201");
+  });
+
+  test("Data Handler status rule passes when status property is present", () => {
+    const code = `
+      const getData = async () => {
+        return { status: 200, message: "hello" };
+      };
+      export default getData;
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/HomeDataHandler.ts", code);
+    const diags = dataHandlerStatusRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 0);
+  });
+
+  test("Missing default export rule flags files without default export with streak:S301", () => {
+    const code = `
+      export const helper = () => "test";
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/helper.ts", code);
+    const diags = missingDefaultExportRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 1);
+    assert.strictEqual(diags[0].code, "streak:S301");
+  });
+
+  test("Missing default export rule passes when export default identifier exists", () => {
+    const code = `
+      const getData = async () => {
+        return { status: 200 };
+      };
+      export default getData;
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/layout.ts", code);
+    const diags = missingDefaultExportRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 0);
+  });
+
+  test("Rule runner executes all rules and generates LSP diagnostics", () => {
+    const code = `
+      import { WidgetPlaceholder } from "streak-forge/components";
+      
+      export function Incomplete() {
+        return <WidgetPlaceholder id="" type="" />;
+      }
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/Incomplete.tsx", code);
+    const lspDiagnostics = runRules(sourceFile, analysis);
+    assert.ok(lspDiagnostics.length >= 3); // 2 missing props + 1 missing default export
   });
 
   // ── Snippet file validation ────────────────────────────────────────
@@ -152,6 +244,10 @@ suite("Extension Test Suite", () => {
     assert.ok(
       "streak.snippets.enable" in pkg.contributes.configuration.properties,
       "configuration must include streak.snippets.enable",
+    );
+    assert.ok(
+      "streak.diagnostics.enable" in pkg.contributes.configuration.properties,
+      "configuration must include streak.diagnostics.enable",
     );
   });
 

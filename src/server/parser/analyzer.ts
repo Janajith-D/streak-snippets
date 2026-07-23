@@ -1,4 +1,4 @@
-import { Project, ScriptTarget, SyntaxKind } from "ts-morph";
+import { Project, ScriptTarget, SourceFile, SyntaxKind } from "ts-morph";
 import { AnalysisResult, ExportInfo, ImportInfo } from "../../shared/types";
 
 // Create a single ts-morph Project instance for in-memory AST parsing
@@ -10,11 +10,16 @@ const project = new Project({
   useInMemoryFileSystem: true,
 });
 
+export interface ParseOutput {
+  analysis: AnalysisResult;
+  sourceFile: SourceFile;
+}
+
 /**
  * Parses a TypeScript or TSX file content into an AST using ts-morph
  * and extracts information about imports, exports, components, and JSX elements.
  */
-export function analyzeDocument(uri: string, content: string): AnalysisResult {
+export function analyzeAndParseDocument(uri: string, content: string): ParseOutput {
   const filePath = uri.endsWith(".tsx") ? "file.tsx" : "file.ts";
 
   // Create or update virtual source file in memory
@@ -82,6 +87,28 @@ export function analyzeDocument(uri: string, content: string): AnalysisResult {
       }
     }
 
+    // Collect export assignments (e.g. `export default getData;` or `export default { ... };`)
+    for (const exportAssign of sourceFile.getExportAssignments()) {
+      if (!exportAssign.isExportEquals()) {
+        const exprText = exportAssign.getExpression()?.getText() ?? "default";
+        exports.push({
+          name: exprText,
+          isDefault: true,
+          kind: "unknown",
+        });
+      }
+    }
+
+    // Check if a default export symbol exists that wasn't captured above
+    const defaultSymbol = sourceFile.getDefaultExportSymbol();
+    if (defaultSymbol && !exports.some((e) => e.isDefault)) {
+      exports.push({
+        name: defaultSymbol.getName(),
+        isDefault: true,
+        kind: "unknown",
+      });
+    }
+
     // 3. Collect JSX Elements (for TSX files)
     sourceFile.forEachDescendant((node) => {
       if (
@@ -90,11 +117,9 @@ export function analyzeDocument(uri: string, content: string): AnalysisResult {
       ) {
         let tagName = "";
         if (node.getKind() === SyntaxKind.JsxElement) {
-          // JsxElement has openingElement
           const opening = (node as any).getOpeningElement();
           tagName = opening?.getTagNameNode()?.getText() ?? "";
         } else {
-          // JsxSelfClosingElement
           tagName = (node as any).getTagNameNode()?.getText() ?? "";
         }
 
@@ -107,7 +132,7 @@ export function analyzeDocument(uri: string, content: string): AnalysisResult {
     errors.push(err.message ?? String(err));
   }
 
-  return {
+  const analysis: AnalysisResult = {
     uri,
     imports,
     exports,
@@ -115,4 +140,10 @@ export function analyzeDocument(uri: string, content: string): AnalysisResult {
     jsxElements: Array.from(jsxElementsSet),
     errors,
   };
+
+  return { analysis, sourceFile };
+}
+
+export function analyzeDocument(uri: string, content: string): AnalysisResult {
+  return analyzeAndParseDocument(uri, content).analysis;
 }

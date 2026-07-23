@@ -7,7 +7,8 @@ import {
   TextDocumentSyncKind,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { analyzeDocument } from "./parser/analyzer";
+import { analyzeAndParseDocument } from "./parser/analyzer";
+import { runRules } from "./rules/runner";
 
 // Create a connection for the server, using Node's IPC / stdio communication
 const connection = createConnection(ProposedFeatures.all);
@@ -15,7 +16,7 @@ const connection = createConnection(ProposedFeatures.all);
 // Create a simple text document manager
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
-connection.onInitialize((params: InitializeParams): InitializeResult => {
+connection.onInitialize((_params: InitializeParams): InitializeResult => {
   connection.console.log("Streak Language Server initializing...");
   return {
     capabilities: {
@@ -28,29 +29,36 @@ connection.onInitialized(() => {
   connection.console.log("Streak Language Server initialized successfully.");
 });
 
-// Analyze document content when opened or updated
-documents.onDidChangeContent((change) => {
-  const uri = change.document.uri;
-  const content = change.document.getText();
+function validateDocument(document: TextDocument): void {
+  const uri = document.uri;
+  const content = document.getText();
 
-  connection.console.log(`[Analysis] Document changed: ${uri}`);
-  const result = analyzeDocument(uri, content);
+  connection.console.log(`[Validation] Running diagnostics for: ${uri}`);
+
+  const { analysis, sourceFile } = analyzeAndParseDocument(uri, content);
+  const diagnostics = runRules(sourceFile, analysis);
 
   connection.console.log(
-    `[Analysis] Completed for ${uri}: ` +
-      `${result.imports.length} imports, ` +
-      `${result.exports.length} exports, ` +
-      `${result.components.length} components, ` +
-      `${result.jsxElements.length} JSX tags found.`,
+    `[Validation] Found ${diagnostics.length} diagnostic(s) for ${uri}`,
   );
+
+  // Send the computed diagnostics to VS Code
+  connection.sendDiagnostics({ uri, diagnostics });
+}
+
+// Analyze and validate document content when opened or updated
+documents.onDidChangeContent((change) => {
+  validateDocument(change.document);
 });
 
 documents.onDidOpen((event) => {
-  connection.console.log(`[Analysis] Document opened: ${event.document.uri}`);
+  connection.console.log(`[Lifecycle] Document opened: ${event.document.uri}`);
+  validateDocument(event.document);
 });
 
 documents.onDidSave((event) => {
-  connection.console.log(`[Analysis] Document saved: ${event.document.uri}`);
+  connection.console.log(`[Lifecycle] Document saved: ${event.document.uri}`);
+  validateDocument(event.document);
 });
 
 // Make the text document manager listen on the connection

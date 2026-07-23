@@ -58,6 +58,29 @@
           "type": "string",
           "default": "src/widgets",
           "description": "Default directory for new Streak widgets"
+        },
+        "streak.diagnostics.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable or disable real-time Streak framework diagnostics"
+        },
+        "streak.rules.widgetPlaceholderProps.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for missing <WidgetPlaceholder> id/type props rule"
+        },
+        "streak.rules.dataHandlerStatus.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "warning",
+          "description": "Severity for missing status: 200 return in data handlers rule"
+        },
+        "streak.rules.missingDefaultExport.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "warning",
+          "description": "Severity for missing default export rule"
         }
       }
     }
