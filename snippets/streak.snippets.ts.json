@@ -1,121 +1,22 @@
 {
-  "Streak Page": {
-    "prefix": "streak-page",
+  "Streak Forge Data Handler": {
+    "prefix": "sfDH",
     "body": [
-      "import type { PageMetadata } from 'streak';",
-      "",
-      "export const metadata: PageMetadata = {",
-      "  title: '${1:Page Title}',",
-      "  description: '${2:Page description}',",
+      "const ${1:getData} = async () => {",
+      "  return {",
+      "    status: 200, // required — signals render success",
+      "    ${2:PageHead}: {",
+      "      // key = widget id from sitemap",
+      "      ${3:title}: \"${4:Hello}\",",
+      "    },",
+      "    ${5:HelloBanner}: {",
+      "      ${6:heading}: \"${7:Hello World}\",",
+      "    },",
+      "  };",
       "};",
       "",
-      "export default function ${3:PageName}() {",
-      "  return {",
-      "    $0",
-      "  };",
-      "}"
+      "export default ${1:getData};"
     ],
-    "description": "Create a new Streak page with metadata and default export"
-  },
-  "Streak Layout": {
-    "prefix": "streak-layout",
-    "body": [
-      "import type { LayoutProps } from 'streak';",
-      "",
-      "export default function ${1:LayoutName}({ children }: LayoutProps) {",
-      "  return {",
-      "    children,",
-      "    $0",
-      "  };",
-      "}"
-    ],
-    "description": "Create a new Streak layout component"
-  },
-  "Streak Hook": {
-    "prefix": "streak-hook",
-    "body": [
-      "import { useState, useEffect } from 'react';",
-      "",
-      "export function use${1:HookName}(${2:params}) {",
-      "  const [${3:state}, set${3/(.*)/${1:/capitalize}/}] = useState(${4:null});",
-      "",
-      "  useEffect(() => {",
-      "    $0",
-      "  }, []);",
-      "",
-      "  return { ${3:state} };",
-      "}"
-    ],
-    "description": "Create a custom React hook for Streak"
-  },
-  "Streak API Route": {
-    "prefix": "streak-api-route",
-    "body": [
-      "import type { APIRequest, APIResponse } from 'streak';",
-      "",
-      "export async function ${1|GET,POST,PUT,DELETE|}(request: APIRequest): Promise<APIResponse> {",
-      "  $0",
-      "  return {",
-      "    status: 200,",
-      "    body: { message: '${2:Success}' },",
-      "  };",
-      "}"
-    ],
-    "description": "Create a Streak API route handler"
-  },
-  "Streak Middleware": {
-    "prefix": "streak-middleware",
-    "body": [
-      "import type { MiddlewareRequest, MiddlewareResponse } from 'streak';",
-      "",
-      "export async function middleware(request: MiddlewareRequest): Promise<MiddlewareResponse> {",
-      "  $0",
-      "  return request.next();",
-      "}"
-    ],
-    "description": "Create a Streak middleware handler"
-  },
-  "Streak Import React": {
-    "prefix": "streak-import-react",
-    "body": [
-      "import React from 'react';"
-    ],
-    "description": "Import React"
-  },
-  "Streak Import Hooks": {
-    "prefix": "streak-import-hooks",
-    "body": [
-      "import { ${1|useState,useEffect,useCallback,useMemo,useRef,useContext|} } from 'react';"
-    ],
-    "description": "Import React hooks"
-  },
-  "Streak Import Streak": {
-    "prefix": "streak-import-streak",
-    "body": [
-      "import { ${1:module} } from 'streak';"
-    ],
-    "description": "Import from the Streak framework"
-  },
-  "Streak Config": {
-    "prefix": "streak-config",
-    "body": [
-      "import { defineConfig } from 'streak';",
-      "",
-      "export default defineConfig({",
-      "  $0",
-      "});"
-    ],
-    "description": "Create a Streak configuration file"
-  },
-  "Streak Server Function": {
-    "prefix": "streak-server-fn",
-    "body": [
-      "'use server';",
-      "",
-      "export async function ${1:functionName}(${2:params}) {",
-      "  $0",
-      "}"
-    ],
-    "description": "Create a Streak server function"
+    "description": "Create a Streak Forge data handler function"
   }
 }
