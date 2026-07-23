@@ -68,19 +68,79 @@
           "type": "string",
           "enum": ["error", "warning", "info", "off"],
           "default": "error",
-          "description": "Severity for missing <WidgetPlaceholder> id/type props rule"
+          "description": "Severity for missing <WidgetPlaceholder> id/type props rule (streak:S101, streak:S102)"
         },
         "streak.rules.dataHandlerStatus.severity": {
           "type": "string",
           "enum": ["error", "warning", "info", "off"],
           "default": "warning",
-          "description": "Severity for missing status: 200 return in data handlers rule"
+          "description": "Severity for missing status return in data handlers rule (streak:S201)"
+        },
+        "streak.rules.dataHandlerAsync.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for data handler must be async rule (streak:S202)"
+        },
+        "streak.rules.invalidHandlerStatus.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "warning",
+          "description": "Severity for invalid HTTP status code rule (streak:S203)"
         },
         "streak.rules.missingDefaultExport.severity": {
           "type": "string",
           "enum": ["error", "warning", "info", "off"],
           "default": "warning",
-          "description": "Severity for missing default export rule"
+          "description": "Severity for missing default export rule (streak:S301)"
+        },
+        "streak.rules.reactHooksNotAllowed.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for React hooks not allowed in static widgets rule (streak:S302)"
+        },
+        "streak.rules.unsafeWidgetDataAccess.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for unsafe widget props.data access rule (streak:S303)"
+        },
+        "streak.rules.invalidWidgetPropsContract.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "warning",
+          "description": "Severity for invalid widget props contract rule (streak:S304)"
+        },
+        "streak.rules.scriptClosureCapture.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for Script closure variable capture rule (streak:S401)"
+        },
+        "streak.rules.invalidScriptSignature.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for invalid Script callback signature rule (streak:S402)"
+        },
+        "streak.rules.importInsideScript.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for module imports inside Script rule (streak:S403)"
+        },
+        "streak.rules.asyncScriptCallback.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for async Script callback rule (streak:S404)"
+        },
+        "streak.rules.invalidDynamicComponentId.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for invalid <Dynamic> component id rule (streak:S501)"
         }
       }
     }
