@@ -5,6 +5,7 @@ import * as fs from "fs";
 // You can import and use all API from the 'vscode' module
 // as well as import your extension to test it
 import * as vscode from "vscode";
+import { analyzeDocument } from "../server/parser/analyzer";
 
 suite("Extension Test Suite", () => {
   vscode.window.showInformationMessage("Start all tests.");
@@ -12,6 +13,48 @@ suite("Extension Test Suite", () => {
   test("Sample test", () => {
     assert.strictEqual(-1, [1, 2, 3].indexOf(5));
     assert.strictEqual(-1, [1, 2, 3].indexOf(0));
+  });
+
+  // ── AST Analyzer Tests ─────────────────────────────────────────────
+
+  test("AST Analyzer parses imports and exports from TypeScript file", () => {
+    const code = `
+      import { WidgetPlaceholder } from "streak-forge/components";
+      
+      const getData = async () => {
+        return { status: 200 };
+      };
+      
+      export default getData;
+    `;
+    const result = analyzeDocument("file:///test/handler.ts", code);
+    assert.strictEqual(result.errors.length, 0);
+    assert.strictEqual(result.imports.length, 1);
+    assert.strictEqual(result.imports[0].moduleSpecifier, "streak-forge/components");
+    assert.ok(result.imports[0].namedImports.includes("WidgetPlaceholder"));
+    assert.ok(result.exports.some((e) => e.isDefault));
+  });
+
+  test("AST Analyzer parses JSX elements and components from TSX file", () => {
+    const code = `
+      import { Preload, WidgetPlaceholder } from "streak-forge/components";
+      
+      export default function Home() {
+        return (
+          <div>
+            <WidgetPlaceholder id="id1" type="type1" />
+            <Preload href="/styles.css" as="style" media="" />
+          </div>
+        );
+      }
+    `;
+    assert.doesNotThrow(() => {
+      const result = analyzeDocument("file:///test/Home.tsx", code);
+      assert.strictEqual(result.errors.length, 0);
+      assert.ok(result.components.includes("Home"));
+      assert.ok(result.jsxElements.includes("WidgetPlaceholder"));
+      assert.ok(result.jsxElements.includes("Preload"));
+    });
   });
 
   // ── Snippet file validation ────────────────────────────────────────
