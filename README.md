@@ -1,71 +1,95 @@
-# streak-snippets README
+# Streak Snippets
 
-This is the README for your extension "streak-snippets". After writing up a brief description, we recommend including the following sections.
+A VS Code extension providing snippets, commands, and developer productivity tools for the **Streak.js** React-based static site generator framework.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+### Snippets
 
-For example if there is an image subfolder under your extension project workspace:
+Type a snippet prefix in any `.ts` or `.tsx` file and press `Tab` to expand.
 
-\!\[feature X\]\(images/feature-x.png\)
+#### TypeScript (`.ts`) Snippets
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+| Prefix | Description |
+|---|---|
+| `streak-page` | Page with metadata and default export |
+| `streak-layout` | Layout component with `children` prop |
+| `streak-hook` | Custom React hook |
+| `streak-api-route` | Server-side API route handler |
+| `streak-middleware` | Middleware handler |
+| `streak-config` | Streak configuration file |
+| `streak-server-fn` | Server function (`'use server'`) |
+| `streak-import-react` | Import React |
+| `streak-import-hooks` | Import React hooks |
+| `streak-import-streak` | Import from Streak framework |
 
-## Requirements
+#### TypeScript React (`.tsx`) Snippets
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+All `.ts` snippets above, plus:
+
+| Prefix | Description |
+|---|---|
+| `streak-component` | Functional component with props interface |
+| `streak-widget` | Streak widget component |
+| `streak-page` | Page with metadata and JSX |
+| `streak-layout` | Layout with JSX children rendering |
+| `streak-error-boundary` | Error boundary component |
+| `streak-loading` | Loading state component |
+
+### Commands
+
+Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for:
+
+| Command | Description |
+|---|---|
+| `Streak: Show Snippet List` | Browse all available Streak snippets in a quick-pick menu |
+| `Streak: Create Component` | Scaffold a new component file with a PascalCase name prompt |
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
 This extension contributes the following settings:
 
-- `myExtension.enable`: Enable/disable this extension.
-- `myExtension.thing`: Set to `blah` to do something.
+| Setting | Type | Default | Description |
+|---|---|---|---|
+| `streak.snippets.enable` | `boolean` | `true` | Enable or disable Streak snippets |
+| `streak.snippets.pageDirectory` | `string` | `src/pages` | Default directory for new Streak pages |
+| `streak.snippets.componentDirectory` | `string` | `src/components` | Default directory for new Streak components |
+| `streak.snippets.widgetDirectory` | `string` | `src/widgets` | Default directory for new Streak widgets |
 
-## Known Issues
+## Installation
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+1. Clone this repository
+2. Run `npm install`
+3. Press `F5` in VS Code to open a new Extension Development Host window
+4. Open a `.ts` or `.tsx` file and start typing a snippet prefix
+
+## Development
+
+```bash
+# Compile the extension
+npm run compile
+
+# Watch for changes
+npm run watch
+
+# Run linting
+npm run lint
+
+# Run tests
+npm run test
+```
+
+## Requirements
+
+- VS Code `^1.125.0`
+- Node.js 18+
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
+### 0.0.1
 
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-- [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-- Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-- Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-- Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-- [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-- [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+- Initial release
+- Snippet support for `.ts` and `.tsx` files
+- `Streak: Show Snippet List` command
+- `Streak: Create Component` command
+- Configuration schema for project directory paths

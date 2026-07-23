@@ -1,23 +1,66 @@
 {
   "name": "streak-snippets",
-  "displayName": "streak-snippets",
-  "description": "A Streak.js Snippet Extension",
+  "displayName": "Streak Snippets",
+  "description": "Snippets, commands, and developer productivity tools for the Streak.js React framework",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.125.0"
+    "vscode": "^1.107.0"
   },
   "categories": [
-    "Other"
+    "Snippets",
+    "Programming Languages"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "streak-snippets.helloWorld",
-        "title": "Hello World"
+        "command": "streak-snippets.showSnippets",
+        "title": "Streak: Show Snippet List"
+      },
+      {
+        "command": "streak-snippets.createComponent",
+        "title": "Streak: Create Component"
       }
-    ]
+    ],
+    "snippets": [
+      {
+        "language": "typescript",
+        "path": "./snippets/streak.snippets.ts.json"
+      },
+      {
+        "language": "typescriptreact",
+        "path": "./snippets/streak.snippets.tsx.json"
+      }
+    ],
+    "configuration": {
+      "title": "Streak Snippets",
+      "properties": {
+        "streak.snippets.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable or disable Streak snippets"
+        },
+        "streak.snippets.pageDirectory": {
+          "type": "string",
+          "default": "src/pages",
+          "description": "Default directory for new Streak pages"
+        },
+        "streak.snippets.componentDirectory": {
+          "type": "string",
+          "default": "src/components",
+          "description": "Default directory for new Streak components"
+        },
+        "streak.snippets.widgetDirectory": {
+          "type": "string",
+          "default": "src/widgets",
+          "description": "Default directory for new Streak widgets"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
@@ -31,7 +74,7 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.125.0",
+    "@types/vscode": "^1.107.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "24.x",
     "typescript-eslint": "^8.61.1",
