@@ -22,6 +22,12 @@ import {
   asyncScriptCallbackRule,
 } from "../server/rules/scriptRules";
 import { dynamicComponentIdRule } from "../server/rules/dynamicComponentIdRule";
+import { getCompletions } from "../server/completion/provider";
+import { getJsxContext, getWidgetTypes, getPublicAssets, getWidgetIdsFromDataHandlers, getDynamicComponentIds } from "../server/completion/jsxAttributeCompletions";
+import { getAutoImportEdit } from "../server/completion/frameworkCompletions";
+import { isInsideLoadDynamicComponent } from "../server/completion/scriptCompletions";
+import { TextDocument } from "vscode-languageserver-textdocument";
+
 
 suite("Extension Test Suite", () => {
   vscode.window.showInformationMessage("Start all tests.");
@@ -315,4 +321,126 @@ suite("Extension Test Suite", () => {
       "Must register streak-snippets.createComponent command",
     );
   });
+
+  // ── Code Completion Tests ──────────────────────────────────────────
+
+  test("JSX Context detection parses tag and unclosed attribute values correctly", () => {
+    const text = '<WidgetPlaceholder id="hero" type="';
+    const ctx = getJsxContext(text, text.length);
+    assert.ok(ctx);
+    assert.strictEqual(ctx.tagName, "WidgetPlaceholder");
+    assert.strictEqual(ctx.attributeName, "type");
+    assert.strictEqual(ctx.inAttributeValue, true);
+    assert.strictEqual(ctx.attributeValue, "");
+
+    const text2 = '<Preload href="/styles/tailwind.css" as="sty';
+    const ctx2 = getJsxContext(text2, text2.length);
+    assert.ok(ctx2);
+    assert.strictEqual(ctx2.tagName, "Preload");
+    assert.strictEqual(ctx2.attributeName, "as");
+    assert.strictEqual(ctx2.inAttributeValue, true);
+    assert.strictEqual(ctx2.attributeValue, "sty");
+
+    const text3 = '<WidgetPlaceholder ';
+    const ctx3 = getJsxContext(text3, text3.length);
+    assert.ok(ctx3);
+    assert.strictEqual(ctx3.tagName, "WidgetPlaceholder");
+    assert.strictEqual(ctx3.inAttributeValue, false);
+  });
+
+  test("isInsideLoadDynamicComponent detects loadDynamicComponent parameters", () => {
+    assert.ok(isInsideLoadDynamicComponent('gDom.loadDynamicComponent("', 27));
+    assert.ok(isInsideLoadDynamicComponent("loadDynamicComponent('", 22));
+    assert.ok(!isInsideLoadDynamicComponent('gDom.otherMethod("', 18));
+  });
+
+  test("getAutoImportEdit generates correct edits for missing import and existing import", () => {
+    const code1 = `
+      export default function Test() {
+        return <div>Hello</div>;
+      }
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/comp1.tsx", code1);
+    const doc1 = TextDocument.create("file:///test/comp1.tsx", "typescriptreact", 1, code1);
+    const edits1 = getAutoImportEdit(doc1, sourceFile, "WidgetPlaceholder");
+    assert.strictEqual(edits1.length, 1);
+    assert.ok(edits1[0].newText.includes('import { WidgetPlaceholder } from "streak-forge/components";'));
+
+    const code2 = `
+      import { Preload } from "streak-forge/components";
+      export default function Test() {
+        return <Preload href="/a" as="style" />;
+      }
+    `;
+    const { sourceFile: sf2 } = analyzeAndParseDocument("file:///test/comp2.tsx", code2);
+    const doc2 = TextDocument.create("file:///test/comp2.tsx", "typescriptreact", 1, code2);
+    const edits2 = getAutoImportEdit(doc2, sf2, "WidgetPlaceholder");
+    assert.strictEqual(edits2.length, 1);
+    assert.ok(edits2[0].newText.includes("Preload, WidgetPlaceholder"));
+  });
+
+  test("getCompletions returns built-in components and script loadDynamicComponent IDs", () => {
+    // 1. Tag start completions
+    const code1 = `
+      import React from "react";
+      const a = <
+    `;
+    const offset1 = code1.indexOf("<") + 1;
+    const { sourceFile: sf1 } = analyzeAndParseDocument("file:///test/comp1.tsx", code1);
+    const doc1 = TextDocument.create("file:///test/comp1.tsx", "typescriptreact", 1, code1);
+
+    const items1 = getCompletions(
+      {
+        text: code1,
+        uri: "file:///test/comp1.tsx",
+        offset: offset1,
+        line: 2,
+        character: offset1 - code1.lastIndexOf("\n") - 1,
+      },
+      doc1,
+      sf1,
+      undefined
+    );
+    assert.ok(items1.length >= 4);
+    assert.ok(items1.some((i) => i.label === "WidgetPlaceholder"));
+    assert.ok(items1.some((i) => i.label === "Script"));
+
+    // 2. Dynamic ID suggestion inside script loadDynamicComponent
+    const code2 = `
+      import { Dynamic, Script } from "streak-forge/components";
+      export default function Test() {
+        return (
+          <>
+            <Dynamic id="sidebar-panel">
+              <div>Sidebar</div>
+            </Dynamic>
+            <Script id="loader">
+              {(gDom) => {
+                gDom.loadDynamicComponent("
+              }}
+            </Script>
+          </>
+        );
+      }
+    `;
+    const offset2 = code2.indexOf('loadDynamicComponent("') + 'loadDynamicComponent("'.length;
+    const { sourceFile: sf2 } = analyzeAndParseDocument("file:///test/comp2.tsx", code2);
+    const doc2 = TextDocument.create("file:///test/comp2.tsx", "typescriptreact", 1, code2);
+
+    const items2 = getCompletions(
+      {
+        text: code2,
+        uri: "file:///test/comp2.tsx",
+        offset: offset2,
+        line: 10,
+        character: offset2 - code2.lastIndexOf("\n") - 1,
+      },
+      doc2,
+      sf2,
+      undefined
+    );
+    assert.strictEqual(items2.length, 1);
+    assert.strictEqual(items2[0].label, "sidebar-panel");
+  });
 });
+

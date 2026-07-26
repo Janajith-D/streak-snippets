@@ -1,15 +1,45 @@
-import { SourceFile, SyntaxKind } from "ts-morph";
+import { Node, SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
 import { AnalysisResult } from "../../shared/types";
-import { RangeLocation, Rule, RuleDiagnostic, RuleOptions } from "./types";
+import { getRangeFromNode, Rule, RuleDiagnostic, RuleOptions } from "./types";
 
-function getRangeFromNode(sourceFile: SourceFile, node: any): RangeLocation {
-  const startPos = sourceFile.getLineAndColumnAtPos(node.getStart());
-  const endPos = sourceFile.getLineAndColumnAtPos(node.getEnd());
-  return {
-    start: { line: Math.max(0, startPos.line - 1), character: Math.max(0, startPos.column - 1) },
-    end: { line: Math.max(0, endPos.line - 1), character: Math.max(0, endPos.column - 1) },
-  };
+function hasValidStaticId(attributes: Node[]): boolean {
+  for (const attr of attributes) {
+    if (Node.isJsxAttribute(attr) && attr.getNameNode()?.getText() === "id") {
+      const initializer = attr.getInitializer();
+      if (initializer && Node.isStringLiteral(initializer)) {
+        const val = initializer.getLiteralValue();
+        return !!(val && val.trim().length > 0);
+      }
+    }
+  }
+  return false;
+}
+
+function checkDynamicElement(node: Node, sourceFile: SourceFile, severity: DiagnosticSeverity): RuleDiagnostic | undefined {
+  let tagName = "";
+  let attributes: Node[] = [];
+
+  if (Node.isJsxSelfClosingElement(node)) {
+    tagName = node.getTagNameNode().getText();
+    attributes = node.getAttributes();
+  } else if (Node.isJsxElement(node)) {
+    const opening = node.getOpeningElement();
+    tagName = opening.getTagNameNode().getText();
+    attributes = opening.getAttributes();
+  }
+
+  if (tagName === "Dynamic" && !hasValidStaticId(attributes)) {
+    const range = getRangeFromNode(sourceFile, node);
+    return {
+      code: "streak:S501",
+      message: "<Dynamic> component must have a static, non-empty 'id' attribute.",
+      range,
+      severity,
+      source: "Streak Engine",
+    };
+  }
+  return undefined;
 }
 
 export const dynamicComponentIdRule: Rule = {
@@ -27,51 +57,13 @@ export const dynamicComponentIdRule: Rule = {
     }
 
     sourceFile.forEachDescendant((node) => {
-      let tagName = "";
-      let attributes: any[] = [];
-
-      if (node.getKind() === SyntaxKind.JsxSelfClosingElement) {
-        const selfClosing = node as any;
-        tagName = selfClosing.getTagNameNode().getText();
-        attributes = selfClosing.getAttributes();
-      } else if (node.getKind() === SyntaxKind.JsxElement) {
-        const opening = (node as any).getOpeningElement();
-        tagName = opening.getTagNameNode().getText();
-        attributes = opening.getAttributes();
-      }
-
-      if (tagName === "Dynamic") {
-        let hasValidId = false;
-
-        for (const attr of attributes) {
-          if (attr.getKind() === SyntaxKind.JsxAttribute) {
-            const attrName = attr.getNameNode()?.getText();
-            const initializer = attr.getInitializer();
-
-            if (attrName === "id" && initializer) {
-              if (initializer.getKind() === SyntaxKind.StringLiteral) {
-                const val = initializer.getLiteralValue();
-                if (val && val.trim().length > 0) {
-                  hasValidId = true;
-                }
-              }
-            }
-          }
-        }
-
-        if (!hasValidId) {
-          const range = getRangeFromNode(sourceFile, node);
-          diagnostics.push({
-            code: "streak:S501",
-            message: "<Dynamic> component must have a static, non-empty 'id' attribute.",
-            range,
-            severity,
-            source: "Streak Engine",
-          });
-        }
+      const diag = checkDynamicElement(node, sourceFile, severity);
+      if (diag) {
+        diagnostics.push(diag);
       }
     });
 
     return diagnostics;
   },
 };
+

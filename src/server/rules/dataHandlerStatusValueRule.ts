@@ -1,15 +1,18 @@
-import { SourceFile, SyntaxKind } from "ts-morph";
+import { Node, SourceFile, SyntaxKind } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
 import { AnalysisResult } from "../../shared/types";
-import { RangeLocation, Rule, RuleDiagnostic, RuleOptions } from "./types";
+import { getRangeFromNode, Rule, RuleDiagnostic, RuleOptions } from "./types";
 
-function getRangeFromNode(sourceFile: SourceFile, node: any): RangeLocation {
-  const startPos = sourceFile.getLineAndColumnAtPos(node.getStart());
-  const endPos = sourceFile.getLineAndColumnAtPos(node.getEnd());
-  return {
-    start: { line: Math.max(0, startPos.line - 1), character: Math.max(0, startPos.column - 1) },
-    end: { line: Math.max(0, endPos.line - 1), character: Math.max(0, endPos.column - 1) },
-  };
+function validateStatusProperty(prop: Node): boolean {
+  if (!Node.isPropertyAssignment(prop) || prop.getName() !== "status") {
+    return true;
+  }
+  const initializer = prop.getInitializer();
+  if (initializer && Node.isNumericLiteral(initializer)) {
+    const val = Number(initializer.getText());
+    return val >= 100 && val <= 599;
+  }
+  return false;
 }
 
 export const dataHandlerStatusValueRule: Rule = {
@@ -29,35 +32,15 @@ export const dataHandlerStatusValueRule: Rule = {
     const objectLiterals = sourceFile.getDescendantsOfKind(SyntaxKind.ObjectLiteralExpression);
     for (const obj of objectLiterals) {
       for (const prop of obj.getProperties()) {
-        if (prop.getKind() === SyntaxKind.PropertyAssignment) {
-          const propAssignment = prop as any;
-          const propName = propAssignment.getName();
-
-          if (propName === "status") {
-            const initializer = propAssignment.getInitializer();
-            let isValidStatus = true;
-
-            if (initializer?.getKind() === SyntaxKind.NumericLiteral) {
-              const val = Number(initializer.getText());
-              if (val < 100 || val > 599) {
-                isValidStatus = false;
-              }
-            } else {
-              // Non-numeric literal or invalid expression
-              isValidStatus = false;
-            }
-
-            if (!isValidStatus) {
-              const range = getRangeFromNode(sourceFile, propAssignment);
-              diagnostics.push({
-                code: "streak:S203",
-                message: "Data handler 'status' should be a valid numeric HTTP status code (100–599, e.g. 200, 404, 500).",
-                range,
-                severity,
-                source: "Streak Engine",
-              });
-            }
-          }
+        if (!validateStatusProperty(prop)) {
+          const range = getRangeFromNode(sourceFile, prop);
+          diagnostics.push({
+            code: "streak:S203",
+            message: "Data handler 'status' should be a valid numeric HTTP status code (100–599, e.g. 200, 404, 500).",
+            range,
+            severity,
+            source: "Streak Engine",
+          });
         }
       }
     }
@@ -65,3 +48,4 @@ export const dataHandlerStatusValueRule: Rule = {
     return diagnostics;
   },
 };
+

@@ -1,16 +1,7 @@
-import { SourceFile, SyntaxKind } from "ts-morph";
+import { Node, SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
 import { AnalysisResult } from "../../shared/types";
-import { RangeLocation, Rule, RuleDiagnostic, RuleOptions } from "./types";
-
-function getRangeFromNode(sourceFile: SourceFile, node: any): RangeLocation {
-  const startPos = sourceFile.getLineAndColumnAtPos(node.getStart());
-  const endPos = sourceFile.getLineAndColumnAtPos(node.getEnd());
-  return {
-    start: { line: Math.max(0, startPos.line - 1), character: Math.max(0, startPos.column - 1) },
-    end: { line: Math.max(0, endPos.line - 1), character: Math.max(0, endPos.column - 1) },
-  };
-}
+import { getRangeFromNode, Rule, RuleDiagnostic, RuleOptions } from "./types";
 
 export const widgetPlaceholderRule: Rule = {
   id: "streak:widget-placeholder-props",
@@ -24,14 +15,13 @@ export const widgetPlaceholderRule: Rule = {
 
     sourceFile.forEachDescendant((node) => {
       let tagName = "";
-      let attributes: any[] = [];
+      let attributes: Node[] = [];
 
-      if (node.getKind() === SyntaxKind.JsxSelfClosingElement) {
-        const selfClosing = node as any;
-        tagName = selfClosing.getTagNameNode().getText();
-        attributes = selfClosing.getAttributes();
-      } else if (node.getKind() === SyntaxKind.JsxElement) {
-        const opening = (node as any).getOpeningElement();
+      if (Node.isJsxSelfClosingElement(node)) {
+        tagName = node.getTagNameNode().getText();
+        attributes = node.getAttributes();
+      } else if (Node.isJsxElement(node)) {
+        const opening = node.getOpeningElement();
         tagName = opening.getTagNameNode().getText();
         attributes = opening.getAttributes();
       }
@@ -41,13 +31,13 @@ export const widgetPlaceholderRule: Rule = {
         let hasType = false;
 
         for (const attr of attributes) {
-          if (attr.getKind() === SyntaxKind.JsxAttribute) {
+          if (Node.isJsxAttribute(attr)) {
             const attrName = attr.getNameNode()?.getText();
             const initializer = attr.getInitializer();
 
             let value = "";
             if (initializer) {
-              if (initializer.getKind() === SyntaxKind.StringLiteral) {
+              if (Node.isStringLiteral(initializer)) {
                 value = initializer.getLiteralValue();
               } else {
                 value = initializer.getText();
@@ -93,3 +83,4 @@ export const widgetPlaceholderRule: Rule = {
     return diagnostics;
   },
 };
+

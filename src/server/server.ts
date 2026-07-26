@@ -7,8 +7,10 @@ import {
   TextDocumentSyncKind,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
+import { fileURLToPath } from "url";
 import { analyzeAndParseDocument } from "./parser/analyzer";
 import { runRules } from "./rules/runner";
+import { getCompletions } from "./completion/provider";
 
 // Create a connection for the server, using Node's IPC / stdio communication
 const connection = createConnection(ProposedFeatures.all);
@@ -16,17 +18,57 @@ const connection = createConnection(ProposedFeatures.all);
 // Create a simple text document manager
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
-connection.onInitialize((_params: InitializeParams): InitializeResult => {
+let workspaceRoot: string | undefined;
+
+connection.onInitialize((params: InitializeParams): InitializeResult => {
   connection.console.log("Streak Language Server initializing...");
+  if (params.workspaceFolders && params.workspaceFolders.length > 0) {
+    const uri = params.workspaceFolders[0].uri;
+    if (uri.startsWith("file://")) {
+      try {
+        workspaceRoot = fileURLToPath(uri);
+      } catch {
+        // Fallback
+      }
+    }
+  }
   return {
     capabilities: {
       textDocumentSync: TextDocumentSyncKind.Incremental,
+      completionProvider: {
+        resolveProvider: false,
+        triggerCharacters: ["<", " ", "\"", "'", "/"],
+      },
     },
   };
 });
 
+
 connection.onInitialized(() => {
   connection.console.log("Streak Language Server initialized successfully.");
+});
+
+connection.onCompletion((params) => {
+  const uri = params.textDocument.uri;
+  const document = documents.get(uri);
+  if (!document) {
+    return [];
+  }
+  const offset = document.offsetAt(params.position);
+  const { sourceFile } = analyzeAndParseDocument(uri, document.getText());
+
+  return getCompletions(
+    {
+      text: document.getText(),
+      uri,
+      offset,
+      line: params.position.line,
+      character: params.position.character,
+    },
+    document,
+    sourceFile,
+    workspaceRoot
+  );
 });
 
 function validateDocument(document: TextDocument): void {

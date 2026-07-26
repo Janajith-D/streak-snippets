@@ -1,5 +1,5 @@
 import { DiagnosticSeverity } from "vscode-languageserver/node";
-import { SourceFile } from "ts-morph";
+import { Node, SourceFile } from "ts-morph";
 import { AnalysisResult } from "../../shared/types";
 
 export interface RangeLocation {
@@ -31,3 +31,13 @@ export interface Rule {
     options?: RuleOptions
   ): RuleDiagnostic[];
 }
+
+export function getRangeFromNode(sourceFile: SourceFile, node: Node): RangeLocation {
+  const startPos = sourceFile.getLineAndColumnAtPos(node.getStart());
+  const endPos = sourceFile.getLineAndColumnAtPos(node.getEnd());
+  return {
+    start: { line: Math.max(0, startPos.line - 1), character: Math.max(0, startPos.column - 1) },
+    end: { line: Math.max(0, endPos.line - 1), character: Math.max(0, endPos.column - 1) },
+  };
+}
+
