@@ -58,6 +58,89 @@
           "type": "string",
           "default": "src/widgets",
           "description": "Default directory for new Streak widgets"
+        },
+        "streak.diagnostics.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable or disable real-time Streak framework diagnostics"
+        },
+        "streak.rules.widgetPlaceholderProps.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for missing <WidgetPlaceholder> id/type props rule (streak:S101, streak:S102)"
+        },
+        "streak.rules.dataHandlerStatus.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "warning",
+          "description": "Severity for missing status return in data handlers rule (streak:S201)"
+        },
+        "streak.rules.dataHandlerAsync.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for data handler must be async rule (streak:S202)"
+        },
+        "streak.rules.invalidHandlerStatus.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "warning",
+          "description": "Severity for invalid HTTP status code rule (streak:S203)"
+        },
+        "streak.rules.missingDefaultExport.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "warning",
+          "description": "Severity for missing default export rule (streak:S301)"
+        },
+        "streak.rules.reactHooksNotAllowed.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for React hooks not allowed in static widgets rule (streak:S302)"
+        },
+        "streak.rules.unsafeWidgetDataAccess.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for unsafe widget props.data access rule (streak:S303)"
+        },
+        "streak.rules.invalidWidgetPropsContract.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "warning",
+          "description": "Severity for invalid widget props contract rule (streak:S304)"
+        },
+        "streak.rules.scriptClosureCapture.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for Script closure variable capture rule (streak:S401)"
+        },
+        "streak.rules.invalidScriptSignature.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for invalid Script callback signature rule (streak:S402)"
+        },
+        "streak.rules.importInsideScript.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for module imports inside Script rule (streak:S403)"
+        },
+        "streak.rules.asyncScriptCallback.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for async Script callback rule (streak:S404)"
+        },
+        "streak.rules.invalidDynamicComponentId.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for invalid <Dynamic> component id rule (streak:S501)"
         }
       }
     }
@@ -74,20 +157,26 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.107.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "24.x",
-    "typescript-eslint": "^8.61.1",
-    "eslint": "^10.5.0",
-    "typescript": "^6.0.3",
-    "ts-loader": "^9.6.2",
-    "webpack": "^5.107.2",
-    "webpack-cli": "^7.0.3",
+    "@types/vscode": "^1.107.0",
     "@vscode/test-cli": "^0.0.15",
-    "@vscode/test-electron": "^3.0.0"
+    "@vscode/test-electron": "^3.0.0",
+    "eslint": "^10.5.0",
+    "ts-loader": "^9.6.2",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.61.1",
+    "webpack": "^5.107.2",
+    "webpack-cli": "^7.0.3"
   },
   "overrides": {
     "diff": "^8.0.4",
     "serialize-javascript": "^7.0.6"
+  },
+  "dependencies": {
+    "ts-morph": "^28.0.0",
+    "vscode-languageclient": "^10.1.0",
+    "vscode-languageserver": "^10.1.0",
+    "vscode-languageserver-textdocument": "^1.0.13"
   }
 }

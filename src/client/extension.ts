@@ -1,9 +1,16 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
+import {
+  LanguageClient,
+  LanguageClientOptions,
+  ServerOptions,
+  TransportKind,
+} from "vscode-languageclient/node";
 
 /** Output channel for extension logging. */
 let outputChannel: vscode.OutputChannel;
+let client: LanguageClient | undefined;
 
 /**
  * Snippet metadata used by the quick-pick menu.
@@ -152,6 +159,45 @@ async function createComponentCommand(): Promise<void> {
   vscode.window.showInformationMessage(`Created component ${name}`);
 }
 
+// ── LSP Client Setup ─────────────────────────────────────────────────────
+
+function startLanguageServer(context: vscode.ExtensionContext) {
+  // Server module path in compiled output (dist/server.js)
+  const serverModule = context.asAbsolutePath(path.join("dist", "server.js"));
+
+  // If running in debug mode, use inspect options
+  const debugOptions = { execArgv: ["--nolazy", "--inspect=6009"] };
+
+  const serverOptions: ServerOptions = {
+    run: { module: serverModule, transport: TransportKind.ipc },
+    debug: {
+      module: serverModule,
+      transport: TransportKind.ipc,
+      options: debugOptions,
+    },
+  };
+
+  const clientOptions: LanguageClientOptions = {
+    documentSelector: [
+      { scheme: "file", language: "typescript" },
+      { scheme: "file", language: "typescriptreact" },
+    ],
+    synchronize: {
+      fileEvents: vscode.workspace.createFileSystemWatcher("**/*.{ts,tsx}"),
+    },
+  };
+
+  client = new LanguageClient(
+    "streakLanguageServer",
+    "Streak Language Server",
+    serverOptions,
+    clientOptions,
+  );
+
+  client.start();
+  outputChannel.appendLine("Streak Language Server client started");
+}
+
 // ── Lifecycle ───────────────────────────────────────────────────────────
 
 /**
@@ -172,9 +218,17 @@ export function activate(context: vscode.ExtensionContext) {
     ),
     outputChannel,
   );
+
+  // Start the Language Server
+  startLanguageServer(context);
 }
 
 /**
  * Called when the extension is deactivated.
  */
-export function deactivate() { }
+export function deactivate(): Thenable<void> | undefined {
+  if (!client) {
+    return undefined;
+  }
+  return client.stop();
+}

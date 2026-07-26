@@ -1,0 +1,386 @@
+# Streak Engine Rule Catalog
+
+This document provides detailed SonarQube-style descriptions, rationale, and compliant/non-compliant code examples for all diagnostic rules enforced by the **Streak Engine** Language Server.
+
+---
+
+## Catalog Overview
+
+| Rule Key | Name / Category | Default Severity | Description |
+|---|---|---|---|
+| [`streak:S101`](#streaks101---widgetplaceholder-missing-id-attribute) | Widget Component | Error | `<WidgetPlaceholder>` elements must have a non-empty `id` attribute. |
+| [`streak:S102`](#streaks102---widgetplaceholder-missing-type-attribute) | Widget Component | Error | `<WidgetPlaceholder>` elements must have a non-empty `type` attribute. |
+| [`streak:S201`](#streaks201---data-handler-missing-status-property) | Data Handler | Warning | Data handler functions must return an object containing a `status` property. |
+| [`streak:S202`](#streaks202---data-handler-must-be-async) | Data Handler | Error | Data handlers must default-export an `async` function. |
+| [`streak:S203`](#streaks203---invalid-handler-status) | Data Handler | Warning | Data handler `status` should be a valid numeric HTTP status code (100–599). |
+| [`streak:S301`](#streaks301---missing-default-export) | Framework Syntax | Warning | Framework pages, components, and handlers must provide a default export. |
+| [`streak:S302`](#streaks302---react-hooks-not-allowed) | Widget Component | Error | Streak static widgets must not use React runtime hooks (`useState`, `useEffect`, etc.). |
+| [`streak:S303`](#streaks303---unsafe-widget-data-access) | Widget Component | Error | Widget data must be accessed safely because `props.data` may be undefined. |
+| [`streak:S304`](#streaks304---invalid-widget-props-contract) | Widget Component | Warning | Widget props should define `data` as optional (`data?: T`). |
+| [`streak:S401`](#streaks401---script-closure-capture) | Script Component | Error | `<Script>` callbacks must not capture outer-scope variables; use `options`. |
+| [`streak:S402`](#streaks402---invalid-script-signature) | Script Component | Error | `<Script>` callback must follow `(gDom, options) => void`. |
+| [`streak:S403`](#streaks403---import-inside-script) | Script Component | Error | Browser-side Script code must not contain or depend on module imports or `require()`. |
+| [`streak:S404`](#streaks404---async-script-callback) | Script Component | Error | `<Script>` callbacks must not be declared `async`. |
+| [`streak:S501`](#streaks501---invalid-dynamic-component-id) | Dynamic Component | Error | `<Dynamic>` must have a static, non-empty `id`. |
+
+---
+
+## Rule Details
+
+### `streak:S101` — `<WidgetPlaceholder>` Missing `id` Attribute
+
+- **Category**: Widget Component
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+The `WidgetPlaceholder` component requires a unique `id` attribute matching the widget ID in the sitemap.
+
+#### Non-compliant Code ❌
+```tsx
+<WidgetPlaceholder type="banner" />
+```
+
+#### Compliant Code ✅
+```tsx
+<WidgetPlaceholder id="hero-banner" type="banner" />
+```
+
+---
+
+### `streak:S102` — `<WidgetPlaceholder>` Missing `type` Attribute
+
+- **Category**: Widget Component
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+The `WidgetPlaceholder` component requires a `type` attribute determining which widget renderer to load.
+
+#### Non-compliant Code ❌
+```tsx
+<WidgetPlaceholder id="sidebar-widget" />
+```
+
+#### Compliant Code ✅
+```tsx
+<WidgetPlaceholder id="sidebar-widget" type="sidebar" />
+```
+
+---
+
+### `streak:S201` — Data Handler Missing `status` Property
+
+- **Category**: Data Handler
+- **Severity**: `Warning`
+- **Source**: `Streak Engine`
+
+#### Description
+Data handlers must return an object containing a `status` property to signal render outcome to the framework.
+
+#### Non-compliant Code ❌
+```ts
+const getData = async () => {
+  return { PageHead: { title: "Hello" } };
+};
+export default getData;
+```
+
+#### Compliant Code ✅
+```ts
+const getData = async () => {
+  return { status: 200, PageHead: { title: "Hello" } };
+};
+export default getData;
+```
+
+---
+
+### `streak:S202` — Data Handler Must Be Async
+
+- **Category**: Data Handler
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+Data handlers fetch asynchronous build/render data and must default-export an `async` function.
+
+#### Non-compliant Code ❌
+```ts
+const getData = () => {
+  return { status: 200 };
+};
+export default getData;
+```
+
+#### Compliant Code ✅
+```ts
+const getData = async () => {
+  return { status: 200 };
+};
+export default getData;
+```
+
+---
+
+### `streak:S203` — Invalid Handler Status
+
+- **Category**: Data Handler
+- **Severity**: `Warning`
+- **Source**: `Streak Engine`
+
+#### Description
+The `status` returned by a data handler should be a valid numeric HTTP status code (100–599, e.g. 200, 404, 500).
+
+#### Non-compliant Code ❌
+```ts
+const getData = async () => {
+  return { status: 999 };
+};
+export default getData;
+```
+
+#### Compliant Code ✅
+```ts
+const getData = async () => {
+  return { status: 200 };
+};
+export default getData;
+```
+
+---
+
+### `streak:S301` — Missing Default Export
+
+- **Category**: Framework Syntax
+- **Severity**: `Warning`
+- **Source**: `Streak Engine`
+
+#### Description
+Streak pages, components, and handlers rely on default exports for automatic routing and discovery.
+
+#### Non-compliant Code ❌
+```tsx
+export function Page() { return <h1>Page</h1>; }
+```
+
+#### Compliant Code ✅
+```tsx
+export function Page() { return <h1>Page</h1>; }
+export default Page;
+```
+
+---
+
+### `streak:S302` — React Hooks Not Allowed
+
+- **Category**: Widget Component
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+Streak widgets are static build-time components. React runtime hooks (`useState`, `useEffect`, `useRef`, etc.) are not allowed.
+
+#### Non-compliant Code ❌
+```tsx
+import { useState } from "react";
+
+export default function Counter() {
+  const [count, setCount] = useState(0);
+  return <button onClick={() => setCount(count + 1)}>{count}</button>;
+}
+```
+
+#### Compliant Code ✅
+```tsx
+export default function Counter({ data }: { data?: { initialCount: number } }) {
+  return <button>{data?.initialCount ?? 0}</button>;
+}
+```
+
+---
+
+### `streak:S303` — Unsafe Widget Data Access
+
+- **Category**: Widget Component
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+Widget `props.data` may be undefined if data handlers fail or return partial data. Access data properties safely using optional chaining.
+
+#### Non-compliant Code ❌
+```tsx
+export default function Widget(props: { data?: { title: string } }) {
+  return <h1>{props.data.title}</h1>;
+}
+```
+
+#### Compliant Code ✅
+```tsx
+export default function Widget(props: { data?: { title: string } }) {
+  return <h1>{props.data?.title}</h1>;
+}
+```
+
+---
+
+### `streak:S304` — Invalid Widget Props Contract
+
+- **Category**: Widget Component
+- **Severity**: `Warning`
+- **Source**: `Streak Engine`
+
+#### Description
+Widget props interfaces must define `data` as optional (`data?: T`) since data hydration is optional during rendering.
+
+#### Non-compliant Code ❌
+```tsx
+interface WidgetProps {
+  data: MyWidgetData;
+}
+```
+
+#### Compliant Code ✅
+```tsx
+interface WidgetProps {
+  data?: MyWidgetData;
+}
+```
+
+---
+
+### `streak:S401` — Script Closure Capture
+
+- **Category**: Script Component
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+`<Script>` callbacks run isolated in the browser DOM. They cannot capture outer component closure variables. Pass data via the `options` prop instead.
+
+#### Non-compliant Code ❌
+```tsx
+export default function Banner({ theme }: { theme: string }) {
+  return (
+    <Script>
+      {(gDom) => {
+        gDom.style.color = theme; // ❌ Captures outer 'theme'
+      }}
+    </Script>
+  );
+}
+```
+
+#### Compliant Code ✅
+```tsx
+export default function Banner({ theme }: { theme: string }) {
+  return (
+    <Script options={{ theme }}>
+      {(gDom, options) => {
+        gDom.style.color = options.theme; // ✅ Accessed safely via options
+      }}
+    </Script>
+  );
+}
+```
+
+---
+
+### `streak:S402` — Invalid Script Signature
+
+- **Category**: Script Component
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+The callback function passed to `<Script>` must accept at most two parameters: `(gDom, options) => void`.
+
+#### Non-compliant Code ❌
+```tsx
+<Script>{(gDom, options, extraParam) => {}}</Script>
+```
+
+#### Compliant Code ✅
+```tsx
+<Script>{(gDom, options) => {}}</Script>
+```
+
+---
+
+### `streak:S403` — Import Inside Script
+
+- **Category**: Script Component
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+Browser-side `<Script>` callbacks run directly in the DOM runtime and cannot contain module imports (`import()`) or `require()` calls.
+
+#### Non-compliant Code ❌
+```tsx
+<Script>
+  {(gDom) => {
+    const utils = require("./utils");
+  }}
+</Script>
+```
+
+#### Compliant Code ✅
+```tsx
+<Script>
+  {(gDom) => {
+    gDom.classList.add("active");
+  }}
+</Script>
+```
+
+---
+
+### `streak:S404` — Async Script Callback
+
+- **Category**: Script Component
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+`<Script>` callbacks are executed synchronously during DOM initialization and cannot be declared `async`.
+
+#### Non-compliant Code ❌
+```tsx
+<Script>
+  {async (gDom) => {
+    await fetch("/api");
+  }}
+</Script>
+```
+
+#### Compliant Code ✅
+```tsx
+<Script>
+  {(gDom) => {
+    fetch("/api");
+  }}
+</Script>
+```
+
+---
+
+### `streak:S501` — Invalid Dynamic Component ID
+
+- **Category**: Dynamic Component
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+`<Dynamic>` components require a static, non-empty `id` attribute to identify the dynamic bundle at runtime.
+
+#### Non-compliant Code ❌
+```tsx
+<Dynamic />
+```
+
+#### Compliant Code ✅
+```tsx
+<Dynamic id="interactive-chart" />
+```
