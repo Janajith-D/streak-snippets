@@ -1,5 +1,4 @@
 import { CompletionItem, CompletionItemKind } from "vscode-languageserver/node";
-import { TextDocument } from "vscode-languageserver-textdocument";
 import * as fs from "fs";
 import * as path from "path";
 import { CompletionContext } from "./types";

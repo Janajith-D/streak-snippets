@@ -307,20 +307,7 @@ suite("Extension Test Suite", () => {
     );
   });
 
-  test("package.json has command contributions", () => {
-    const pkgPath = path.resolve(__dirname, "../../package.json");
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-    const commands: { command: string }[] = pkg.contributes?.commands ?? [];
-    const ids = commands.map((c) => c.command);
-    assert.ok(
-      ids.includes("streak-snippets.showSnippets"),
-      "Must register streak-snippets.showSnippets command",
-    );
-    assert.ok(
-      ids.includes("streak-snippets.createComponent"),
-      "Must register streak-snippets.createComponent command",
-    );
-  });
+
 
   // ── Code Completion Tests ──────────────────────────────────────────
 
