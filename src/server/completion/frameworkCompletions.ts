@@ -3,6 +3,7 @@ import { TextDocument } from "vscode-languageserver-textdocument";
 import { SourceFile } from "ts-morph";
 import { CompletionContext } from "./types";
 import { isInsideScriptCallback } from "./scriptCompletions";
+import * as path from "path";
 
 interface ComponentConfig {
   name: string;
@@ -24,7 +25,8 @@ const BU_COMPONENTS: ComponentConfig[] = [
       '<Script',
       '  id="${1:my-script}"',
       '  options={{',
-      '    ${2:property}: "${3:change me}"',
+      '    ${2:color}: "${3:#818cf8}",',
+      "        ${4:delay}: ${5:800}",
       '  }}',
       '>',
       '  {(gDom: any, options: any) => {',
@@ -177,6 +179,60 @@ export function getFrameworkCompletions(
     });
   }
 
+  // Suggest sfWid and sfWidE inside widgets/ folder
+  if (/[/\\]widgets[/\\]/.test(context.uri)) {
+    const filename = path.basename(context.uri);
+    const componentName = filename.replace(/\.[^/.]+$/, ""); // e.g. HelloPager
+
+    const textBefore = context.text.slice(0, context.offset);
+    const lastWordMatch = textBefore.match(/[a-zA-Z0-9_]*$/);
+    const word = lastWordMatch ? lastWordMatch[0] : "";
+
+    const completions: CompletionItem[] = [];
+
+    if ("sfWid".startsWith(word) || word === "sfWid") {
+      completions.push({
+        label: "sfWid",
+        kind: CompletionItemKind.Snippet,
+        insertTextFormat: InsertTextFormat.Snippet,
+        insertText: [
+          `const ${componentName} = () => {};`,
+          "",
+          `export default ${componentName};`,
+        ].join("\n"),
+        detail: `Widget Scaffold (sfWid)`,
+        documentation: `Scaffold a basic ${componentName} widget.`,
+      });
+    }
+
+    if ("sfWidE".startsWith(word) || word === "sfWidE") {
+      completions.push({
+        label: "sfWidE",
+        kind: CompletionItemKind.Snippet,
+        insertTextFormat: InsertTextFormat.Snippet,
+        insertText: [
+          `type ${componentName}Props = {`,
+          "  data?: {",
+          "    name?: string;",
+          "  };",
+          "};",
+          "",
+          `const ${componentName} = (props: ${componentName}Props) => {`,
+          `  return <div>${componentName} {props?.data?.name}</div>;`,
+          "};",
+          "",
+          `export default ${componentName};`,
+        ].join("\n"),
+        detail: `Widget with Props Scaffold (sfWidE)`,
+        documentation: `Scaffold a props-enabled ${componentName} widget.`,
+      });
+    }
+
+    if (completions.length > 0) {
+      return completions;
+    }
+  }
+
   // Suggest sfS template snippet with auto-import
   if (context.uri.endsWith(".tsx")) {
     if (isInsideScriptCallback(context.text, context.offset)) {
@@ -196,7 +252,8 @@ export function getFrameworkCompletions(
             "<Script",
             '    id="${1:my-script}"',
             "    options={{",
-            '        ${2:property}: "${3:change me}"',
+            '        ${2:color}: "${3:#818cf8}",',
+            "        ${4:delay}: ${5:800}",
             "    }}",
             ">",
             "    {(gDom: any, options: any) => {",

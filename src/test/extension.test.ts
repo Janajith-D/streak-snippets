@@ -524,5 +524,33 @@ suite("Extension Test Suite", () => {
     const labels = items.map(item => item.label);
     assert.ok(labels.includes("sfS"));
   });
+
+  test("sfWid and sfWidE snippet completions suggest scaffolding in widgets/ directory", () => {
+    const code = "sf";
+    const { sourceFile } = analyzeAndParseDocument("file:///test/widgets/HelloPager.tsx", code);
+    const doc = TextDocument.create("file:///test/widgets/HelloPager.tsx", "typescriptreact", 1, code);
+    const items = getCompletions(
+      {
+        text: code,
+        uri: "file:///test/widgets/HelloPager.tsx",
+        offset: 2,
+        line: 0,
+        character: 2,
+      },
+      doc,
+      sourceFile,
+      undefined
+    );
+
+    const sfWidItem = items.find(item => item.label === "sfWid");
+    const sfWidEItem = items.find(item => item.label === "sfWidE");
+
+    assert.ok(sfWidItem, "sfWid snippet should be suggested");
+    assert.ok(sfWidEItem, "sfWidE snippet should be suggested");
+
+    assert.ok(sfWidItem.insertText?.includes("const HelloPager = () => {};"), "sfWid should expand to HelloPager definition");
+    assert.ok(sfWidEItem.insertText?.includes("type HelloPagerProps = {"), "sfWidE should define HelloPagerProps");
+    assert.ok(sfWidEItem.insertText?.includes("const HelloPager = (props: HelloPagerProps) => {"), "sfWidE should define HelloPager with props");
+  });
 });
 
