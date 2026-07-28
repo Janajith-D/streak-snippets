@@ -51,6 +51,7 @@ The extension includes a Language Server Protocol (LSP) analysis engine that par
 | `streak:S402` | Script Component | Error | Invalid `<Script>` callback signature |
 | `streak:S403` | Script Component | Error | Module imports/`require` inside `<Script>` callbacks |
 | `streak:S404` | Script Component | Error | Async `<Script>` callback functions |
+| `streak:S405` | Script Component | Warning | Script component requires a non-empty `id` attribute |
 | `streak:S501` | Dynamic Component | Error | Missing or empty `id` attribute on `<Dynamic>` |
 
 > For detailed descriptions, rationale, and ❌/✅ code examples for every rule, refer to the [Rule Catalog (`RULES.md`)](file:///c:/Streak/lang-extension/streak-snippets/RULES.md).
@@ -106,6 +107,7 @@ Configure rule severities and diagnostics in VS Code settings:
 | `streak.rules.invalidScriptSignature.severity` | `string` | `"error"` | Severity for `streak:S402` |
 | `streak.rules.importInsideScript.severity` | `string` | `"error"` | Severity for `streak:S403` |
 | `streak.rules.asyncScriptCallback.severity` | `string` | `"error"` | Severity for `streak:S404` |
+| `streak.rules.scriptRequiredId.severity` | `string` | `"warning"` | Severity for `streak:S405` |
 | `streak.rules.invalidDynamicComponentId.severity` | `string` | `"error"` | Severity for `streak:S501` |
 
 ---
@@ -139,6 +141,11 @@ npm run test           # Run tests
 ---
 
 ## Release Notes
+
+### 0.2.0
+
+- **Streak `<Script />` Component Support**: Full autocomplete, auto-imports merging formatting, required ID validation check (`streak:S405`) and quick fix, `gDom` methods completion suggestions inside callback functions, and rich hover documentation.
+- **Dynamic Widget Scaffolding Snippets**: Scoped `sfWid` and `sfWidE` autocomplete suggestions to `widgets/` folders, dynamically resolving the component name based on the file name.
 
 ### 0.1.1
 
