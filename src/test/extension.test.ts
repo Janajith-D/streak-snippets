@@ -20,6 +20,7 @@ import {
   invalidScriptSignatureRule,
   importInsideScriptRule,
   asyncScriptCallbackRule,
+  scriptRequiredIdRule,
 } from "../server/rules/scriptRules";
 import { dynamicComponentIdRule } from "../server/rules/dynamicComponentIdRule";
 import { getCompletions } from "../server/completion/provider";
@@ -363,7 +364,9 @@ suite("Extension Test Suite", () => {
     const doc2 = TextDocument.create("file:///test/comp2.tsx", "typescriptreact", 1, code2);
     const edits2 = getAutoImportEdit(doc2, sf2, "WidgetPlaceholder");
     assert.strictEqual(edits2.length, 1);
-    assert.ok(edits2[0].newText.includes("Preload, WidgetPlaceholder"));
+    assert.ok(edits2[0].newText.includes("Preload"));
+    assert.ok(edits2[0].newText.includes("WidgetPlaceholder"));
+    assert.ok(edits2[0].newText.includes("\n"));
   });
 
   test("getCompletions returns built-in components and script loadDynamicComponent IDs", () => {
@@ -428,6 +431,102 @@ suite("Extension Test Suite", () => {
     );
     assert.strictEqual(items2.length, 1);
     assert.strictEqual(items2[0].label, "sidebar-panel");
+  });
+
+  test("streak:S405 flags missing or empty id attribute on <Script>", () => {
+    const code = `
+      import React from "react";
+      export default function Test() {
+        return (
+          <>
+            <Script />
+            <Script id="" />
+            <Script id="valid-script" />
+          </>
+        );
+      }
+    `;
+    const { sourceFile, analysis } = analyzeAndParseDocument("file:///test/scriptId.tsx", code);
+    const diagnostics = scriptRequiredIdRule.run(sourceFile, analysis);
+    assert.strictEqual(diagnostics.length, 2);
+    assert.strictEqual(diagnostics[0].code, "streak:S405");
+    assert.strictEqual(diagnostics[1].code, "streak:S405");
+    assert.ok(diagnostics[0].message.includes('requires a non-empty "id"'));
+  });
+
+  test("getAutoImportEdit formats multi-line merging", () => {
+    const code = 'import { WidgetPlaceholder } from "streak-forge/components";\n';
+    const { sourceFile } = analyzeAndParseDocument("file:///test/importMerge.tsx", code);
+    const doc = TextDocument.create("file:///test/importMerge.tsx", "typescriptreact", 1, code);
+    const edits = getAutoImportEdit(doc, sourceFile, "Script");
+    assert.strictEqual(edits.length, 1);
+    assert.ok(edits[0].newText.includes("WidgetPlaceholder"));
+    assert.ok(edits[0].newText.includes("Script"));
+    assert.ok(edits[0].newText.includes("\n")); // Multi-line!
+  });
+
+  test("Callback completions suggest gDom methods inside Script callback", () => {
+    const code = `
+      import { Script } from "streak-forge/components";
+      export default function Test() {
+        return (
+          <Script id="test-script">
+            {(gDom: any) => {
+              gDom.
+            }}
+          </Script>
+        );
+      }
+    `;
+    const offset = code.indexOf("gDom.") + "gDom.".length;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/gdomComp.tsx", code);
+    const doc = TextDocument.create("file:///test/gdomComp.tsx", "typescriptreact", 1, code);
+    const items = getCompletions(
+      {
+        text: code,
+        uri: "file:///test/gdomComp.tsx",
+        offset: offset,
+        line: 6,
+        character: offset - code.lastIndexOf("\n") - 1,
+      },
+      doc,
+      sourceFile,
+      undefined
+    );
+    const labels = items.map(item => item.label);
+    assert.ok(labels.includes("loadDynamicComponent"));
+    assert.ok(labels.includes("getElement"));
+    assert.ok(labels.includes("updateOptions"));
+  });
+
+  test("Autocomplete suggests sfS snippet in JSX body", () => {
+    const code = `
+      import React from "react";
+      export default function Test() {
+        return (
+          <div>
+            sf
+          </div>
+        );
+      }
+    `;
+    const offset = code.indexOf("sf") + "sf".length;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/sfComp.tsx", code);
+    const doc = TextDocument.create("file:///test/sfComp.tsx", "typescriptreact", 1, code);
+    const items = getCompletions(
+      {
+        text: code,
+        uri: "file:///test/sfComp.tsx",
+        offset: offset,
+        line: 5,
+        character: offset - code.lastIndexOf("\n") - 1,
+      },
+      doc,
+      sourceFile,
+      undefined
+    );
+    const labels = items.map(item => item.label);
+    assert.ok(labels.includes("sfS"));
   });
 });
 

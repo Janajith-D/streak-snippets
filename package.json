@@ -111,6 +111,12 @@
           "default": "error",
           "description": "Severity for async Script callback rule (streak:S404)"
         },
+        "streak.rules.scriptRequiredId.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "warning",
+          "description": "Severity for missing Script component id rule (streak:S405)"
+        },
         "streak.rules.invalidDynamicComponentId.severity": {
           "type": "string",
           "enum": ["error", "warning", "info", "off"],

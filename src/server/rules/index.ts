@@ -12,6 +12,7 @@ import {
   invalidScriptSignatureRule,
   importInsideScriptRule,
   asyncScriptCallbackRule,
+  scriptRequiredIdRule,
 } from "./scriptRules";
 import { dynamicComponentIdRule } from "./dynamicComponentIdRule";
 
@@ -40,5 +41,6 @@ export const allRules: Rule[] = [
   invalidScriptSignatureRule,
   importInsideScriptRule,
   asyncScriptCallbackRule,
+  scriptRequiredIdRule,
   dynamicComponentIdRule,
 ];

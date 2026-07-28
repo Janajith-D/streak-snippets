@@ -2,6 +2,7 @@ import { CompletionItem, CompletionItemKind, InsertTextFormat, TextEdit } from "
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { SourceFile } from "ts-morph";
 import { CompletionContext } from "./types";
+import { isInsideScriptCallback } from "./scriptCompletions";
 
 interface ComponentConfig {
   name: string;
@@ -10,7 +11,7 @@ interface ComponentConfig {
   documentation: string;
 }
 
-const BUILT_IN_COMPONENTS: ComponentConfig[] = [
+const BU_COMPONENTS: ComponentConfig[] = [
   {
     name: "WidgetPlaceholder",
     snippet: '<WidgetPlaceholder id="${1:widget-id}" type="${2:widget-type}" />',
@@ -20,9 +21,9 @@ const BUILT_IN_COMPONENTS: ComponentConfig[] = [
   {
     name: "Script",
     snippet: [
-      '<Script id="${1:script-id}">',
-      "  {(${2:gDom}) => {",
-      "    $3",
+      '<Script id="${1:my-script}">',
+      "  {(gDom: any) => {",
+      "    $0",
       "  }}",
       "</Script>",
     ].join("\n"),
@@ -51,24 +52,19 @@ const BUILT_IN_COMPONENTS: ComponentConfig[] = [
  * Checks if the trigger was a JSX tag start (e.g., typing '<' or '<W')
  */
 function isJsxTagStart(text: string, offset: number): boolean {
-  // Look backwards from the offset to find '<' or '<' followed by characters without a closing '>'
   let i = offset - 1;
   while (i >= 0) {
     const char = text[i];
     if (char === ">") {
-      return false; // Tag is closed or we're outside a tag
+      return false;
     }
     if (char === "<") {
-      // Check if it's not a closing tag start (i.e., not '</')
       if (i + 1 < text.length && text[i + 1] === "/") {
         return false;
       }
       return true;
     }
-    // If we hit new lines or characters that make it clear we're not typing a tag name, return false
     if (/[\s{};=]/.test(char)) {
-      // Spaces are allowed if we are typing attributes, but at this point we are looking for tag name.
-      // If we see space, it means we are already past the tag name.
       return false;
     }
     i--;
@@ -91,12 +87,34 @@ export function getAutoImportEdit(
   if (importDecl) {
     const namedImports = importDecl.getNamedImports().map((ni) => ni.getName());
     if (namedImports.includes(componentName)) {
-      return []; // Already imported
+      return [];
     }
 
-    // Replace the existing import list
     const newNames = [...namedImports, componentName].sort();
-    const newImportText = `import { ${newNames.join(", ")} } from "streak-forge/components";`;
+    const originalText = importDecl.getText();
+    const originalQuotes = originalText.includes("'") ? "'" : '"';
+    const isMultiLine = originalText.includes("\n");
+
+    let newImportText = "";
+    if (isMultiLine || newNames.length > 1) {
+      let indent = "    "; // default 4 spaces
+      const lines = originalText.split("\n");
+      for (const line of lines) {
+        const match = line.match(/^(\s+)[a-zA-Z]/);
+        if (match) {
+          indent = match[1];
+          break;
+        }
+      }
+      newImportText = [
+        "import {",
+        ...newNames.map((name, index) => `${indent}${name}${index === newNames.length - 1 ? "" : ","}`),
+        `} from ${originalQuotes}streak-forge/components${originalQuotes};`
+      ].join("\n");
+    } else {
+      newImportText = `import { ${newNames.join(", ")} } from ${originalQuotes}streak-forge/components${originalQuotes};`;
+    }
+
     const start = importDecl.getStart();
     const end = importDecl.getEnd();
 
@@ -110,7 +128,6 @@ export function getAutoImportEdit(
       },
     ];
   } else {
-    // Insert new import statement at the beginning of the file (or after other imports)
     const imports = sourceFile.getImportDeclarations();
     let insertOffset = 0;
     let prefix = "";
@@ -140,20 +157,56 @@ export function getFrameworkCompletions(
   document: TextDocument,
   sourceFile: SourceFile
 ): CompletionItem[] {
-  if (!isJsxTagStart(context.text, context.offset)) {
-    return [];
+  if (isJsxTagStart(context.text, context.offset)) {
+    return BU_COMPONENTS.map((comp) => {
+      const autoImports = getAutoImportEdit(document, sourceFile, comp.name);
+      return {
+        label: comp.name,
+        kind: CompletionItemKind.Snippet,
+        insertTextFormat: InsertTextFormat.Snippet,
+        insertText: comp.snippet,
+        detail: comp.detail,
+        documentation: comp.documentation,
+        additionalTextEdits: autoImports,
+      };
+    });
   }
 
-  return BUILT_IN_COMPONENTS.map((comp) => {
-    const autoImports = getAutoImportEdit(document, sourceFile, comp.name);
-    return {
-      label: comp.name,
-      kind: CompletionItemKind.Snippet,
-      insertTextFormat: InsertTextFormat.Snippet,
-      insertText: comp.snippet,
-      detail: comp.detail,
-      documentation: comp.documentation,
-      additionalTextEdits: autoImports,
-    };
-  });
+  // Suggest sfS template snippet with auto-import
+  if (context.uri.endsWith(".tsx")) {
+    if (isInsideScriptCallback(context.text, context.offset)) {
+      return [];
+    }
+    const textBefore = context.text.slice(0, context.offset);
+    const lastWordMatch = textBefore.match(/[a-zA-Z0-9_]*$/);
+    const word = lastWordMatch ? lastWordMatch[0] : "";
+    if ("sfS".startsWith(word) || word === "") {
+      const autoImports = getAutoImportEdit(document, sourceFile, "Script");
+      return [
+        {
+          label: "sfS",
+          kind: CompletionItemKind.Snippet,
+          insertTextFormat: InsertTextFormat.Snippet,
+          insertText: [
+            "<Script",
+            '    id="${1:my-script}"',
+            "    options={{",
+            '        ${2:color}: "${3:#818cf8}",',
+            "        ${4:delay}: ${5:800}",
+            "    }}",
+            ">",
+            "    {(gDom: any, options: any) => {",
+            "        $0",
+            "    }}",
+            "</Script>"
+          ].join("\n"),
+          detail: "Script Element (sfS)",
+          documentation: "Insert a Script element template with options and callback.",
+          additionalTextEdits: autoImports,
+        }
+      ];
+    }
+  }
+
+  return [];
 }

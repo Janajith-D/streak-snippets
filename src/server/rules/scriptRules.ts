@@ -272,3 +272,5 @@ export const asyncScriptCallbackRule: Rule = {
   },
 };
 
+export { scriptRequiredIdRule } from "./scriptRequiredIdRule";
+
