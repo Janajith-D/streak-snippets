@@ -84,18 +84,7 @@ The autocomplete engine reads your project files and assets to suggest values:
 #### 4. Inline Script Suggestions
 - **`gDom.loadDynamicComponent("...")`**: Auto-suggests valid dynamic component IDs registered inside your workspace.
 
----
 
-### Commands
-
-Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
-
-| Command | Description |
-|---|---|
-| `Streak: Show Snippet List` | Browse all available snippets in a quick-pick menu |
-| `Streak: Create Component` | Scaffold a new component `.tsx` file |
-
----
 
 ## Extension Settings
 
@@ -150,6 +139,10 @@ npm run test           # Run tests
 ---
 
 ## Release Notes
+
+### 0.1.1
+
+- **Removed Features**: Removed the custom commands `Streak: Show Snippet List` and `Streak: Create Component` along with their associated configuration options (`streak.snippets.pageDirectory`, `streak.snippets.componentDirectory`, `streak.snippets.widgetDirectory`) to simplify extension focus.
 
 ### 0.1.0
 
