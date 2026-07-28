@@ -8,8 +8,6 @@ import * as vscode from "vscode";
 import { analyzeAndParseDocument } from "../server/parser/analyzer";
 import { runRules } from "../server/rules/runner";
 import { widgetPlaceholderRule } from "../server/rules/widgetPlaceholderRule";
-import { dataHandlerStatusRule } from "../server/rules/dataHandlerStatusRule";
-import { missingDefaultExportRule } from "../server/rules/missingDefaultExportRule";
 import { dataHandlerAsyncRule } from "../server/rules/dataHandlerAsyncRule";
 import { dataHandlerStatusValueRule } from "../server/rules/dataHandlerStatusValueRule";
 import { reactHooksNotAllowedRule } from "../server/rules/reactHooksNotAllowedRule";
@@ -17,14 +15,12 @@ import { unsafeWidgetDataAccessRule } from "../server/rules/unsafeWidgetDataAcce
 import { invalidWidgetPropsContractRule } from "../server/rules/invalidWidgetPropsContractRule";
 import {
   scriptClosureCaptureRule,
-  invalidScriptSignatureRule,
-  importInsideScriptRule,
   asyncScriptCallbackRule,
   scriptRequiredIdRule,
 } from "../server/rules/scriptRules";
 import { dynamicComponentIdRule } from "../server/rules/dynamicComponentIdRule";
 import { getCompletions } from "../server/completion/provider";
-import { getJsxContext, getWidgetTypes, getPublicAssets, getWidgetIdsFromDataHandlers, getDynamicComponentIds } from "../server/completion/jsxAttributeCompletions";
+import { getJsxContext } from "../server/completion/jsxAttributeCompletions";
 import { getAutoImportEdit } from "../server/completion/frameworkCompletions";
 import { isInsideLoadDynamicComponent } from "../server/completion/scriptCompletions";
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -253,7 +249,7 @@ suite("Extension Test Suite", () => {
         );
         assert.ok(
           typeof entry.description === "string" &&
-            entry.description.length > 0,
+          entry.description.length > 0,
           `Snippet "${name}" in ${file} must have a non-empty string "description"`,
         );
       }

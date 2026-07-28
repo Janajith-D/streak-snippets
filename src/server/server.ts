@@ -183,7 +183,7 @@ async function validateDocument(document: TextDocument): Promise<void> {
   let ruleSeverities: Record<string, string> = {};
   try {
     const streakSettings = await connection.workspace.getConfiguration("streak");
-    if (streakSettings && streakSettings.rules) {
+    if (streakSettings?.rules) {
       const settingsMap: Record<string, string> = {
         widgetPlaceholderProps: "streak:widget-placeholder-props",
         dataHandlerStatus: "streak:data-handler-status",

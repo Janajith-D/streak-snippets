@@ -35,7 +35,7 @@ export const dataHandlerAsyncRule: Rule = {
         parentName = parent.getName();
       }
       const isExported = parent?.getParent()?.getParent()?.getKind() === SyntaxKind.ExportAssignment ||
-                         parent?.getParent()?.getParent()?.getKind() === SyntaxKind.VariableStatement;
+        parent?.getParent()?.getParent()?.getKind() === SyntaxKind.VariableStatement;
 
       if (isExported || /Data|Handler/.test(parentName)) {
         candidateFuncs.push(expr);
