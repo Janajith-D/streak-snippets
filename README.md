@@ -57,6 +57,35 @@ The extension includes a Language Server Protocol (LSP) analysis engine that par
 
 ---
 
+### Autocomplete & Auto-Imports (LSP Engine)
+
+The extension includes a context-aware Language Server Protocol (LSP) autocomplete engine that accelerates framework code creation:
+
+#### 1. Smart Component Tags Completion
+When typing `<` or inside a JSX expression, you will get completions for all built-in Streak Forge components:
+- `WidgetPlaceholder`
+- `Script`
+- `Preload`
+- `Dynamic`
+
+#### 2. Automatic Imports Management
+When you select and autocomplete any of the component tags, the language server automatically analyzes your file imports:
+- If `"streak-forge/components"` is not imported, it appends `import { ComponentName } from "streak-forge/components";` to the header.
+- If it is already imported, it merges the component into the existing named imports list (e.g. `import { WidgetPlaceholder, Script } from "streak-forge/components";`).
+
+#### 3. Dynamic JSX Attribute Suggestions
+The autocomplete engine reads your project files and assets to suggest values:
+- **`<WidgetPlaceholder type="...">`**: Auto-suggests type values based on files in `src/widgets/` (case-sensitive, minus extension).
+- **`<WidgetPlaceholder id="...">`**: Auto-suggests sitemap widget IDs and handler return keys.
+- **`<Preload href="...">`**: Auto-suggests file paths recursively scanned from the `/public` folder (e.g. `/images/hero.jpg`, `/styles/tailwind.css`).
+- **`<Preload as="...">`**: Auto-suggests valid resource types (`"image"`, `"font"`, `"style"`, `"script"`, `"video"`).
+- **`<Dynamic id="...">`**: Auto-suggests registered dynamic component IDs found in calls to `gDom.loadDynamicComponent("...")` inside `<Script>` blocks.
+
+#### 4. Inline Script Suggestions
+- **`gDom.loadDynamicComponent("...")`**: Auto-suggests valid dynamic component IDs registered inside your workspace.
+
+---
+
 ### Commands
 
 Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
@@ -121,6 +150,13 @@ npm run test           # Run tests
 ---
 
 ## Release Notes
+
+### 0.1.0
+
+- **Autocomplete Engine (Phase 4)**: Context-aware suggestions for Streak Forge components (`WidgetPlaceholder`, `Script`, `Preload`, `Dynamic`).
+- **Auto-Imports Insertion**: Smart `additionalTextEdits` insertion and merging for components from `"streak-forge/components"`.
+- **Dynamic Attribute Completion**: Project scanning to suggest file paths from `/public` for `<Preload href="...">`, widget types from `src/widgets/` for `<WidgetPlaceholder type="...">`, and registry of dynamic component IDs.
+- **Diagnostics Refactoring**: Standardized rule AST traversal and removed `any` typing to resolve code quality issues.
 
 ### 0.0.1
 
