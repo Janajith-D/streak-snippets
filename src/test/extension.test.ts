@@ -25,6 +25,7 @@ import { getAutoImportEdit } from "../server/completion/frameworkCompletions";
 import { isInsideLoadDynamicComponent } from "../server/completion/scriptCompletions";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { resolveHover } from "../server/hover/provider";
+import { resolveDefinition } from "../server/definition/provider";
 
 
 suite("Extension Test Suite", () => {
@@ -645,6 +646,75 @@ suite("Extension Test Suite", () => {
     const gdomResult = resolveHover(gdomNode) as any;
     assert.ok(gdomResult);
     assert.ok(gdomResult.contents.value.includes("loadDynamicComponent"));
+  });
+
+  test("resolveDefinition resolves WidgetPlaceholder, Preload, and Dynamic definitions", () => {
+    const fs = require("fs");
+    const path = require("path");
+
+    const tempRoot = path.join(__dirname, "test-workspace-temp");
+    if (!fs.existsSync(tempRoot)) {
+      fs.mkdirSync(tempRoot, { recursive: true });
+    }
+
+    const widgetsDir = path.join(tempRoot, "src", "widgets");
+    fs.mkdirSync(widgetsDir, { recursive: true });
+    const widgetFilePath = path.join(widgetsDir, "HomeBanner.tsx");
+    fs.writeFileSync(widgetFilePath, `
+      import { Dynamic } from "streak-forge/components";
+      export default function HomeBanner() {
+        return <Dynamic id="HomeLander" />;
+      }
+    `, "utf-8");
+
+    const publicDir = path.join(tempRoot, "public", "styles");
+    fs.mkdirSync(publicDir, { recursive: true });
+    const preloadFilePath = path.join(publicDir, "main.css");
+    fs.writeFileSync(preloadFilePath, "body { color: red; }", "utf-8");
+
+    const code = `
+      import { WidgetPlaceholder, Preload, Script } from "streak-forge/components";
+      export default function Test() {
+        return (
+          <>
+            <WidgetPlaceholder id="w1" type="HomeBanner" />
+            <Preload href="/styles/main.css" as="style" />
+            <Script id="scr">
+              {(gDom) => {
+                gDom.loadDynamicComponent("HomeLander");
+              }}
+            </Script>
+          </>
+        );
+      }
+    `;
+
+    const { sourceFile } = analyzeAndParseDocument("file:///test/defTest.tsx", code);
+
+    // 1. Test WidgetPlaceholder type
+    const typeOffset = code.indexOf("HomeBanner");
+    const typeNode = sourceFile.getDescendantAtPos(typeOffset)!;
+    const typeLoc = resolveDefinition(typeNode, tempRoot);
+    assert.ok(typeLoc);
+    assert.ok(typeLoc.uri.includes("HomeBanner.tsx"));
+
+    // 2. Test Preload href
+    const hrefOffset = code.indexOf("/styles/main.css");
+    const hrefNode = sourceFile.getDescendantAtPos(hrefOffset)!;
+    const hrefLoc = resolveDefinition(hrefNode, tempRoot);
+    assert.ok(hrefLoc);
+    assert.ok(hrefLoc.uri.includes("main.css"));
+
+    // 3. Test loadDynamicComponent parameter
+    const idOffset = code.indexOf("HomeLander");
+    const idNode = sourceFile.getDescendantAtPos(idOffset)!;
+    const idLoc = resolveDefinition(idNode, tempRoot);
+    assert.ok(idLoc);
+    assert.ok(idLoc.uri.includes("HomeBanner.tsx"));
+    assert.strictEqual(idLoc.range.start.line, 3); // <Dynamic id="HomeLander" /> is on line 3 (0-indexed)
+
+    // Clean up
+    fs.rmSync(tempRoot, { recursive: true, force: true });
   });
 });
 

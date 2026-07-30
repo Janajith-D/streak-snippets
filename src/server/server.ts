@@ -15,6 +15,7 @@ import { analyzeAndParseDocument } from "./parser/analyzer";
 import { runRules } from "./rules/runner";
 import { getCompletions } from "./completion/provider";
 import { resolveHover } from "./hover/provider";
+import { resolveDefinition } from "./definition/provider";
 
 // Create a connection for the server, using Node's IPC / stdio communication
 const connection = createConnection(ProposedFeatures.all);
@@ -45,6 +46,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       },
       codeActionProvider: true,
       hoverProvider: true,
+      definitionProvider: true,
     },
   };
 });
@@ -121,6 +123,23 @@ connection.onHover((params): Hover | null => {
   }
 
   return resolveHover(node);
+});
+
+connection.onDefinition((params) => {
+  const uri = params.textDocument.uri;
+  const document = documents.get(uri);
+  if (!document) {
+    return null;
+  }
+  const offset = document.offsetAt(params.position);
+  const { sourceFile } = analyzeAndParseDocument(uri, document.getText());
+
+  const node = sourceFile.getDescendantAtPos(offset);
+  if (!node) {
+    return null;
+  }
+
+  return resolveDefinition(node, workspaceRoot);
 });
 
 async function validateDocument(document: TextDocument): Promise<void> {
