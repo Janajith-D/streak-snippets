@@ -1,15 +1,45 @@
-import { SourceFile, SyntaxKind } from "ts-morph";
+import { InterfaceDeclaration, Node, SourceFile, TypeAliasDeclaration } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
 import { AnalysisResult } from "../../shared/types";
-import { RangeLocation, Rule, RuleDiagnostic, RuleOptions } from "./types";
+import { getRangeFromNode, Rule, RuleDiagnostic, RuleOptions } from "./types";
 
-function getRangeFromNode(sourceFile: SourceFile, node: any): RangeLocation {
-  const startPos = sourceFile.getLineAndColumnAtPos(node.getStart());
-  const endPos = sourceFile.getLineAndColumnAtPos(node.getEnd());
-  return {
-    start: { line: Math.max(0, startPos.line - 1), character: Math.max(0, startPos.column - 1) },
-    end: { line: Math.max(0, endPos.line - 1), character: Math.max(0, endPos.column - 1) },
-  };
+function checkInterface(iface: InterfaceDeclaration, sourceFile: SourceFile, severity: DiagnosticSeverity): RuleDiagnostic[] {
+  const diagnostics: RuleDiagnostic[] = [];
+  for (const prop of iface.getProperties()) {
+    if (prop.getName() === "data" && !prop.hasQuestionToken()) {
+      const range = getRangeFromNode(sourceFile, prop);
+      diagnostics.push({
+        code: "streak:S304",
+        message: "Widget props should define 'data' as optional ('data?: T').",
+        range,
+        severity,
+        source: "Streak Engine",
+      });
+    }
+  }
+  return diagnostics;
+}
+
+function checkTypeAlias(alias: TypeAliasDeclaration, sourceFile: SourceFile, severity: DiagnosticSeverity): RuleDiagnostic[] {
+  const diagnostics: RuleDiagnostic[] = [];
+  const typeNode = alias.getTypeNode();
+  if (typeNode && Node.isTypeLiteral(typeNode)) {
+    for (const member of typeNode.getMembers()) {
+      if (Node.isPropertySignature(member)) {
+        if (member.getName() === "data" && !member.hasQuestionToken()) {
+          const range = getRangeFromNode(sourceFile, member);
+          diagnostics.push({
+            code: "streak:S304",
+            message: "Widget props should define 'data' as optional ('data?: T').",
+            range,
+            severity,
+            source: "Streak Engine",
+          });
+        }
+      }
+    }
+  }
+  return diagnostics;
 }
 
 export const invalidWidgetPropsContractRule: Rule = {
@@ -26,44 +56,15 @@ export const invalidWidgetPropsContractRule: Rule = {
       return diagnostics;
     }
 
-    const interfaces = sourceFile.getInterfaces();
-    const typeAliases = sourceFile.getTypeAliases();
-
-    for (const iface of interfaces) {
-      for (const prop of iface.getProperties()) {
-        if (prop.getName() === "data" && !prop.hasQuestionToken()) {
-          const range = getRangeFromNode(sourceFile, prop);
-          diagnostics.push({
-            code: "streak:S304",
-            message: "Widget props should define 'data' as optional ('data?: T').",
-            range,
-            severity,
-            source: "Streak Engine",
-          });
-        }
-      }
+    for (const iface of sourceFile.getInterfaces()) {
+      diagnostics.push(...checkInterface(iface, sourceFile, severity));
     }
 
-    for (const alias of typeAliases) {
-      const typeNode = alias.getTypeNode();
-      if (typeNode && typeNode.getKind() === SyntaxKind.TypeLiteral) {
-        for (const member of (typeNode as any).getMembers()) {
-          if (member.getKind() === SyntaxKind.PropertySignature) {
-            if (member.getName() === "data" && !member.hasQuestionToken()) {
-              const range = getRangeFromNode(sourceFile, member);
-              diagnostics.push({
-                code: "streak:S304",
-                message: "Widget props should define 'data' as optional ('data?: T').",
-                range,
-                severity,
-                source: "Streak Engine",
-              });
-            }
-          }
-        }
-      }
+    for (const alias of sourceFile.getTypeAliases()) {
+      diagnostics.push(...checkTypeAlias(alias, sourceFile, severity));
     }
 
     return diagnostics;
   },
 };
+

@@ -40,5 +40,22 @@
       "<Preload href=\"${1:/styles/tailwind.css}\" as=\"${2:style}\" media=\"${3}\" />"
     ],
     "description": "Insert a Preload element"
+  },
+  "Script Element Template": {
+    "prefix": "sfS",
+    "body": [
+      "<Script",
+      "    id=\"${1:my-script}\"",
+      "    options={{",
+      "        ${2:color}: \"${3:#818cf8}\",",
+      "        ${4:delay}: ${5:800}",
+      "    }}",
+      ">",
+      "    {(gDom: any, options: any) => {",
+      "        $0",
+      "    }}",
+      "</Script>"
+    ],
+    "description": "Insert a Script element template"
   }
 }

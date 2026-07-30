@@ -2,7 +2,7 @@
   "name": "streak-snippets",
   "displayName": "Streak Snippets",
   "description": "Snippets, commands, and developer productivity tools for the Streak.js React framework",
-  "version": "0.0.1",
+  "version": "0.2.0",
   "engines": {
     "vscode": "^1.107.0"
   },
@@ -16,16 +16,6 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
-    "commands": [
-      {
-        "command": "streak-snippets.showSnippets",
-        "title": "Streak: Show Snippet List"
-      },
-      {
-        "command": "streak-snippets.createComponent",
-        "title": "Streak: Create Component"
-      }
-    ],
     "snippets": [
       {
         "language": "typescript",
@@ -43,21 +33,6 @@
           "type": "boolean",
           "default": true,
           "description": "Enable or disable Streak snippets"
-        },
-        "streak.snippets.pageDirectory": {
-          "type": "string",
-          "default": "src/pages",
-          "description": "Default directory for new Streak pages"
-        },
-        "streak.snippets.componentDirectory": {
-          "type": "string",
-          "default": "src/components",
-          "description": "Default directory for new Streak components"
-        },
-        "streak.snippets.widgetDirectory": {
-          "type": "string",
-          "default": "src/widgets",
-          "description": "Default directory for new Streak widgets"
         },
         "streak.diagnostics.enable": {
           "type": "boolean",
@@ -135,6 +110,12 @@
           "enum": ["error", "warning", "info", "off"],
           "default": "error",
           "description": "Severity for async Script callback rule (streak:S404)"
+        },
+        "streak.rules.scriptRequiredId.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "warning",
+          "description": "Severity for missing Script component id rule (streak:S405)"
         },
         "streak.rules.invalidDynamicComponentId.severity": {
           "type": "string",

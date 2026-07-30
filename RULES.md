@@ -366,6 +366,35 @@ Browser-side `<Script>` callbacks run directly in the DOM runtime and cannot con
 
 ---
 
+### `streak:S405` — Script Required ID
+
+- **Category**: Script Component
+- **Severity**: `Warning`
+- **Source**: `Streak Engine`
+
+#### Description
+`<Script>` components must specify a non-empty `id` attribute. This ID is used by dynamic triggers to coordinate initialization, scripting execution, and styling.
+
+#### Non-compliant Code ❌
+```tsx
+<Script>
+  {(gDom) => {
+    console.log("no id");
+  }}
+</Script>
+```
+
+#### Compliant Code ✅
+```tsx
+<Script id="my-loader">
+  {(gDom) => {
+    console.log("loader initialized");
+  }}
+</Script>
+```
+
+---
+
 ### `streak:S501` — Invalid Dynamic Component ID
 
 - **Category**: Dynamic Component

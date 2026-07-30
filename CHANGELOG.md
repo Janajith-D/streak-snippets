@@ -5,6 +5,31 @@ All notable changes to the "streak-snippets" extension will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-07-28
+
+### Added
+- **Streak `<Script />` component support**:
+  - Full autocomplete with automatic import and multi-line clean import merging.
+  - Diagnostic warning `streak:S405` for missing/empty `<Script>` `id` with a VS Code Quick Fix to insert it automatically.
+  - Autocomplete Intellisense suggestions for callback `gDom` methods (`loadDynamicComponent`, `getElement`, `updateOptions`).
+  - Markdown hover documentation for the `<Script>` component and all `gDom` callbacks.
+- **Dynamic Widget Scaffolding Snippets**: Scopes `sfWid` and `sfWidE` autocomplete suggestions to `widgets/` folders, dynamically resolving the component name based on the file name.
+
+## [0.1.1] - 2026-07-28
+
+### Removed
+- **Scaffolding & Snippet List Commands**: Removed `Streak: Show Snippet List` and `Streak: Create Component` command utilities to focus extension capabilities on core language features.
+- **Unused Workspace Configurations**: Removed directory paths configurations (`streak.snippets.pageDirectory`, `streak.snippets.componentDirectory`, `streak.snippets.widgetDirectory`).
+
+## [0.1.0] - 2026-07-28
+
+### Added
+- **Intelligent Autocomplete & Code Completion (LSP)**: Context-aware suggestions for all built-in Streak Forge components (`WidgetPlaceholder`, `Script`, `Preload`, `Dynamic`).
+- **Auto-Import Insertion**: Automates imports management (appends or merges component imports from `"streak-forge/components"`).
+- **JSX Attribute Recommendations**: Auto-suggests type values based on `src/widgets/` content, and recursively scans `/public` to suggest resource paths for `<Preload href="...">`.
+- **Dynamic ID Registry Integration**: Auto-suggests registered dynamic component IDs matching `gDom.loadDynamicComponent("...")` references inside `<Script>` blocks.
+- **Code Quality Refactoring**: Centralized the `getRangeFromNode` helper and removed explicit `any` casting to fully type-safe `ts-morph` classes across all 13 rules.
+
 ## [0.0.1] - 2026-07-23
 
 ### Added

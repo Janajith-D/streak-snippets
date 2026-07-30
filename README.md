@@ -51,22 +51,41 @@ The extension includes a Language Server Protocol (LSP) analysis engine that par
 | `streak:S402` | Script Component | Error | Invalid `<Script>` callback signature |
 | `streak:S403` | Script Component | Error | Module imports/`require` inside `<Script>` callbacks |
 | `streak:S404` | Script Component | Error | Async `<Script>` callback functions |
+| `streak:S405` | Script Component | Warning | Script component requires a non-empty `id` attribute |
 | `streak:S501` | Dynamic Component | Error | Missing or empty `id` attribute on `<Dynamic>` |
 
 > For detailed descriptions, rationale, and ❌/✅ code examples for every rule, refer to the [Rule Catalog (`RULES.md`)](file:///c:/Streak/lang-extension/streak-snippets/RULES.md).
 
 ---
 
-### Commands
+### Autocomplete & Auto-Imports (LSP Engine)
 
-Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
+The extension includes a context-aware Language Server Protocol (LSP) autocomplete engine that accelerates framework code creation:
 
-| Command | Description |
-|---|---|
-| `Streak: Show Snippet List` | Browse all available snippets in a quick-pick menu |
-| `Streak: Create Component` | Scaffold a new component `.tsx` file |
+#### 1. Smart Component Tags Completion
+When typing `<` or inside a JSX expression, you will get completions for all built-in Streak Forge components:
+- `WidgetPlaceholder`
+- `Script`
+- `Preload`
+- `Dynamic`
 
----
+#### 2. Automatic Imports Management
+When you select and autocomplete any of the component tags, the language server automatically analyzes your file imports:
+- If `"streak-forge/components"` is not imported, it appends `import { ComponentName } from "streak-forge/components";` to the header.
+- If it is already imported, it merges the component into the existing named imports list (e.g. `import { WidgetPlaceholder, Script } from "streak-forge/components";`).
+
+#### 3. Dynamic JSX Attribute Suggestions
+The autocomplete engine reads your project files and assets to suggest values:
+- **`<WidgetPlaceholder type="...">`**: Auto-suggests type values based on files in `src/widgets/` (case-sensitive, minus extension).
+- **`<WidgetPlaceholder id="...">`**: Auto-suggests sitemap widget IDs and handler return keys.
+- **`<Preload href="...">`**: Auto-suggests file paths recursively scanned from the `/public` folder (e.g. `/images/hero.jpg`, `/styles/tailwind.css`).
+- **`<Preload as="...">`**: Auto-suggests valid resource types (`"image"`, `"font"`, `"style"`, `"script"`, `"video"`).
+- **`<Dynamic id="...">`**: Auto-suggests registered dynamic component IDs found in calls to `gDom.loadDynamicComponent("...")` inside `<Script>` blocks.
+
+#### 4. Inline Script Suggestions
+- **`gDom.loadDynamicComponent("...")`**: Auto-suggests valid dynamic component IDs registered inside your workspace.
+
+
 
 ## Extension Settings
 
@@ -88,6 +107,7 @@ Configure rule severities and diagnostics in VS Code settings:
 | `streak.rules.invalidScriptSignature.severity` | `string` | `"error"` | Severity for `streak:S402` |
 | `streak.rules.importInsideScript.severity` | `string` | `"error"` | Severity for `streak:S403` |
 | `streak.rules.asyncScriptCallback.severity` | `string` | `"error"` | Severity for `streak:S404` |
+| `streak.rules.scriptRequiredId.severity` | `string` | `"warning"` | Severity for `streak:S405` |
 | `streak.rules.invalidDynamicComponentId.severity` | `string` | `"error"` | Severity for `streak:S501` |
 
 ---
@@ -121,6 +141,22 @@ npm run test           # Run tests
 ---
 
 ## Release Notes
+
+### 0.2.0
+
+- **Streak `<Script />` Component Support**: Full autocomplete, auto-imports merging formatting, required ID validation check (`streak:S405`) and quick fix, `gDom` methods completion suggestions inside callback functions, and rich hover documentation.
+- **Dynamic Widget Scaffolding Snippets**: Scoped `sfWid` and `sfWidE` autocomplete suggestions to `widgets/` folders, dynamically resolving the component name based on the file name.
+
+### 0.1.1
+
+- **Removed Features**: Removed the custom commands `Streak: Show Snippet List` and `Streak: Create Component` along with their associated configuration options (`streak.snippets.pageDirectory`, `streak.snippets.componentDirectory`, `streak.snippets.widgetDirectory`) to simplify extension focus.
+
+### 0.1.0
+
+- **Autocomplete Engine (Phase 4)**: Context-aware suggestions for Streak Forge components (`WidgetPlaceholder`, `Script`, `Preload`, `Dynamic`).
+- **Auto-Imports Insertion**: Smart `additionalTextEdits` insertion and merging for components from `"streak-forge/components"`.
+- **Dynamic Attribute Completion**: Project scanning to suggest file paths from `/public` for `<Preload href="...">`, widget types from `src/widgets/` for `<WidgetPlaceholder type="...">`, and registry of dynamic component IDs.
+- **Diagnostics Refactoring**: Standardized rule AST traversal and removed `any` typing to resolve code quality issues.
 
 ### 0.0.1
 

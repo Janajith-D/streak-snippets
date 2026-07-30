@@ -3,11 +3,11 @@ import { DiagnosticSeverity } from "vscode-languageserver/node";
 import { AnalysisResult } from "../../shared/types";
 import { getRangeFromNode, Rule, RuleDiagnostic, RuleOptions } from "./types";
 
-export const widgetPlaceholderRule: Rule = {
-  id: "streak:widget-placeholder-props",
-  name: "WidgetPlaceholder Props Rule",
-  description: "Ensures <WidgetPlaceholder> elements have required non-empty 'id' and 'type' props.",
-  defaultSeverity: DiagnosticSeverity.Error,
+export const scriptRequiredIdRule: Rule = {
+  id: "streak:script-required-id",
+  name: "Script Required Id Rule",
+  description: "Ensures <Script> components have a non-empty 'id' attribute.",
+  defaultSeverity: DiagnosticSeverity.Warning,
 
   run(sourceFile: SourceFile, _analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
@@ -16,19 +16,21 @@ export const widgetPlaceholderRule: Rule = {
     sourceFile.forEachDescendant((node) => {
       let tagName = "";
       let attributes: Node[] = [];
+      let elementNode: Node = node;
 
       if (Node.isJsxSelfClosingElement(node)) {
         tagName = node.getTagNameNode().getText();
         attributes = node.getAttributes();
+        elementNode = node;
       } else if (Node.isJsxElement(node)) {
         const opening = node.getOpeningElement();
         tagName = opening.getTagNameNode().getText();
         attributes = opening.getAttributes();
+        elementNode = opening;
       }
 
-      if (tagName === "WidgetPlaceholder") {
+      if (tagName === "Script") {
         let hasId = false;
-        let hasType = false;
 
         for (const attr of attributes) {
           if (Node.isJsxAttribute(attr)) {
@@ -45,33 +47,18 @@ export const widgetPlaceholderRule: Rule = {
             }
 
             if (attrName === "id") {
-              if (value && value.trim() !== '""' && value.trim() !== "''") {
+              if (value && value.trim() !== "" && value.trim() !== '""' && value.trim() !== "''" && value.trim() !== "{}") {
                 hasId = true;
-              }
-            } else if (attrName === "type") {
-              if (value && value.trim() !== '""' && value.trim() !== "''") {
-                hasType = true;
               }
             }
           }
         }
 
-        const range = getRangeFromNode(sourceFile, node);
-
         if (!hasId) {
+          const range = getRangeFromNode(sourceFile, elementNode);
           diagnostics.push({
-            code: "streak:S101",
-            message: "<WidgetPlaceholder> requires a non-empty 'id' attribute.",
-            range,
-            severity,
-            source: "Streak Engine",
-          });
-        }
-
-        if (!hasType) {
-          diagnostics.push({
-            code: "streak:S102",
-            message: "<WidgetPlaceholder> requires a non-empty 'type' attribute.",
+            code: "streak:S405",
+            message: 'Script component requires a non-empty "id" attribute.',
             range,
             severity,
             source: "Streak Engine",
@@ -83,4 +70,3 @@ export const widgetPlaceholderRule: Rule = {
     return diagnostics;
   },
 };
-

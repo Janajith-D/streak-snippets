@@ -1,16 +1,7 @@
-import { SourceFile, SyntaxKind } from "ts-morph";
+import { ArrowFunction, FunctionExpression, Node, SourceFile, SyntaxKind } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
 import { AnalysisResult } from "../../shared/types";
-import { RangeLocation, Rule, RuleDiagnostic, RuleOptions } from "./types";
-
-function getRangeFromNode(sourceFile: SourceFile, node: any): RangeLocation {
-  const startPos = sourceFile.getLineAndColumnAtPos(node.getStart());
-  const endPos = sourceFile.getLineAndColumnAtPos(node.getEnd());
-  return {
-    start: { line: Math.max(0, startPos.line - 1), character: Math.max(0, startPos.column - 1) },
-    end: { line: Math.max(0, endPos.line - 1), character: Math.max(0, endPos.column - 1) },
-  };
-}
+import { getRangeFromNode, Rule, RuleDiagnostic, RuleOptions } from "./types";
 
 // Global browser identifiers allowed inside Script callbacks
 const ALLOWED_GLOBALS = new Set([
@@ -63,19 +54,19 @@ export const scriptClosureCaptureRule: Rule = {
 
     sourceFile.forEachDescendant((node) => {
       let isScriptTag = false;
-      let callbackNode: any = null;
+      let callbackNode: ArrowFunction | FunctionExpression | null = null;
 
-      if (node.getKind() === SyntaxKind.JsxElement) {
-        const opening = (node as any).getOpeningElement();
+      if (Node.isJsxElement(node)) {
+        const opening = node.getOpeningElement();
         if (opening.getTagNameNode().getText() === "Script") {
           isScriptTag = true;
           // Check children JSX expression or props
-          const children = (node as any).getChildrenOfKind(SyntaxKind.JsxExpression);
+          const children = node.getChildrenOfKind(SyntaxKind.JsxExpression);
           for (const expr of children) {
             const innerExpr = expr.getExpression();
             if (
-              innerExpr?.getKind() === SyntaxKind.ArrowFunction ||
-              innerExpr?.getKind() === SyntaxKind.FunctionExpression
+              innerExpr &&
+              (Node.isArrowFunction(innerExpr) || Node.isFunctionExpression(innerExpr))
             ) {
               callbackNode = innerExpr;
             }
@@ -85,16 +76,17 @@ export const scriptClosureCaptureRule: Rule = {
 
       if (isScriptTag && callbackNode) {
         const paramNames = new Set(
-          callbackNode.getParameters().map((p: any) => p.getName())
+          callbackNode.getParameters().map((p) => p.getName())
         );
 
-        callbackNode.forEachDescendant((innerNode: any) => {
-          if (innerNode.getKind() === SyntaxKind.Identifier) {
+        callbackNode.forEachDescendant((innerNode) => {
+          if (Node.isIdentifier(innerNode)) {
             const name = innerNode.getText();
             // Check if identifier is a variable reference (not property name)
             const parent = innerNode.getParent();
             const isPropAccessName =
-              parent?.getKind() === SyntaxKind.PropertyAccessExpression &&
+              parent &&
+              Node.isPropertyAccessExpression(parent) &&
               parent.getNameNode() === innerNode;
 
             if (
@@ -106,9 +98,13 @@ export const scriptClosureCaptureRule: Rule = {
               const symbol = innerNode.getSymbol();
               if (symbol) {
                 const declarations = symbol.getDeclarations();
-                const isDeclaredInsideScript = declarations.some((d: any) =>
-                  callbackNode.contains(d)
-                );
+                const isDeclaredInsideScript = declarations.some((d) => {
+                  try {
+                    return d.getStart() >= callbackNode!.getStart() && d.getEnd() <= callbackNode!.getEnd();
+                  } catch {
+                    return false;
+                  }
+                });
 
                 if (!isDeclaredInsideScript) {
                   const range = getRangeFromNode(sourceFile, innerNode);
@@ -131,6 +127,23 @@ export const scriptClosureCaptureRule: Rule = {
   },
 };
 
+function checkScriptParams(innerExpr: Node, sourceFile: SourceFile, severity: DiagnosticSeverity): RuleDiagnostic | undefined {
+  if (Node.isArrowFunction(innerExpr) || Node.isFunctionExpression(innerExpr)) {
+    const params = innerExpr.getParameters();
+    if (params.length > 2) {
+      const range = getRangeFromNode(sourceFile, innerExpr);
+      return {
+        code: "streak:S402",
+        message: `<Script> callback signature must follow (gDom, options) => void (expected at most 2 parameters, found ${params.length}).`,
+        range,
+        severity,
+        source: "Streak Engine",
+      };
+    }
+  }
+  return undefined;
+}
+
 export const invalidScriptSignatureRule: Rule = {
   id: "streak:invalid-script-signature",
   name: "Invalid Script Signature",
@@ -146,26 +159,16 @@ export const invalidScriptSignatureRule: Rule = {
     }
 
     sourceFile.forEachDescendant((node) => {
-      if (node.getKind() === SyntaxKind.JsxElement) {
-        const opening = (node as any).getOpeningElement();
+      if (Node.isJsxElement(node)) {
+        const opening = node.getOpeningElement();
         if (opening.getTagNameNode().getText() === "Script") {
-          const children = (node as any).getChildrenOfKind(SyntaxKind.JsxExpression);
+          const children = node.getChildrenOfKind(SyntaxKind.JsxExpression);
           for (const expr of children) {
             const innerExpr = expr.getExpression();
-            if (
-              innerExpr?.getKind() === SyntaxKind.ArrowFunction ||
-              innerExpr?.getKind() === SyntaxKind.FunctionExpression
-            ) {
-              const params = innerExpr.getParameters();
-              if (params.length > 2) {
-                const range = getRangeFromNode(sourceFile, innerExpr);
-                diagnostics.push({
-                  code: "streak:S402",
-                  message: `<Script> callback signature must follow (gDom, options) => void (expected at most 2 parameters, found ${params.length}).`,
-                  range,
-                  severity,
-                  source: "Streak Engine",
-                });
+            if (innerExpr) {
+              const diag = checkScriptParams(innerExpr, sourceFile, severity);
+              if (diag) {
+                diagnostics.push(diag);
               }
             }
           }
@@ -192,28 +195,27 @@ export const importInsideScriptRule: Rule = {
     }
 
     sourceFile.forEachDescendant((node) => {
-      if (node.getKind() === SyntaxKind.JsxElement) {
-        const opening = (node as any).getOpeningElement();
+      if (Node.isJsxElement(node)) {
+        const opening = node.getOpeningElement();
         if (opening.getTagNameNode().getText() === "Script") {
-          const children = (node as any).getChildrenOfKind(SyntaxKind.JsxExpression);
+          const children = node.getChildrenOfKind(SyntaxKind.JsxExpression);
           for (const expr of children) {
             const callbackNode = expr.getExpression();
             if (callbackNode) {
               // Check for import() expressions or require() calls
-              callbackNode.forEachDescendant((inner: any) => {
-                if (
-                  inner.getKind() === SyntaxKind.CallExpression &&
-                  (inner.getExpression().getText() === "require" ||
-                    inner.getExpression().getText() === "import")
-                ) {
-                  const range = getRangeFromNode(sourceFile, inner);
-                  diagnostics.push({
-                    code: "streak:S403",
-                    message: "Browser-side <Script> code must not contain or depend on module imports or require() calls.",
-                    range,
-                    severity,
-                    source: "Streak Engine",
-                  });
+              callbackNode.forEachDescendant((inner) => {
+                if (Node.isCallExpression(inner)) {
+                  const exprText = inner.getExpression().getText();
+                  if (exprText === "require" || exprText === "import") {
+                    const range = getRangeFromNode(sourceFile, inner);
+                    diagnostics.push({
+                      code: "streak:S403",
+                      message: "Browser-side <Script> code must not contain or depend on module imports or require() calls.",
+                      range,
+                      severity,
+                      source: "Streak Engine",
+                    });
+                  }
                 }
               });
             }
@@ -241,15 +243,15 @@ export const asyncScriptCallbackRule: Rule = {
     }
 
     sourceFile.forEachDescendant((node) => {
-      if (node.getKind() === SyntaxKind.JsxElement) {
-        const opening = (node as any).getOpeningElement();
+      if (Node.isJsxElement(node)) {
+        const opening = node.getOpeningElement();
         if (opening.getTagNameNode().getText() === "Script") {
-          const children = (node as any).getChildrenOfKind(SyntaxKind.JsxExpression);
+          const children = node.getChildrenOfKind(SyntaxKind.JsxExpression);
           for (const expr of children) {
             const callbackNode = expr.getExpression();
             if (
-              (callbackNode?.getKind() === SyntaxKind.ArrowFunction ||
-                callbackNode?.getKind() === SyntaxKind.FunctionExpression) &&
+              callbackNode &&
+              (Node.isArrowFunction(callbackNode) || Node.isFunctionExpression(callbackNode)) &&
               callbackNode.isAsync()
             ) {
               const range = getRangeFromNode(sourceFile, callbackNode);
@@ -269,3 +271,6 @@ export const asyncScriptCallbackRule: Rule = {
     return diagnostics;
   },
 };
+
+export { scriptRequiredIdRule } from "./scriptRequiredIdRule";
+

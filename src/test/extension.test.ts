@@ -8,8 +8,6 @@ import * as vscode from "vscode";
 import { analyzeAndParseDocument } from "../server/parser/analyzer";
 import { runRules } from "../server/rules/runner";
 import { widgetPlaceholderRule } from "../server/rules/widgetPlaceholderRule";
-import { dataHandlerStatusRule } from "../server/rules/dataHandlerStatusRule";
-import { missingDefaultExportRule } from "../server/rules/missingDefaultExportRule";
 import { dataHandlerAsyncRule } from "../server/rules/dataHandlerAsyncRule";
 import { dataHandlerStatusValueRule } from "../server/rules/dataHandlerStatusValueRule";
 import { reactHooksNotAllowedRule } from "../server/rules/reactHooksNotAllowedRule";
@@ -17,11 +15,16 @@ import { unsafeWidgetDataAccessRule } from "../server/rules/unsafeWidgetDataAcce
 import { invalidWidgetPropsContractRule } from "../server/rules/invalidWidgetPropsContractRule";
 import {
   scriptClosureCaptureRule,
-  invalidScriptSignatureRule,
-  importInsideScriptRule,
   asyncScriptCallbackRule,
+  scriptRequiredIdRule,
 } from "../server/rules/scriptRules";
 import { dynamicComponentIdRule } from "../server/rules/dynamicComponentIdRule";
+import { getCompletions } from "../server/completion/provider";
+import { getJsxContext } from "../server/completion/jsxAttributeCompletions";
+import { getAutoImportEdit } from "../server/completion/frameworkCompletions";
+import { isInsideLoadDynamicComponent } from "../server/completion/scriptCompletions";
+import { TextDocument } from "vscode-languageserver-textdocument";
+
 
 suite("Extension Test Suite", () => {
   vscode.window.showInformationMessage("Start all tests.");
@@ -246,7 +249,7 @@ suite("Extension Test Suite", () => {
         );
         assert.ok(
           typeof entry.description === "string" &&
-            entry.description.length > 0,
+          entry.description.length > 0,
           `Snippet "${name}" in ${file} must have a non-empty string "description"`,
         );
       }
@@ -301,18 +304,253 @@ suite("Extension Test Suite", () => {
     );
   });
 
-  test("package.json has command contributions", () => {
-    const pkgPath = path.resolve(__dirname, "../../package.json");
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-    const commands: { command: string }[] = pkg.contributes?.commands ?? [];
-    const ids = commands.map((c) => c.command);
-    assert.ok(
-      ids.includes("streak-snippets.showSnippets"),
-      "Must register streak-snippets.showSnippets command",
+
+
+  // ── Code Completion Tests ──────────────────────────────────────────
+
+  test("JSX Context detection parses tag and unclosed attribute values correctly", () => {
+    const text = '<WidgetPlaceholder id="hero" type="';
+    const ctx = getJsxContext(text, text.length);
+    assert.ok(ctx);
+    assert.strictEqual(ctx.tagName, "WidgetPlaceholder");
+    assert.strictEqual(ctx.attributeName, "type");
+    assert.strictEqual(ctx.inAttributeValue, true);
+    assert.strictEqual(ctx.attributeValue, "");
+
+    const text2 = '<Preload href="/styles/tailwind.css" as="sty';
+    const ctx2 = getJsxContext(text2, text2.length);
+    assert.ok(ctx2);
+    assert.strictEqual(ctx2.tagName, "Preload");
+    assert.strictEqual(ctx2.attributeName, "as");
+    assert.strictEqual(ctx2.inAttributeValue, true);
+    assert.strictEqual(ctx2.attributeValue, "sty");
+
+    const text3 = '<WidgetPlaceholder ';
+    const ctx3 = getJsxContext(text3, text3.length);
+    assert.ok(ctx3);
+    assert.strictEqual(ctx3.tagName, "WidgetPlaceholder");
+    assert.strictEqual(ctx3.inAttributeValue, false);
+  });
+
+  test("isInsideLoadDynamicComponent detects loadDynamicComponent parameters", () => {
+    assert.ok(isInsideLoadDynamicComponent('gDom.loadDynamicComponent("', 27));
+    assert.ok(isInsideLoadDynamicComponent("loadDynamicComponent('", 22));
+    assert.ok(!isInsideLoadDynamicComponent('gDom.otherMethod("', 18));
+  });
+
+  test("getAutoImportEdit generates correct edits for missing import and existing import", () => {
+    const code1 = `
+      export default function Test() {
+        return <div>Hello</div>;
+      }
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/comp1.tsx", code1);
+    const doc1 = TextDocument.create("file:///test/comp1.tsx", "typescriptreact", 1, code1);
+    const edits1 = getAutoImportEdit(doc1, sourceFile, "WidgetPlaceholder");
+    assert.strictEqual(edits1.length, 1);
+    assert.ok(edits1[0].newText.includes('import { WidgetPlaceholder } from "streak-forge/components";'));
+
+    const code2 = `
+      import { Preload } from "streak-forge/components";
+      export default function Test() {
+        return <Preload href="/a" as="style" />;
+      }
+    `;
+    const { sourceFile: sf2 } = analyzeAndParseDocument("file:///test/comp2.tsx", code2);
+    const doc2 = TextDocument.create("file:///test/comp2.tsx", "typescriptreact", 1, code2);
+    const edits2 = getAutoImportEdit(doc2, sf2, "WidgetPlaceholder");
+    assert.strictEqual(edits2.length, 1);
+    assert.ok(edits2[0].newText.includes("Preload"));
+    assert.ok(edits2[0].newText.includes("WidgetPlaceholder"));
+    assert.ok(edits2[0].newText.includes("\n"));
+  });
+
+  test("getCompletions returns built-in components and script loadDynamicComponent IDs", () => {
+    // 1. Tag start completions
+    const code1 = `
+      import React from "react";
+      const a = <
+    `;
+    const offset1 = code1.indexOf("<") + 1;
+    const { sourceFile: sf1 } = analyzeAndParseDocument("file:///test/comp1.tsx", code1);
+    const doc1 = TextDocument.create("file:///test/comp1.tsx", "typescriptreact", 1, code1);
+
+    const items1 = getCompletions(
+      {
+        text: code1,
+        uri: "file:///test/comp1.tsx",
+        offset: offset1,
+        line: 2,
+        character: offset1 - code1.lastIndexOf("\n") - 1,
+      },
+      doc1,
+      sf1,
+      undefined
     );
-    assert.ok(
-      ids.includes("streak-snippets.createComponent"),
-      "Must register streak-snippets.createComponent command",
+    assert.ok(items1.length >= 4);
+    assert.ok(items1.some((i) => i.label === "WidgetPlaceholder"));
+    assert.ok(items1.some((i) => i.label === "Script"));
+
+    // 2. Dynamic ID suggestion inside script loadDynamicComponent
+    const code2 = `
+      import { Dynamic, Script } from "streak-forge/components";
+      export default function Test() {
+        return (
+          <>
+            <Dynamic id="sidebar-panel">
+              <div>Sidebar</div>
+            </Dynamic>
+            <Script id="loader">
+              {(gDom) => {
+                gDom.loadDynamicComponent("
+              }}
+            </Script>
+          </>
+        );
+      }
+    `;
+    const offset2 = code2.indexOf('loadDynamicComponent("') + 'loadDynamicComponent("'.length;
+    const { sourceFile: sf2 } = analyzeAndParseDocument("file:///test/comp2.tsx", code2);
+    const doc2 = TextDocument.create("file:///test/comp2.tsx", "typescriptreact", 1, code2);
+
+    const items2 = getCompletions(
+      {
+        text: code2,
+        uri: "file:///test/comp2.tsx",
+        offset: offset2,
+        line: 10,
+        character: offset2 - code2.lastIndexOf("\n") - 1,
+      },
+      doc2,
+      sf2,
+      undefined
     );
+    assert.strictEqual(items2.length, 1);
+    assert.strictEqual(items2[0].label, "sidebar-panel");
+  });
+
+  test("streak:S405 flags missing or empty id attribute on <Script>", () => {
+    const code = `
+      import React from "react";
+      export default function Test() {
+        return (
+          <>
+            <Script />
+            <Script id="" />
+            <Script id="valid-script" />
+          </>
+        );
+      }
+    `;
+    const { sourceFile, analysis } = analyzeAndParseDocument("file:///test/scriptId.tsx", code);
+    const diagnostics = scriptRequiredIdRule.run(sourceFile, analysis);
+    assert.strictEqual(diagnostics.length, 2);
+    assert.strictEqual(diagnostics[0].code, "streak:S405");
+    assert.strictEqual(diagnostics[1].code, "streak:S405");
+    assert.ok(diagnostics[0].message.includes('requires a non-empty "id"'));
+  });
+
+  test("getAutoImportEdit formats multi-line merging", () => {
+    const code = 'import { WidgetPlaceholder } from "streak-forge/components";\n';
+    const { sourceFile } = analyzeAndParseDocument("file:///test/importMerge.tsx", code);
+    const doc = TextDocument.create("file:///test/importMerge.tsx", "typescriptreact", 1, code);
+    const edits = getAutoImportEdit(doc, sourceFile, "Script");
+    assert.strictEqual(edits.length, 1);
+    assert.ok(edits[0].newText.includes("WidgetPlaceholder"));
+    assert.ok(edits[0].newText.includes("Script"));
+    assert.ok(edits[0].newText.includes("\n")); // Multi-line!
+  });
+
+  test("Callback completions suggest gDom methods inside Script callback", () => {
+    const code = `
+      import { Script } from "streak-forge/components";
+      export default function Test() {
+        return (
+          <Script id="test-script">
+            {(gDom: any) => {
+              gDom.
+            }}
+          </Script>
+        );
+      }
+    `;
+    const offset = code.indexOf("gDom.") + "gDom.".length;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/gdomComp.tsx", code);
+    const doc = TextDocument.create("file:///test/gdomComp.tsx", "typescriptreact", 1, code);
+    const items = getCompletions(
+      {
+        text: code,
+        uri: "file:///test/gdomComp.tsx",
+        offset: offset,
+        line: 6,
+        character: offset - code.lastIndexOf("\n") - 1,
+      },
+      doc,
+      sourceFile,
+      undefined
+    );
+    const labels = items.map(item => item.label);
+    assert.ok(labels.includes("loadDynamicComponent"));
+    assert.ok(labels.includes("getElement"));
+    assert.ok(labels.includes("updateOptions"));
+  });
+
+  test("Autocomplete suggests sfS snippet in JSX body", () => {
+    const code = `
+      import React from "react";
+      export default function Test() {
+        return (
+          <div>
+            sf
+          </div>
+        );
+      }
+    `;
+    const offset = code.indexOf("sf") + "sf".length;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/sfComp.tsx", code);
+    const doc = TextDocument.create("file:///test/sfComp.tsx", "typescriptreact", 1, code);
+    const items = getCompletions(
+      {
+        text: code,
+        uri: "file:///test/sfComp.tsx",
+        offset: offset,
+        line: 5,
+        character: offset - code.lastIndexOf("\n") - 1,
+      },
+      doc,
+      sourceFile,
+      undefined
+    );
+    const labels = items.map(item => item.label);
+    assert.ok(labels.includes("sfS"));
+  });
+
+  test("sfWid and sfWidE snippet completions suggest scaffolding in widgets/ directory", () => {
+    const code = "sf";
+    const { sourceFile } = analyzeAndParseDocument("file:///test/widgets/HelloPager.tsx", code);
+    const doc = TextDocument.create("file:///test/widgets/HelloPager.tsx", "typescriptreact", 1, code);
+    const items = getCompletions(
+      {
+        text: code,
+        uri: "file:///test/widgets/HelloPager.tsx",
+        offset: 2,
+        line: 0,
+        character: 2,
+      },
+      doc,
+      sourceFile,
+      undefined
+    );
+
+    const sfWidItem = items.find(item => item.label === "sfWid");
+    const sfWidEItem = items.find(item => item.label === "sfWidE");
+
+    assert.ok(sfWidItem, "sfWid snippet should be suggested");
+    assert.ok(sfWidEItem, "sfWidE snippet should be suggested");
+
+    assert.ok(sfWidItem.insertText?.includes("const HelloPager = () => {};"), "sfWid should expand to HelloPager definition");
+    assert.ok(sfWidEItem.insertText?.includes("type HelloPagerProps = {"), "sfWidE should define HelloPagerProps");
+    assert.ok(sfWidEItem.insertText?.includes("const HelloPager = (props: HelloPagerProps) => {"), "sfWidE should define HelloPager with props");
   });
 });
+
