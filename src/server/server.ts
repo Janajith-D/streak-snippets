@@ -11,11 +11,10 @@ import {
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { fileURLToPath } from "url";
-import { Node } from "ts-morph";
 import { analyzeAndParseDocument } from "./parser/analyzer";
 import { runRules } from "./rules/runner";
 import { getCompletions } from "./completion/provider";
-import { GDOM_METHODS } from "./completion/runtimeApi";
+import { resolveHover } from "./hover/provider";
 
 // Create a connection for the server, using Node's IPC / stdio communication
 const connection = createConnection(ProposedFeatures.all);
@@ -121,55 +120,7 @@ connection.onHover((params): Hover | null => {
     return null;
   }
 
-  // Case 1: Hovering over Script tag name
-  if (Node.isIdentifier(node) && node.getText() === "Script") {
-    const parent = node.getParent();
-    if (
-      parent &&
-      (Node.isJsxOpeningElement(parent) ||
-        Node.isJsxClosingElement(parent) ||
-        Node.isJsxSelfClosingElement(parent))
-    ) {
-      return {
-        contents: {
-          kind: "markdown",
-          value: [
-            "**Streak `<Script>` Component**",
-            "---",
-            "Executes client-side script code with direct access to the DOM node via `gDom`.",
-            "",
-            "*Requires an `id` attribute.*",
-          ].join("\n"),
-        },
-      };
-    }
-  }
-
-  // Case 2: Hovering over gDom methods
-  if (Node.isIdentifier(node)) {
-    const parent = node.getParent();
-    if (parent && Node.isPropertyAccessExpression(parent)) {
-      const expression = parent.getExpression();
-      if (expression.getText() === "gDom") {
-        const methodName = node.getText();
-        const method = GDOM_METHODS.find((m) => m.name === methodName);
-        if (method) {
-          return {
-            contents: {
-              kind: "markdown",
-              value: [
-                `\`\`\`typescript\n${method.signature}: ${method.returnType}\n\`\`\n`,
-                "---",
-                method.documentation,
-              ].join("\n"),
-            },
-          };
-        }
-      }
-    }
-  }
-
-  return null;
+  return resolveHover(node);
 });
 
 async function validateDocument(document: TextDocument): Promise<void> {

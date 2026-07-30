@@ -24,6 +24,7 @@ import { getJsxContext } from "../server/completion/jsxAttributeCompletions";
 import { getAutoImportEdit } from "../server/completion/frameworkCompletions";
 import { isInsideLoadDynamicComponent } from "../server/completion/scriptCompletions";
 import { TextDocument } from "vscode-languageserver-textdocument";
+import { resolveHover } from "../server/hover/provider";
 
 
 suite("Extension Test Suite", () => {
@@ -551,6 +552,99 @@ suite("Extension Test Suite", () => {
     assert.ok(sfWidItem.insertText?.includes("const HelloPager = () => {};"), "sfWid should expand to HelloPager definition");
     assert.ok(sfWidEItem.insertText?.includes("type HelloPagerProps = {"), "sfWidE should define HelloPagerProps");
     assert.ok(sfWidEItem.insertText?.includes("const HelloPager = (props: HelloPagerProps) => {"), "sfWidE should define HelloPager with props");
+  });
+
+  test("resolveHover displays markdown documentation for built-in components", () => {
+    const code = `
+      import { WidgetPlaceholder, Preload, Dynamic, Script } from "streak-forge/components";
+      export default function Test() {
+        return (
+          <>
+            <WidgetPlaceholder id="widget" type="Hello" />
+            <Preload href="/a.css" as="style" />
+            <Dynamic id="panel" />
+            <Script id="scr">
+              {(gDom) => {
+                gDom.loadDynamicComponent("my-panel");
+              }}
+            </Script>
+          </>
+        );
+      }
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/hoverComp.tsx", code);
+
+    // 1. Test WidgetPlaceholder
+    const wpNode = sourceFile.getDescendantAtPos(code.indexOf("<WidgetPlaceholder") + 1)!;
+    const wpResult = resolveHover(wpNode) as any;
+    assert.ok(wpResult);
+    assert.ok(wpResult.contents.value.includes("Streak `<WidgetPlaceholder>` Component"));
+
+    // 2. Test Preload
+    const preNode = sourceFile.getDescendantAtPos(code.indexOf("<Preload") + 1)!;
+    const preResult = resolveHover(preNode) as any;
+    assert.ok(preResult);
+    assert.ok(preResult.contents.value.includes("Streak `<Preload>` Component"));
+
+    // 3. Test Dynamic
+    const dyNode = sourceFile.getDescendantAtPos(code.indexOf("<Dynamic") + 1)!;
+    const dyResult = resolveHover(dyNode) as any;
+    assert.ok(dyResult);
+    assert.ok(dyResult.contents.value.includes("Streak `<Dynamic>` Component"));
+
+    // 4. Test Script
+    const scNode = sourceFile.getDescendantAtPos(code.indexOf("<Script") + 1)!;
+    const scResult = resolveHover(scNode) as any;
+    assert.ok(scResult);
+    assert.ok(scResult.contents.value.includes("Streak `<Script>` Component"));
+  });
+
+  test("resolveHover displays documentation for tag attributes and gDom methods", () => {
+    const code = `
+      import { WidgetPlaceholder, Preload } from "streak-forge/components";
+      export default function Test() {
+        return (
+          <>
+            <WidgetPlaceholder id="widget-id" type="Banner" />
+            <Preload href="/style.css" as="style" />
+            <Script id="s1" options={{ color: "red" }}>
+              {(gDom) => {
+                gDom.loadDynamicComponent("my-panel");
+              }}
+            </Script>
+          </>
+        );
+      }
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/hoverAttr.tsx", code);
+
+    // 1. Test WidgetPlaceholder type attribute
+    const typeOffset = code.indexOf('type="Banner"') + 1;
+    const typeNode = sourceFile.getDescendantAtPos(typeOffset)!;
+    const typeResult = resolveHover(typeNode) as any;
+    assert.ok(typeResult);
+    assert.ok(typeResult.contents.value.includes("The widget name matching a file"));
+
+    // 2. Test Preload href attribute
+    const hrefOffset = code.indexOf('href="/style.css"') + 1;
+    const hrefNode = sourceFile.getDescendantAtPos(hrefOffset)!;
+    const hrefResult = resolveHover(hrefNode) as any;
+    assert.ok(hrefResult);
+    assert.ok(hrefResult.contents.value.includes("The path to the static asset"));
+
+    // 3. Test Preload as attribute
+    const asOffset = code.indexOf('as="style"') + 1;
+    const asNode = sourceFile.getDescendantAtPos(asOffset)!;
+    const asResult = resolveHover(asNode) as any;
+    assert.ok(asResult);
+    assert.ok(asResult.contents.value.includes("The resource classification"));
+
+    // 4. Test gDom.loadDynamicComponent method
+    const gdomOffset = code.indexOf("loadDynamicComponent");
+    const gdomNode = sourceFile.getDescendantAtPos(gdomOffset)!;
+    const gdomResult = resolveHover(gdomNode) as any;
+    assert.ok(gdomResult);
+    assert.ok(gdomResult.contents.value.includes("loadDynamicComponent"));
   });
 });
 
