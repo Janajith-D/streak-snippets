@@ -108,6 +108,23 @@ Hovering over any supported JSX attribute on built-in elements reveals its purpo
 Hovering over `gDom` methods (like `loadDynamicComponent`, `getElement`, `updateOptions`) shows signatures, return types, and descriptions of client-side DOM scripting interfaces.
 
 
+### Go to Definition & Navigation (LSP Engine)
+
+The extension includes a context-aware definition provider that allows developers to jump directly to referenced code files, static assets, or components using VS Code's native **Go to Definition** (`F12`) action:
+
+#### 1. Widget Navigation
+Pressing `F12` on the `type` attribute value (e.g. `"HelloBanner"`) of a `<WidgetPlaceholder type="HelloBanner" />` automatically opens the corresponding widget source file inside your workspace:
+- Scans `src/widgets/HelloBanner.tsx` (or `.ts`, `.jsx`, `.js`).
+
+#### 2. Static Asset Navigation
+Pressing `F12` on the `href` attribute value of a `<Preload href="/styles/main.css" />` automatically resolves the asset relative to the project static directory and opens the file:
+- Scans `<workspaceRoot>/public/styles/main.css`.
+
+#### 3. Dynamic Component Declared Jump
+Pressing `F12` on a dynamic ID string argument inside a client-side call (e.g. `gDom.loadDynamicComponent("HomeLander")`) scans your workspace source files and jumps to the exact declaration point of the dynamic block:
+- Resolves the exact line and position of the matching `<Dynamic id="HomeLander">` JSX tag.
+
+
 
 ## Extension Settings
 
@@ -163,6 +180,10 @@ npm run test           # Run tests
 ---
 
 ## Release Notes
+
+### 0.4.0
+
+- **Go to Definition & Navigation (Phase 6)**: Developed a context-aware definition provider supporting quick F12 code jumps from `<WidgetPlaceholder type="...">` to matching widget components, `<Preload href="...">` to local static files in `/public`, and dynamic script callers (e.g. `gDom.loadDynamicComponent("...")`) directly to `<Dynamic id="...">` tags.
 
 ### 0.3.0
 
