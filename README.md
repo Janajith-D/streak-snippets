@@ -86,6 +86,28 @@ The autocomplete engine reads your project files and assets to suggest values:
 - **`gDom.loadDynamicComponent("...")`**: Auto-suggests valid dynamic component IDs registered inside your workspace.
 
 
+### Hover Help & Documentation (LSP Engine)
+
+The extension includes a context-aware Language Server Protocol (LSP) hover documentation provider that exposes markdown descriptions and code examples without requiring developer context switches:
+
+#### 1. Component Hover Tooltips
+Hovering over the opening/closing tag name of any built-in Streak component reveals its details:
+- **`<WidgetPlaceholder />`**: Specifies widget rendering placeholders, detailing required attributes (`id`, `type`) and compliant code examples.
+- **`<Preload />`**: Specifies static assets build-time preloading instructions, outlining required attributes (`href`, `as`) and responsive query structures.
+- **`<Dynamic />`**: Details dynamically injected client-side component blocks.
+- **`<Script />`**: Explains client-side scripting hooks, inline execution limits, options schemas, and signatures.
+
+#### 2. Attribute Descriptions
+Hovering over any supported JSX attribute on built-in elements reveals its purpose and required format:
+- **`type` on `<WidgetPlaceholder />`**: Maps case-sensitively to a file under `src/widgets/`.
+- **`href` on `<Preload />`**: Scopes to a static file inside the project `public/` folder.
+- **`as` on `<Preload />`**: Allocates preload priority based on standard media types.
+- **`options` on `<Script />`**: Forwards data to the browser execution thread callback.
+
+#### 3. Client API Documentation
+Hovering over `gDom` methods (like `loadDynamicComponent`, `getElement`, `updateOptions`) shows signatures, return types, and descriptions of client-side DOM scripting interfaces.
+
+
 
 ## Extension Settings
 
@@ -141,6 +163,10 @@ npm run test           # Run tests
 ---
 
 ## Release Notes
+
+### 0.3.0
+
+- **Hover Help & Documentation (Phase 5)**: Complete hover provider for all built-in Streak components (`<WidgetPlaceholder />`, `<Preload />`, `<Dynamic />`, `<Script />`) and their JSX attributes (`id`, `type`, `href`, `as`, `options`), rendering detailed markdown documentations and usage guides.
 
 ### 0.2.0
 
