@@ -5,6 +5,14 @@ All notable changes to the "streak-snippets" extension will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-08-03
+
+### Added
+- **Workspace Widget Registry & Suggestions (Phase 8)**: Implemented an AST-based workspace scanner and registry for custom components under `src/widgets/` and `src/components/`:
+  - Dynamically extracts component descriptions, JSDoc headers, and full props type specifications.
+  - Integrates registry metadata inside `<WidgetPlaceholder type="..." />` autocomplete details, showing property names, types, optionality indicators, and property JSDoc comments.
+  - Integrates registry metadata inside on-hover tooltips when hovering over resolved type string literals.
+
 ## [0.5.0] - 2026-08-03
 
 ### Added

@@ -144,6 +144,20 @@ The extension provides context-aware quick fixes for common validation diagnosti
 
 
 
+### Workspace Widget Registry & Suggestions (LSP Engine)
+
+The extension contains an AST-based Workspace Widget Registry that automatically crawls, indexes, and monitors custom components under `src/widgets/` and `src/components/` in your project.
+
+#### 1. Rich Autocompletions
+When autocompleting the `type` attribute on `<WidgetPlaceholder type="..." />`, the extension queries the registry database to suggest your custom widgets and presents:
+- **JSDoc descriptions**: Extracted from the widget's class/function JSDoc headers.
+- **Properties signature list**: Detailed overview of all typed props, identifying optional properties (`?`), types, and custom property-level JSDoc summaries.
+
+#### 2. On-Hover Prop Tooltips
+Hovering over the `type` string literal value (e.g., `<WidgetPlaceholder type="ProductCard" />`) resolves the component and displays a rich markdown tooltip listing all custom properties and documentation directly inside your editor.
+
+
+
 ## Extension Settings
 
 Configure rule severities and diagnostics in VS Code settings:
@@ -198,6 +212,10 @@ npm run test           # Run tests
 ---
 
 ## Release Notes
+
+### 0.6.0
+
+- **Workspace Widget Registry & Suggestions (Phase 8)**: Implemented an AST-based workspace scanner and registry matching components under `src/widgets/` and `src/components/`. Resolves their JSDoc headers and typed props to display rich markdown autocomplete summaries and properties lists on hovers.
 
 ### 0.5.0
 

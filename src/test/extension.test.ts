@@ -27,6 +27,8 @@ import { TextDocument } from "vscode-languageserver-textdocument";
 import { resolveHover } from "../server/hover/provider";
 import { resolveDefinition } from "../server/definition/provider";
 import { resolveCodeActions } from "../server/codeaction/provider";
+import { widgetRegistry } from "../server/registry/widgets";
+import { scanWorkspace, scanFile } from "../server/registry/scanner";
 
 
 suite("Extension Test Suite", () => {
@@ -840,6 +842,107 @@ suite("Extension Test Suite", () => {
     assert.strictEqual(actionsS301.length, 1);
     assert.strictEqual(actionsS301[0].title, "Add default export for AboutData");
     assert.ok(actionsS301[0].edit?.changes?.["file:///test/AboutData.tsx"]?.[0]?.newText.includes("export default AboutData;"));
+  });
+
+  test("WidgetRegistry and Scanner dynamically extracts widget description and props, providing rich completions and hovers", () => {
+    const fs = require("fs");
+    const path = require("path");
+
+    const tempRoot = path.join(__dirname, "..", "..", "test-registry-temp");
+    if (!fs.existsSync(tempRoot)) {
+      fs.mkdirSync(tempRoot, { recursive: true });
+    }
+
+    const widgetsDir = path.join(tempRoot, "src", "widgets");
+    fs.mkdirSync(widgetsDir, { recursive: true });
+
+    // Write a mock widget ProductCard with JSDoc comments and typed props
+    const widgetFilePath = path.join(widgetsDir, "ProductCard.tsx");
+    fs.writeFileSync(widgetFilePath, `
+      export type ProductCardProps = {
+        /**
+         * The display label name of the product item.
+         */
+        title: string;
+        /**
+         * Optional price label tag format.
+         */
+        price?: number;
+      };
+
+      /**
+       * Renders a customizable product item card display.
+       */
+      export default function ProductCard(props: ProductCardProps) {
+        return <div>{props.title}</div>;
+      }
+    `, "utf-8");
+
+    // Index the temporary workspace
+    scanWorkspace(tempRoot);
+
+    // 1. Assert registry has extracted metadata correctly
+    const meta = widgetRegistry.get("ProductCard");
+    assert.ok(meta);
+    assert.strictEqual(meta.name, "ProductCard");
+    assert.strictEqual(meta.docComment, "Renders a customizable product item card display.");
+    assert.strictEqual(meta.props.length, 2);
+
+    const titleProp = meta.props.find(p => p.name === "title");
+    assert.ok(titleProp);
+    assert.strictEqual(titleProp.type, "string");
+    assert.strictEqual(titleProp.isOptional, false);
+    assert.strictEqual(titleProp.docComment, "The display label name of the product item.");
+
+    const priceProp = meta.props.find(p => p.name === "price");
+    assert.ok(priceProp);
+    assert.strictEqual(priceProp.type, "number");
+    assert.strictEqual(priceProp.isOptional, true);
+    assert.strictEqual(priceProp.docComment, "Optional price label tag format.");
+
+    // 2. Assert autocomplete includes rich documentation for ProductCard
+    const autocompleteCode = `
+      import { WidgetPlaceholder } from "streak-forge/components";
+      const val = <WidgetPlaceholder id="wp1" type="ProductCard" />
+    `;
+    // Simulate completions inside type="ProductCard" value
+    const offset = autocompleteCode.indexOf('type="') + 6;
+    const comps = getCompletions(
+      {
+        text: autocompleteCode,
+        uri: "file:///test/main.tsx",
+        offset,
+        line: 2,
+        character: offset,
+      },
+      TextDocument.create("file:///test/main.tsx", "typescriptreact", 1, autocompleteCode),
+      analyzeAndParseDocument("file:///test/main.tsx", autocompleteCode).sourceFile,
+      tempRoot
+    );
+
+    const compItem = comps.find(c => c.label === "ProductCard");
+    assert.ok(compItem);
+    assert.strictEqual(compItem.detail, "Custom Project Widget");
+    assert.ok(compItem.documentation);
+    const docValue = (compItem.documentation as any).value;
+    assert.ok(docValue.includes("Renders a customizable product item card display."));
+    assert.ok(docValue.includes("title: string"));
+    assert.ok(docValue.includes("price?: number"));
+
+    // 3. Assert Hover over type value resolves custom properties documentation
+    const hoverOffset = autocompleteCode.indexOf("ProductCard");
+    const { sourceFile } = analyzeAndParseDocument("file:///test/main.tsx", autocompleteCode);
+    const hoverNode = sourceFile.getDescendantAtPos(hoverOffset)!;
+    const hoverResult = resolveHover(hoverNode);
+    assert.ok(hoverResult);
+    const hoverVal = (hoverResult.contents as any).value;
+    assert.ok(hoverVal.includes("Renders a customizable product item card display."));
+    assert.ok(hoverVal.includes("title: string"));
+    assert.ok(hoverVal.includes("price?: number"));
+
+    // Clean up
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+    widgetRegistry.clear();
   });
 });
 

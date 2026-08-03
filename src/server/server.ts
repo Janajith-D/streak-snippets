@@ -17,6 +17,9 @@ import { getCompletions } from "./completion/provider";
 import { resolveHover } from "./hover/provider";
 import { resolveDefinition } from "./definition/provider";
 import { resolveCodeActions } from "./codeaction/provider";
+import { scanWorkspace, scanFile } from "./registry/scanner";
+import { Project, ScriptTarget } from "ts-morph";
+import * as path from "path";
 
 // Create a connection for the server, using Node's IPC / stdio communication
 const connection = createConnection(ProposedFeatures.all);
@@ -54,6 +57,9 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
 
 connection.onInitialized(() => {
   connection.console.log("Streak Language Server initialized successfully.");
+  if (workspaceRoot) {
+    scanWorkspace(workspaceRoot);
+  }
 });
 
 connection.onCompletion((params) => {
@@ -130,6 +136,21 @@ async function validateDocument(document: TextDocument): Promise<void> {
   connection.console.log(`[Validation] Running diagnostics for: ${uri}`);
 
   const { analysis, sourceFile } = analyzeAndParseDocument(uri, content);
+
+  try {
+    const filePath = fileURLToPath(uri);
+    if (filePath.includes(path.join("src", "widgets")) || filePath.includes(path.join("src", "components"))) {
+      const scanProject = new Project({
+        compilerOptions: {
+          target: ScriptTarget.ES2022,
+          allowJs: true,
+        },
+      });
+      scanFile(filePath, scanProject);
+    }
+  } catch {
+    // Ignore
+  }
 
   let ruleSeverities: Record<string, string> = {};
   try {
