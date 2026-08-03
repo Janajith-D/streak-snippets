@@ -126,6 +126,24 @@ Pressing `F12` on a dynamic ID string argument inside a client-side call (e.g. `
 
 
 
+### Quick Fixes & Code Actions (LSP Engine)
+
+The extension provides context-aware quick fixes for common validation diagnostics, allowing you to resolve framework convention errors automatically directly from the VS Code editor (via the lightbulb menu or `Ctrl+.` / `Cmd+.`):
+
+#### 1. Missing Required Attributes
+- **`<Script>` Missing ID**: Automatically inserts `id="my-script"`.
+- **`<WidgetPlaceholder>` Missing ID**: Automatically inserts `id="placeholder-id"`.
+- **`<WidgetPlaceholder>` Missing Type**: Automatically inserts `type="WidgetName"`.
+- **`<Dynamic>` Missing ID**: Automatically inserts `id="dynamic-id"`.
+
+#### 2. Synchronous Data Handlers
+- **Make Handler Async**: Adds the `async` keyword at the beginning of synchronous functions and arrow functions declared inside data-handler modules.
+
+#### 3. Missing Default Exports
+- **Add Default Export**: Appends `export default Filename;` at the end of modules lacking a default export.
+
+
+
 ## Extension Settings
 
 Configure rule severities and diagnostics in VS Code settings:
@@ -180,6 +198,10 @@ npm run test           # Run tests
 ---
 
 ## Release Notes
+
+### 0.5.0
+
+- **Quick Fixes & Code Actions (Phase 7)**: Implemented modular code actions provider suggesting automated quick fixes (`Ctrl+.`) for S101, S102, S202, S301, S405, and S501 diagnostics. Offers one-click solutions to insert missing element attributes, make synchronous data handlers async, and append default exports.
 
 ### 0.4.0
 

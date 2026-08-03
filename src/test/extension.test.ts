@@ -26,6 +26,7 @@ import { isInsideLoadDynamicComponent } from "../server/completion/scriptComplet
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { resolveHover } from "../server/hover/provider";
 import { resolveDefinition } from "../server/definition/provider";
+import { resolveCodeActions } from "../server/codeaction/provider";
 
 
 suite("Extension Test Suite", () => {
@@ -715,6 +716,130 @@ suite("Extension Test Suite", () => {
 
     // Clean up
     fs.rmSync(tempRoot, { recursive: true, force: true });
+  });
+
+  test("resolveCodeActions suggestions for missing JSX attributes (S405, S101, S102, S501)", () => {
+    const code = `
+      import { Script, WidgetPlaceholder, Dynamic } from "streak-forge/components";
+      export default function Test() {
+        return (
+          <>
+            <Script>
+              {() => {}}
+            </Script>
+            <WidgetPlaceholder />
+            <Dynamic />
+          </>
+        );
+      }
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/codeActionJsx.tsx", code);
+    const doc = TextDocument.create("file:///test/codeActionJsx.tsx", "typescriptreact", 1, code);
+
+    // 1. Script missing id (S405)
+    const scriptIndex = code.indexOf("<Script>");
+    const scriptPos = doc.positionAt(scriptIndex);
+    const diagS405 = {
+      code: "streak:S405",
+      message: "Missing ID",
+      range: { start: scriptPos, end: scriptPos },
+    } as any;
+
+    const actionsS405 = resolveCodeActions([diagS405], doc, sourceFile);
+    assert.strictEqual(actionsS405.length, 1);
+    assert.strictEqual(actionsS405[0].title, "Add id attribute to <Script>");
+    assert.strictEqual(actionsS405[0].edit?.changes?.["file:///test/codeActionJsx.tsx"]?.[0]?.newText, ' id="my-script"');
+
+    // 2. WidgetPlaceholder missing id (S101)
+    const wpIndex = code.indexOf("<WidgetPlaceholder />");
+    const wpPos = doc.positionAt(wpIndex);
+    const diagS101 = {
+      code: "streak:S101",
+      message: "Missing ID",
+      range: { start: wpPos, end: wpPos },
+    } as any;
+
+    const actionsS101 = resolveCodeActions([diagS101], doc, sourceFile);
+    assert.strictEqual(actionsS101.length, 1);
+    assert.strictEqual(actionsS101[0].title, "Add id attribute to <WidgetPlaceholder>");
+
+    // 3. WidgetPlaceholder missing type (S102)
+    const diagS102 = {
+      code: "streak:S102",
+      message: "Missing Type",
+      range: { start: wpPos, end: wpPos },
+    } as any;
+
+    const actionsS102 = resolveCodeActions([diagS102], doc, sourceFile);
+    assert.strictEqual(actionsS102.length, 1);
+    assert.strictEqual(actionsS102[0].title, "Add type attribute to <WidgetPlaceholder>");
+
+    // 4. Dynamic missing id (S501)
+    const dyIndex = code.indexOf("<Dynamic />");
+    const dyPos = doc.positionAt(dyIndex);
+    const diagS501 = {
+      code: "streak:S501",
+      message: "Missing ID",
+      range: { start: dyPos, end: dyPos },
+    } as any;
+
+    const actionsS501 = resolveCodeActions([diagS501], doc, sourceFile);
+    assert.strictEqual(actionsS501.length, 1);
+    assert.strictEqual(actionsS501[0].title, "Add id attribute to <Dynamic>");
+  });
+
+  test("resolveCodeActions suggestions for non-async data handler (S202)", () => {
+    const code = `
+      export function myHandler() {}
+      export const myArrow = () => {};
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/codeActionAsync.ts", code);
+    const doc = TextDocument.create("file:///test/codeActionAsync.ts", "typescript", 1, code);
+
+    // 1. Function declaration
+    const fnPos = doc.positionAt(code.indexOf("function myHandler"));
+    const diagS202_1 = {
+      code: "streak:S202",
+      message: "Must be async",
+      range: { start: fnPos, end: fnPos },
+    } as any;
+
+    const actionsS202_1 = resolveCodeActions([diagS202_1], doc, sourceFile);
+    assert.strictEqual(actionsS202_1.length, 1);
+    assert.strictEqual(actionsS202_1[0].title, "Make handler async");
+    assert.strictEqual(actionsS202_1[0].edit?.changes?.["file:///test/codeActionAsync.ts"]?.[0]?.newText, "async ");
+
+    // 2. Arrow function
+    const arrowPos = doc.positionAt(code.indexOf("() => {}"));
+    const diagS202_2 = {
+      code: "streak:S202",
+      message: "Must be async",
+      range: { start: arrowPos, end: arrowPos },
+    } as any;
+
+    const actionsS202_2 = resolveCodeActions([diagS202_2], doc, sourceFile);
+    assert.strictEqual(actionsS202_2.length, 1);
+    assert.strictEqual(actionsS202_2[0].title, "Make handler async");
+  });
+
+  test("resolveCodeActions suggestions for missing default export (S301)", () => {
+    const code = `
+      export const myComponent = () => {};
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/AboutData.tsx", code);
+    const doc = TextDocument.create("file:///test/AboutData.tsx", "typescriptreact", 1, code);
+
+    const startPos = doc.positionAt(0);
+    const diagS301 = {
+      code: "streak:S301",
+      message: "Missing default export",
+      range: { start: startPos, end: startPos },
+    } as any;
+
+    const actionsS301 = resolveCodeActions([diagS301], doc, sourceFile);
+    assert.strictEqual(actionsS301.length, 1);
+    assert.strictEqual(actionsS301[0].title, "Add default export for AboutData");
+    assert.ok(actionsS301[0].edit?.changes?.["file:///test/AboutData.tsx"]?.[0]?.newText.includes("export default AboutData;"));
   });
 });
 

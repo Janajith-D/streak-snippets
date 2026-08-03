@@ -16,6 +16,7 @@ import { runRules } from "./rules/runner";
 import { getCompletions } from "./completion/provider";
 import { resolveHover } from "./hover/provider";
 import { resolveDefinition } from "./definition/provider";
+import { resolveCodeActions } from "./codeaction/provider";
 
 // Create a connection for the server, using Node's IPC / stdio communication
 const connection = createConnection(ProposedFeatures.all);
@@ -79,33 +80,13 @@ connection.onCompletion((params) => {
 });
 
 connection.onCodeAction((params) => {
-  const codeActions: CodeAction[] = [];
-  const diagnostics = params.context.diagnostics;
-
-  for (const diag of diagnostics) {
-    if (diag.code === "streak:S405") {
-      codeActions.push({
-        title: "Add id attribute",
-        kind: CodeActionKind.QuickFix,
-        diagnostics: [diag],
-        edit: {
-          changes: {
-            [params.textDocument.uri]: [
-              {
-                range: {
-                  start: { line: diag.range.start.line, character: diag.range.start.character + 7 },
-                  end: { line: diag.range.start.line, character: diag.range.start.character + 7 },
-                },
-                newText: ' id="my-script"',
-              },
-            ],
-          },
-        },
-      });
-    }
+  const uri = params.textDocument.uri;
+  const document = documents.get(uri);
+  if (!document) {
+    return [];
   }
-
-  return codeActions;
+  const { sourceFile } = analyzeAndParseDocument(uri, document.getText());
+  return resolveCodeActions(params.context.diagnostics, document, sourceFile);
 });
 
 connection.onHover((params): Hover | null => {

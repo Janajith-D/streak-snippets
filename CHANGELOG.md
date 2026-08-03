@@ -5,6 +5,15 @@ All notable changes to the "streak-snippets" extension will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-08-03
+
+### Added
+- **Quick Fixes & Code Actions (Phase 7)**: Implemented code action provider `resolveCodeActions` suggesting quick fixes (`Ctrl+.`) for common diagnostics:
+  - Add missing `id` attribute on `<Script />`, `<WidgetPlaceholder />`, and `<Dynamic />` tags.
+  - Add missing `type` attribute on `<WidgetPlaceholder />`.
+  - Make synchronous data handlers `async` automatically.
+  - Append missing default exports statement based on filename at the end of files.
+
 ## [0.4.0] - 2026-07-30
 
 ### Added
