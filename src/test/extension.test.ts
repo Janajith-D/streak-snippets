@@ -24,6 +24,9 @@ import { getJsxContext } from "../server/completion/jsxAttributeCompletions";
 import { getAutoImportEdit } from "../server/completion/frameworkCompletions";
 import { isInsideLoadDynamicComponent } from "../server/completion/scriptCompletions";
 import { TextDocument } from "vscode-languageserver-textdocument";
+import { resolveHover } from "../server/hover/provider";
+import { resolveDefinition } from "../server/definition/provider";
+import { resolveCodeActions } from "../server/codeaction/provider";
 
 
 suite("Extension Test Suite", () => {
@@ -551,6 +554,292 @@ suite("Extension Test Suite", () => {
     assert.ok(sfWidItem.insertText?.includes("const HelloPager = () => {};"), "sfWid should expand to HelloPager definition");
     assert.ok(sfWidEItem.insertText?.includes("type HelloPagerProps = {"), "sfWidE should define HelloPagerProps");
     assert.ok(sfWidEItem.insertText?.includes("const HelloPager = (props: HelloPagerProps) => {"), "sfWidE should define HelloPager with props");
+  });
+
+  test("resolveHover displays markdown documentation for built-in components", () => {
+    const code = `
+      import { WidgetPlaceholder, Preload, Dynamic, Script } from "streak-forge/components";
+      export default function Test() {
+        return (
+          <>
+            <WidgetPlaceholder id="widget" type="Hello" />
+            <Preload href="/a.css" as="style" />
+            <Dynamic id="panel" />
+            <Script id="scr">
+              {(gDom) => {
+                gDom.loadDynamicComponent("my-panel");
+              }}
+            </Script>
+          </>
+        );
+      }
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/hoverComp.tsx", code);
+
+    // 1. Test WidgetPlaceholder
+    const wpNode = sourceFile.getDescendantAtPos(code.indexOf("<WidgetPlaceholder") + 1)!;
+    const wpResult = resolveHover(wpNode) as any;
+    assert.ok(wpResult);
+    assert.ok(wpResult.contents.value.includes("Streak `<WidgetPlaceholder>` Component"));
+
+    // 2. Test Preload
+    const preNode = sourceFile.getDescendantAtPos(code.indexOf("<Preload") + 1)!;
+    const preResult = resolveHover(preNode) as any;
+    assert.ok(preResult);
+    assert.ok(preResult.contents.value.includes("Streak `<Preload>` Component"));
+
+    // 3. Test Dynamic
+    const dyNode = sourceFile.getDescendantAtPos(code.indexOf("<Dynamic") + 1)!;
+    const dyResult = resolveHover(dyNode) as any;
+    assert.ok(dyResult);
+    assert.ok(dyResult.contents.value.includes("Streak `<Dynamic>` Component"));
+
+    // 4. Test Script
+    const scNode = sourceFile.getDescendantAtPos(code.indexOf("<Script") + 1)!;
+    const scResult = resolveHover(scNode) as any;
+    assert.ok(scResult);
+    assert.ok(scResult.contents.value.includes("Streak `<Script>` Component"));
+  });
+
+  test("resolveHover displays documentation for tag attributes and gDom methods", () => {
+    const code = `
+      import { WidgetPlaceholder, Preload } from "streak-forge/components";
+      export default function Test() {
+        return (
+          <>
+            <WidgetPlaceholder id="widget-id" type="Banner" />
+            <Preload href="/style.css" as="style" />
+            <Script id="s1" options={{ color: "red" }}>
+              {(gDom) => {
+                gDom.loadDynamicComponent("my-panel");
+              }}
+            </Script>
+          </>
+        );
+      }
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/hoverAttr.tsx", code);
+
+    // 1. Test WidgetPlaceholder type attribute
+    const typeOffset = code.indexOf('type="Banner"') + 1;
+    const typeNode = sourceFile.getDescendantAtPos(typeOffset)!;
+    const typeResult = resolveHover(typeNode) as any;
+    assert.ok(typeResult);
+    assert.ok(typeResult.contents.value.includes("The widget name matching a file"));
+
+    // 2. Test Preload href attribute
+    const hrefOffset = code.indexOf('href="/style.css"') + 1;
+    const hrefNode = sourceFile.getDescendantAtPos(hrefOffset)!;
+    const hrefResult = resolveHover(hrefNode) as any;
+    assert.ok(hrefResult);
+    assert.ok(hrefResult.contents.value.includes("The path to the static asset"));
+
+    // 3. Test Preload as attribute
+    const asOffset = code.indexOf('as="style"') + 1;
+    const asNode = sourceFile.getDescendantAtPos(asOffset)!;
+    const asResult = resolveHover(asNode) as any;
+    assert.ok(asResult);
+    assert.ok(asResult.contents.value.includes("The resource classification"));
+
+    // 4. Test gDom.loadDynamicComponent method
+    const gdomOffset = code.indexOf("loadDynamicComponent");
+    const gdomNode = sourceFile.getDescendantAtPos(gdomOffset)!;
+    const gdomResult = resolveHover(gdomNode) as any;
+    assert.ok(gdomResult);
+    assert.ok(gdomResult.contents.value.includes("loadDynamicComponent"));
+  });
+
+  test("resolveDefinition resolves WidgetPlaceholder, Preload, and Dynamic definitions", () => {
+    const fs = require("fs");
+    const path = require("path");
+
+    const tempRoot = path.join(__dirname, "test-workspace-temp");
+    if (!fs.existsSync(tempRoot)) {
+      fs.mkdirSync(tempRoot, { recursive: true });
+    }
+
+    const widgetsDir = path.join(tempRoot, "src", "widgets");
+    fs.mkdirSync(widgetsDir, { recursive: true });
+    const widgetFilePath = path.join(widgetsDir, "HomeBanner.tsx");
+    fs.writeFileSync(widgetFilePath, `
+      import { Dynamic } from "streak-forge/components";
+      export default function HomeBanner() {
+        return <Dynamic id="HomeLander" />;
+      }
+    `, "utf-8");
+
+    const publicDir = path.join(tempRoot, "public", "styles");
+    fs.mkdirSync(publicDir, { recursive: true });
+    const preloadFilePath = path.join(publicDir, "main.css");
+    fs.writeFileSync(preloadFilePath, "body { color: red; }", "utf-8");
+
+    const code = `
+      import { WidgetPlaceholder, Preload, Script } from "streak-forge/components";
+      export default function Test() {
+        return (
+          <>
+            <WidgetPlaceholder id="w1" type="HomeBanner" />
+            <Preload href="/styles/main.css" as="style" />
+            <Script id="scr">
+              {(gDom) => {
+                gDom.loadDynamicComponent("HomeLander");
+              }}
+            </Script>
+          </>
+        );
+      }
+    `;
+
+    const { sourceFile } = analyzeAndParseDocument("file:///test/defTest.tsx", code);
+
+    // 1. Test WidgetPlaceholder type
+    const typeOffset = code.indexOf("HomeBanner");
+    const typeNode = sourceFile.getDescendantAtPos(typeOffset)!;
+    const typeLoc = resolveDefinition(typeNode, tempRoot);
+    assert.ok(typeLoc);
+    assert.ok(typeLoc.uri.includes("HomeBanner.tsx"));
+
+    // 2. Test Preload href
+    const hrefOffset = code.indexOf("/styles/main.css");
+    const hrefNode = sourceFile.getDescendantAtPos(hrefOffset)!;
+    const hrefLoc = resolveDefinition(hrefNode, tempRoot);
+    assert.ok(hrefLoc);
+    assert.ok(hrefLoc.uri.includes("main.css"));
+
+    // 3. Test loadDynamicComponent parameter
+    const idOffset = code.indexOf("HomeLander");
+    const idNode = sourceFile.getDescendantAtPos(idOffset)!;
+    const idLoc = resolveDefinition(idNode, tempRoot);
+    assert.ok(idLoc);
+    assert.ok(idLoc.uri.includes("HomeBanner.tsx"));
+    assert.strictEqual(idLoc.range.start.line, 3); // <Dynamic id="HomeLander" /> is on line 3 (0-indexed)
+
+    // Clean up
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  });
+
+  test("resolveCodeActions suggestions for missing JSX attributes (S405, S101, S102, S501)", () => {
+    const code = `
+      import { Script, WidgetPlaceholder, Dynamic } from "streak-forge/components";
+      export default function Test() {
+        return (
+          <>
+            <Script>
+              {() => {}}
+            </Script>
+            <WidgetPlaceholder />
+            <Dynamic />
+          </>
+        );
+      }
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/codeActionJsx.tsx", code);
+    const doc = TextDocument.create("file:///test/codeActionJsx.tsx", "typescriptreact", 1, code);
+
+    // 1. Script missing id (S405)
+    const scriptIndex = code.indexOf("<Script>");
+    const scriptPos = doc.positionAt(scriptIndex);
+    const diagS405 = {
+      code: "streak:S405",
+      message: "Missing ID",
+      range: { start: scriptPos, end: scriptPos },
+    } as any;
+
+    const actionsS405 = resolveCodeActions([diagS405], doc, sourceFile);
+    assert.strictEqual(actionsS405.length, 1);
+    assert.strictEqual(actionsS405[0].title, "Add id attribute to <Script>");
+    assert.strictEqual(actionsS405[0].edit?.changes?.["file:///test/codeActionJsx.tsx"]?.[0]?.newText, ' id="my-script"');
+
+    // 2. WidgetPlaceholder missing id (S101)
+    const wpIndex = code.indexOf("<WidgetPlaceholder />");
+    const wpPos = doc.positionAt(wpIndex);
+    const diagS101 = {
+      code: "streak:S101",
+      message: "Missing ID",
+      range: { start: wpPos, end: wpPos },
+    } as any;
+
+    const actionsS101 = resolveCodeActions([diagS101], doc, sourceFile);
+    assert.strictEqual(actionsS101.length, 1);
+    assert.strictEqual(actionsS101[0].title, "Add id attribute to <WidgetPlaceholder>");
+
+    // 3. WidgetPlaceholder missing type (S102)
+    const diagS102 = {
+      code: "streak:S102",
+      message: "Missing Type",
+      range: { start: wpPos, end: wpPos },
+    } as any;
+
+    const actionsS102 = resolveCodeActions([diagS102], doc, sourceFile);
+    assert.strictEqual(actionsS102.length, 1);
+    assert.strictEqual(actionsS102[0].title, "Add type attribute to <WidgetPlaceholder>");
+
+    // 4. Dynamic missing id (S501)
+    const dyIndex = code.indexOf("<Dynamic />");
+    const dyPos = doc.positionAt(dyIndex);
+    const diagS501 = {
+      code: "streak:S501",
+      message: "Missing ID",
+      range: { start: dyPos, end: dyPos },
+    } as any;
+
+    const actionsS501 = resolveCodeActions([diagS501], doc, sourceFile);
+    assert.strictEqual(actionsS501.length, 1);
+    assert.strictEqual(actionsS501[0].title, "Add id attribute to <Dynamic>");
+  });
+
+  test("resolveCodeActions suggestions for non-async data handler (S202)", () => {
+    const code = `
+      export function myHandler() {}
+      export const myArrow = () => {};
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/codeActionAsync.ts", code);
+    const doc = TextDocument.create("file:///test/codeActionAsync.ts", "typescript", 1, code);
+
+    // 1. Function declaration
+    const fnPos = doc.positionAt(code.indexOf("function myHandler"));
+    const diagS202_1 = {
+      code: "streak:S202",
+      message: "Must be async",
+      range: { start: fnPos, end: fnPos },
+    } as any;
+
+    const actionsS202_1 = resolveCodeActions([diagS202_1], doc, sourceFile);
+    assert.strictEqual(actionsS202_1.length, 1);
+    assert.strictEqual(actionsS202_1[0].title, "Make handler async");
+    assert.strictEqual(actionsS202_1[0].edit?.changes?.["file:///test/codeActionAsync.ts"]?.[0]?.newText, "async ");
+
+    // 2. Arrow function
+    const arrowPos = doc.positionAt(code.indexOf("() => {}"));
+    const diagS202_2 = {
+      code: "streak:S202",
+      message: "Must be async",
+      range: { start: arrowPos, end: arrowPos },
+    } as any;
+
+    const actionsS202_2 = resolveCodeActions([diagS202_2], doc, sourceFile);
+    assert.strictEqual(actionsS202_2.length, 1);
+    assert.strictEqual(actionsS202_2[0].title, "Make handler async");
+  });
+
+  test("resolveCodeActions suggestions for missing default export (S301)", () => {
+    const code = `
+      export const myComponent = () => {};
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/AboutData.tsx", code);
+    const doc = TextDocument.create("file:///test/AboutData.tsx", "typescriptreact", 1, code);
+
+    const startPos = doc.positionAt(0);
+    const diagS301 = {
+      code: "streak:S301",
+      message: "Missing default export",
+      range: { start: startPos, end: startPos },
+    } as any;
+
+    const actionsS301 = resolveCodeActions([diagS301], doc, sourceFile);
+    assert.strictEqual(actionsS301.length, 1);
+    assert.strictEqual(actionsS301[0].title, "Add default export for AboutData");
+    assert.ok(actionsS301[0].edit?.changes?.["file:///test/AboutData.tsx"]?.[0]?.newText.includes("export default AboutData;"));
   });
 });
 

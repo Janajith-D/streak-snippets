@@ -11,11 +11,12 @@ import {
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { fileURLToPath } from "url";
-import { Node } from "ts-morph";
 import { analyzeAndParseDocument } from "./parser/analyzer";
 import { runRules } from "./rules/runner";
 import { getCompletions } from "./completion/provider";
-import { GDOM_METHODS } from "./completion/runtimeApi";
+import { resolveHover } from "./hover/provider";
+import { resolveDefinition } from "./definition/provider";
+import { resolveCodeActions } from "./codeaction/provider";
 
 // Create a connection for the server, using Node's IPC / stdio communication
 const connection = createConnection(ProposedFeatures.all);
@@ -46,6 +47,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       },
       codeActionProvider: true,
       hoverProvider: true,
+      definitionProvider: true,
     },
   };
 });
@@ -78,33 +80,13 @@ connection.onCompletion((params) => {
 });
 
 connection.onCodeAction((params) => {
-  const codeActions: CodeAction[] = [];
-  const diagnostics = params.context.diagnostics;
-
-  for (const diag of diagnostics) {
-    if (diag.code === "streak:S405") {
-      codeActions.push({
-        title: "Add id attribute",
-        kind: CodeActionKind.QuickFix,
-        diagnostics: [diag],
-        edit: {
-          changes: {
-            [params.textDocument.uri]: [
-              {
-                range: {
-                  start: { line: diag.range.start.line, character: diag.range.start.character + 7 },
-                  end: { line: diag.range.start.line, character: diag.range.start.character + 7 },
-                },
-                newText: ' id="my-script"',
-              },
-            ],
-          },
-        },
-      });
-    }
+  const uri = params.textDocument.uri;
+  const document = documents.get(uri);
+  if (!document) {
+    return [];
   }
-
-  return codeActions;
+  const { sourceFile } = analyzeAndParseDocument(uri, document.getText());
+  return resolveCodeActions(params.context.diagnostics, document, sourceFile);
 });
 
 connection.onHover((params): Hover | null => {
@@ -121,55 +103,24 @@ connection.onHover((params): Hover | null => {
     return null;
   }
 
-  // Case 1: Hovering over Script tag name
-  if (Node.isIdentifier(node) && node.getText() === "Script") {
-    const parent = node.getParent();
-    if (
-      parent &&
-      (Node.isJsxOpeningElement(parent) ||
-        Node.isJsxClosingElement(parent) ||
-        Node.isJsxSelfClosingElement(parent))
-    ) {
-      return {
-        contents: {
-          kind: "markdown",
-          value: [
-            "**Streak `<Script>` Component**",
-            "---",
-            "Executes client-side script code with direct access to the DOM node via `gDom`.",
-            "",
-            "*Requires an `id` attribute.*",
-          ].join("\n"),
-        },
-      };
-    }
+  return resolveHover(node);
+});
+
+connection.onDefinition((params) => {
+  const uri = params.textDocument.uri;
+  const document = documents.get(uri);
+  if (!document) {
+    return null;
+  }
+  const offset = document.offsetAt(params.position);
+  const { sourceFile } = analyzeAndParseDocument(uri, document.getText());
+
+  const node = sourceFile.getDescendantAtPos(offset);
+  if (!node) {
+    return null;
   }
 
-  // Case 2: Hovering over gDom methods
-  if (Node.isIdentifier(node)) {
-    const parent = node.getParent();
-    if (parent && Node.isPropertyAccessExpression(parent)) {
-      const expression = parent.getExpression();
-      if (expression.getText() === "gDom") {
-        const methodName = node.getText();
-        const method = GDOM_METHODS.find((m) => m.name === methodName);
-        if (method) {
-          return {
-            contents: {
-              kind: "markdown",
-              value: [
-                `\`\`\`typescript\n${method.signature}: ${method.returnType}\n\`\`\n`,
-                "---",
-                method.documentation,
-              ].join("\n"),
-            },
-          };
-        }
-      }
-    }
-  }
-
-  return null;
+  return resolveDefinition(node, workspaceRoot);
 });
 
 async function validateDocument(document: TextDocument): Promise<void> {

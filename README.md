@@ -86,6 +86,63 @@ The autocomplete engine reads your project files and assets to suggest values:
 - **`gDom.loadDynamicComponent("...")`**: Auto-suggests valid dynamic component IDs registered inside your workspace.
 
 
+### Hover Help & Documentation (LSP Engine)
+
+The extension includes a context-aware Language Server Protocol (LSP) hover documentation provider that exposes markdown descriptions and code examples without requiring developer context switches:
+
+#### 1. Component Hover Tooltips
+Hovering over the opening/closing tag name of any built-in Streak component reveals its details:
+- **`<WidgetPlaceholder />`**: Specifies widget rendering placeholders, detailing required attributes (`id`, `type`) and compliant code examples.
+- **`<Preload />`**: Specifies static assets build-time preloading instructions, outlining required attributes (`href`, `as`) and responsive query structures.
+- **`<Dynamic />`**: Details dynamically injected client-side component blocks.
+- **`<Script />`**: Explains client-side scripting hooks, inline execution limits, options schemas, and signatures.
+
+#### 2. Attribute Descriptions
+Hovering over any supported JSX attribute on built-in elements reveals its purpose and required format:
+- **`type` on `<WidgetPlaceholder />`**: Maps case-sensitively to a file under `src/widgets/`.
+- **`href` on `<Preload />`**: Scopes to a static file inside the project `public/` folder.
+- **`as` on `<Preload />`**: Allocates preload priority based on standard media types.
+- **`options` on `<Script />`**: Forwards data to the browser execution thread callback.
+
+#### 3. Client API Documentation
+Hovering over `gDom` methods (like `loadDynamicComponent`, `getElement`, `updateOptions`) shows signatures, return types, and descriptions of client-side DOM scripting interfaces.
+
+
+### Go to Definition & Navigation (LSP Engine)
+
+The extension includes a context-aware definition provider that allows developers to jump directly to referenced code files, static assets, or components using VS Code's native **Go to Definition** (`F12`) action:
+
+#### 1. Widget Navigation
+Pressing `F12` on the `type` attribute value (e.g. `"HelloBanner"`) of a `<WidgetPlaceholder type="HelloBanner" />` automatically opens the corresponding widget source file inside your workspace:
+- Scans `src/widgets/HelloBanner.tsx` (or `.ts`, `.jsx`, `.js`).
+
+#### 2. Static Asset Navigation
+Pressing `F12` on the `href` attribute value of a `<Preload href="/styles/main.css" />` automatically resolves the asset relative to the project static directory and opens the file:
+- Scans `<workspaceRoot>/public/styles/main.css`.
+
+#### 3. Dynamic Component Declared Jump
+Pressing `F12` on a dynamic ID string argument inside a client-side call (e.g. `gDom.loadDynamicComponent("HomeLander")`) scans your workspace source files and jumps to the exact declaration point of the dynamic block:
+- Resolves the exact line and position of the matching `<Dynamic id="HomeLander">` JSX tag.
+
+
+
+### Quick Fixes & Code Actions (LSP Engine)
+
+The extension provides context-aware quick fixes for common validation diagnostics, allowing you to resolve framework convention errors automatically directly from the VS Code editor (via the lightbulb menu or `Ctrl+.` / `Cmd+.`):
+
+#### 1. Missing Required Attributes
+- **`<Script>` Missing ID**: Automatically inserts `id="my-script"`.
+- **`<WidgetPlaceholder>` Missing ID**: Automatically inserts `id="placeholder-id"`.
+- **`<WidgetPlaceholder>` Missing Type**: Automatically inserts `type="WidgetName"`.
+- **`<Dynamic>` Missing ID**: Automatically inserts `id="dynamic-id"`.
+
+#### 2. Synchronous Data Handlers
+- **Make Handler Async**: Adds the `async` keyword at the beginning of synchronous functions and arrow functions declared inside data-handler modules.
+
+#### 3. Missing Default Exports
+- **Add Default Export**: Appends `export default Filename;` at the end of modules lacking a default export.
+
+
 
 ## Extension Settings
 
@@ -141,6 +198,18 @@ npm run test           # Run tests
 ---
 
 ## Release Notes
+
+### 0.5.0
+
+- **Quick Fixes & Code Actions (Phase 7)**: Implemented modular code actions provider suggesting automated quick fixes (`Ctrl+.`) for S101, S102, S202, S301, S405, and S501 diagnostics. Offers one-click solutions to insert missing element attributes, make synchronous data handlers async, and append default exports.
+
+### 0.4.0
+
+- **Go to Definition & Navigation (Phase 6)**: Developed a context-aware definition provider supporting quick F12 code jumps from `<WidgetPlaceholder type="...">` to matching widget components, `<Preload href="...">` to local static files in `/public`, and dynamic script callers (e.g. `gDom.loadDynamicComponent("...")`) directly to `<Dynamic id="...">` tags.
+
+### 0.3.0
+
+- **Hover Help & Documentation (Phase 5)**: Complete hover provider for all built-in Streak components (`<WidgetPlaceholder />`, `<Preload />`, `<Dynamic />`, `<Script />`) and their JSX attributes (`id`, `type`, `href`, `as`, `options`), rendering detailed markdown documentations and usage guides.
 
 ### 0.2.0
 
