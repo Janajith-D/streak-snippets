@@ -54,7 +54,7 @@ The extension includes a Language Server Protocol (LSP) analysis engine that par
 | `streak:S405` | Script Component | Warning | Script component requires a non-empty `id` attribute |
 | `streak:S501` | Dynamic Component | Error | Missing or empty `id` attribute on `<Dynamic>` |
 
-> For detailed descriptions, rationale, and ❌/✅ code examples for every rule, refer to the [Rule Catalog (`RULES.md`)](file:///c:/Streak/lang-extension/streak-snippets/RULES.md).
+> For detailed descriptions, rationale, and ❌/✅ code examples for every rule, refer to the [Rule Catalog (`RULES.md`)](RULES.md).
 
 ---
 
@@ -188,107 +188,14 @@ Configure rule severities and diagnostics in VS Code settings:
 
 ---
 
-## Installation
-
-1. Clone this repository
-2. Run `npm install`
-3. Press `F5` in VS Code to launch the Extension Development Host
-4. Open a `.ts` or `.tsx` file and start typing a snippet prefix or view live diagnostics in the **Problems** panel
-
----
-
-## Development
-
-```bash
-npm run compile        # Build client & server with webpack
-npm run watch          # Watch mode
-npm run lint           # Run ESLint
-npm run compile-tests  # Compile tests
-npm run test           # Run tests
-```
-
----
-
-## Requirements
-
-- VS Code `^1.107.0`
-- Node.js 18+
-
----
-
 ## Release Notes
 
-### 1.1.0
+For a full list of changes across releases, see our [Changelog](CHANGELOG.md).
 
-- **Hardening & Quality Audit (Phase 13)**: Hardening release:
-  - Refactored `getJsxAttributeCompletions` to resolve SonarQube Cognitive Complexity concerns.
-  - Upgraded core library imports to modern `node:` namespace prefixes.
-  - Fixed packaging error by registering Git repository metadata in `package.json`.
+---
 
-### 1.0.0
+## Contributing
 
-- **Production Release & Maintenance (Phase 12)**: Production bundle release:
-  - Configured project guidelines `CONTRIBUTING.md`.
-  - Added GitHub issue templates for Bug Reports and Feature Requests.
-  - Verified clean builds, styling, unit/integration testing, and packaging parameters.
+For guidelines on setup, locally running, compiling, and testing, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-### 0.9.0
 
-- **Developer Experience Features (Phase 11)**: Polished workflow integration:
-  - **VS Code Status Bar**: Shows real-time LSP server connection and the count of widgets indexed in the workspace registry.
-  - **Widget Scaffolder Command**: Prompts for a widget name, verifies naming standards, scaffolds target file inside configured directory, and opens it automatically.
-
-### 0.8.0
-
-- **Configuration & Extensibility (Phase 10)**: Introduced workspace options enabling teams to customize folders structures, import boundaries, and codebase standards:
-  - `streak.snippets.widgetDirectory`, `pageDirectory`, and `publicDirectory` options.
-  - `streak:S701` (Import Whitelisting): Ensures files only import approved modules from `streak.rules.allowedImports`.
-  - `streak:S702` (Forbidden Patterns): Scans source code against regex patterns specified in `streak.rules.forbiddenPatterns`.
-
-### 0.7.0
-
-- **Advanced Static Analysis (Phase 9)**: Expanded the validation engine with 3 new rules:
-  - `streak:S601` (Duplicated Widget Names): Flags component name collisions in `src/widgets/`.
-  - `streak:S602` (Component Nesting): Validates component nesting boundaries (no nested `<Script>` blocks, no `<WidgetPlaceholder>` inside scripts).
-  - `streak:S603` (Script Structure): Enforces single JSX expression wrapping an execution callback child on `<Script>`.
-
-### 0.6.0
-
-- **Workspace Widget Registry & Suggestions (Phase 8)**: Implemented an AST-based workspace scanner and registry matching components under `src/widgets/` and `src/components/`. Resolves their JSDoc headers and typed props to display rich markdown autocomplete summaries and properties lists on hovers.
-
-### 0.5.0
-
-- **Quick Fixes & Code Actions (Phase 7)**: Implemented modular code actions provider suggesting automated quick fixes (`Ctrl+.`) for S101, S102, S202, S301, S405, and S501 diagnostics. Offers one-click solutions to insert missing element attributes, make synchronous data handlers async, and append default exports.
-
-### 0.4.0
-
-- **Go to Definition & Navigation (Phase 6)**: Developed a context-aware definition provider supporting quick F12 code jumps from `<WidgetPlaceholder type="...">` to matching widget components, `<Preload href="...">` to local static files in `/public`, and dynamic script callers (e.g. `gDom.loadDynamicComponent("...")`) directly to `<Dynamic id="...">` tags.
-
-### 0.3.0
-
-- **Hover Help & Documentation (Phase 5)**: Complete hover provider for all built-in Streak components (`<WidgetPlaceholder />`, `<Preload />`, `<Dynamic />`, `<Script />`) and their JSX attributes (`id`, `type`, `href`, `as`, `options`), rendering detailed markdown documentations and usage guides.
-
-### 0.2.0
-
-- **Streak `<Script />` Component Support**: Full autocomplete, auto-imports merging formatting, required ID validation check (`streak:S405`) and quick fix, `gDom` methods completion suggestions inside callback functions, and rich hover documentation.
-- **Dynamic Widget Scaffolding Snippets**: Scoped `sfWid` and `sfWidE` autocomplete suggestions to `widgets/` folders, dynamically resolving the component name based on the file name.
-
-### 0.1.1
-
-- **Removed Features**: Removed the custom commands `Streak: Show Snippet List` and `Streak: Create Component` along with their associated configuration options (`streak.snippets.pageDirectory`, `streak.snippets.componentDirectory`, `streak.snippets.widgetDirectory`) to simplify extension focus.
-
-### 0.1.0
-
-- **Autocomplete Engine (Phase 4)**: Context-aware suggestions for Streak Forge components (`WidgetPlaceholder`, `Script`, `Preload`, `Dynamic`).
-- **Auto-Imports Insertion**: Smart `additionalTextEdits` insertion and merging for components from `"streak-forge/components"`.
-- **Dynamic Attribute Completion**: Project scanning to suggest file paths from `/public` for `<Preload href="...">`, widget types from `src/widgets/` for `<WidgetPlaceholder type="...">`, and registry of dynamic component IDs.
-- **Diagnostics Refactoring**: Standardized rule AST traversal and removed `any` typing to resolve code quality issues.
-
-### 0.0.1
-
-- **Snippets**: Streak Forge import shortcuts (`imWP`, `imS`, `imPre`, `imDy`), JSX scaffolds (`sfWp`, `sfPre`), and Data Handler template (`sfDH`).
-- **Commands**: `Streak: Show Snippet List` quick-pick menu and `Streak: Create Component` interactive scaffolding command.
-- **Language Server Protocol (LSP)**: Client/Server architecture split with real-time `ts-morph` AST analysis engine.
-- **Diagnostics Engine**: SonarQube-style framework validation emitting 13 diagnostic rules (`streak:S101` to `streak:S501`) directly to VS Code's Problems panel.
-- **Rule Documentation Catalog**: Complete SonarQube-style documentation in [`RULES.md`](file:///c:/Streak/lang-extension/streak-snippets/RULES.md).
-- **Workspace Settings**: Granular configuration options for rule severities (`streak.rules.*.severity`) and master diagnostic toggle (`streak.diagnostics.enable`).
