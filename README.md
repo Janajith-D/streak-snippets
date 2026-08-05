@@ -218,6 +218,12 @@ npm run test           # Run tests
 
 ## Release Notes
 
+### 0.9.0
+
+- **Developer Experience Features (Phase 11)**: Polished workflow integration:
+  - **VS Code Status Bar**: Shows real-time LSP server connection and the count of widgets indexed in the workspace registry.
+  - **Widget Scaffolder Command**: Prompts for a widget name, verifies naming standards, scaffolds target file inside configured directory, and opens it automatically.
+
 ### 0.8.0
 
 - **Configuration & Extensibility (Phase 10)**: Introduced workspace options enabling teams to customize folders structures, import boundaries, and codebase standards:

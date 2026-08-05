@@ -2,7 +2,7 @@
   "name": "streak-snippets",
   "displayName": "Streak Snippets",
   "description": "Snippets, commands, and developer productivity tools for the Streak.js React framework",
-  "version": "0.7.0",
+  "version": "0.9.0",
   "engines": {
     "vscode": "^1.107.0"
   },
@@ -12,10 +12,18 @@
   ],
   "activationEvents": [
     "onLanguage:typescript",
-    "onLanguage:typescriptreact"
+    "onLanguage:typescriptreact",
+    "onCommand:streak.createWidget"
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "streak.createWidget",
+        "title": "Create New Widget Component",
+        "category": "Streak"
+      }
+    ],
     "snippets": [
       {
         "language": "typescript",

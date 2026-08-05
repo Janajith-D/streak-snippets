@@ -1092,5 +1092,49 @@ suite("Extension Test Suite", () => {
     assert.strictEqual(diags[1].code, "streak:S702");
     assert.ok(diags[1].message.includes("setTimeout\\("));
   });
+
+  test("streak.createWidget command is registered and scaffolds a widget file", async () => {
+    process.env.STREAK_TEST_ENVIRONMENT = "1";
+    const originalShowInputBox = vscode.window.showInputBox;
+    (vscode.window as any).showInputBox = async () => "MyScaffoldedWidget";
+
+    const tempDir = path.join(__dirname, "..", "..", "test-scaffold-temp");
+    const fs = require("fs");
+    fs.mkdirSync(tempDir, { recursive: true });
+
+    const originalWorkspaceFolders = vscode.workspace.workspaceFolders;
+    Object.defineProperty(vscode.workspace, "workspaceFolders", {
+      get: () => [{
+        uri: vscode.Uri.file(tempDir),
+        name: "test-workspace",
+        index: 0
+      }],
+      configurable: true
+    });
+
+    const targetDir = path.join(tempDir, "src", "widgets");
+    const testFile = path.join(targetDir, "MyScaffoldedWidget.tsx");
+    if (fs.existsSync(testFile)) {
+      fs.rmSync(testFile);
+    }
+
+    try {
+      await vscode.commands.executeCommand("streak.createWidget");
+
+      assert.ok(fs.existsSync(testFile));
+      const content = fs.readFileSync(testFile, "utf-8");
+      assert.ok(content.includes("const MyScaffoldedWidget = (props: MyScaffoldedWidgetProps) => {"));
+    } finally {
+      delete process.env.STREAK_TEST_ENVIRONMENT;
+      if (fs.existsSync(testFile)) {
+        fs.rmSync(testFile);
+      }
+      vscode.window.showInputBox = originalShowInputBox;
+      Object.defineProperty(vscode.workspace, "workspaceFolders", {
+        get: () => originalWorkspaceFolders,
+        configurable: true
+      });
+    }
+  });
 });
 

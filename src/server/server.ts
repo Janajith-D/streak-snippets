@@ -59,6 +59,8 @@ connection.onInitialized(() => {
   connection.console.log("Streak Language Server initialized successfully.");
   if (workspaceRoot) {
     scanWorkspace(workspaceRoot);
+    const { widgetRegistry } = require("./registry/widgets");
+    connection.sendNotification("streak/didIndexWidgets", { count: widgetRegistry.getAll().length });
   }
 });
 
@@ -147,6 +149,8 @@ async function validateDocument(document: TextDocument): Promise<void> {
         },
       });
       scanFile(filePath, scanProject);
+      const { widgetRegistry } = require("./registry/widgets");
+      connection.sendNotification("streak/didIndexWidgets", { count: widgetRegistry.getAll().length });
     }
   } catch {
     // Ignore
