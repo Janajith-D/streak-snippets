@@ -3,10 +3,18 @@ import * as path from "path";
 import * as fs from "fs";
 import { widgetRegistry, WidgetProp } from "./widgets";
 
-export function scanFile(filePath: string, project: Project): void {
+// Single shared compiler project instance to avoid redundant instantiation overhead
+const scanProject = new Project({
+  compilerOptions: {
+    target: ScriptTarget.ES2022,
+    allowJs: true,
+  },
+});
+
+export async function scanFile(filePath: string): Promise<void> {
   try {
-    const content = fs.readFileSync(filePath, "utf-8");
-    const sourceFile = project.createSourceFile(filePath + ".temp.tsx", content, { overwrite: true });
+    const content = await fs.promises.readFile(filePath, "utf-8");
+    const sourceFile = scanProject.createSourceFile(filePath + ".temp.tsx", content, { overwrite: true });
 
     let componentName = "";
     let componentNode: Node | undefined;
@@ -156,40 +164,35 @@ export function scanFile(filePath: string, project: Project): void {
   }
 }
 
-export function scanWorkspace(workspaceRoot: string): void {
-  const project = new Project({
-    compilerOptions: {
-      target: ScriptTarget.ES2022,
-      allowJs: true,
-    },
-  });
+export async function scanWorkspace(workspaceRoot: string, customWidgetDir?: string): Promise<void> {
+  const resolvedWidgetDir = customWidgetDir 
+    ? path.join(workspaceRoot, customWidgetDir)
+    : path.join(workspaceRoot, "src", "widgets");
+  const fallbackWidgetDir = path.join(workspaceRoot, "src", "components");
 
-  const dirs = [
-    path.join(workspaceRoot, "src", "widgets"),
-    path.join(workspaceRoot, "src", "components"),
-  ];
+  const dirs = [resolvedWidgetDir, fallbackWidgetDir];
 
   widgetRegistry.clear();
 
   for (const dir of dirs) {
     if (fs.existsSync(dir)) {
-      const files = findFilesRecursive(dir);
+      const files = await findFilesRecursive(dir);
       for (const file of files) {
-        scanFile(file, project);
+        await scanFile(file);
       }
     }
   }
 }
 
-function findFilesRecursive(dir: string): string[] {
+async function findFilesRecursive(dir: string): Promise<string[]> {
   let results: string[] = [];
   try {
-    const list = fs.readdirSync(dir);
+    const list = await fs.promises.readdir(dir);
     for (const file of list) {
       const filePath = path.join(dir, file);
-      const stat = fs.statSync(filePath);
+      const stat = await fs.promises.stat(filePath);
       if (stat && stat.isDirectory()) {
-        results = results.concat(findFilesRecursive(filePath));
+        results = results.concat(await findFilesRecursive(filePath));
       } else if (filePath.endsWith(".tsx") || filePath.endsWith(".ts")) {
         results.push(filePath);
       }

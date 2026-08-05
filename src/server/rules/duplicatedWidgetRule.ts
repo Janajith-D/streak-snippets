@@ -17,7 +17,9 @@ export const duplicatedWidgetRule: Rule = {
 
     const uri = analysis.uri;
     const normalizedUri = uri.replace(/\\/g, "/");
-    if (!normalizedUri.includes("src/widgets")) {
+    const customWidgetDir = options?.ruleOptions?.widgetDirectory || "src/widgets";
+    const normalizedWidgetDir = customWidgetDir.replace(/\\/g, "/");
+    if (!normalizedUri.includes(normalizedWidgetDir)) {
       return diagnostics;
     }
 

@@ -66,12 +66,12 @@ export function getJsxContext(text: string, offset: number): JsxContext | undefi
 /**
  * Scans src/widgets directory and returns file names (minus extensions).
  */
-export function getWidgetTypes(workspaceRoot: string | undefined): string[] {
+export function getWidgetTypes(workspaceRoot: string | undefined, customWidgetDir?: string): string[] {
   if (!workspaceRoot) {
     return [];
   }
-  // Try to read settings or default to src/widgets
-  const widgetDir = path.join(workspaceRoot, "src/widgets");
+  const subDir = customWidgetDir || "src/widgets";
+  const widgetDir = path.join(workspaceRoot, subDir);
   if (!fs.existsSync(widgetDir)) {
     return [];
   }
@@ -88,11 +88,12 @@ export function getWidgetTypes(workspaceRoot: string | undefined): string[] {
 /**
  * Scans the workspace /public directory recursively and returns all asset paths.
  */
-export function getPublicAssets(workspaceRoot: string | undefined): string[] {
+export function getPublicAssets(workspaceRoot: string | undefined, customPublicDir?: string): string[] {
   if (!workspaceRoot) {
     return [];
   }
-  const publicDir = path.join(workspaceRoot, "public");
+  const subDir = customPublicDir || "public";
+  const publicDir = path.join(workspaceRoot, subDir);
   if (!fs.existsSync(publicDir)) {
     return [];
   }
@@ -222,7 +223,9 @@ export function getDynamicComponentIds(
 
 export function getJsxAttributeCompletions(
   context: CompletionContext,
-  workspaceRoot: string | undefined
+  workspaceRoot: string | undefined,
+  customWidgetDir?: string,
+  customPublicDir?: string
 ): CompletionItem[] {
   const jsxCtx = getJsxContext(context.text, context.offset);
   if (!jsxCtx) {
@@ -253,7 +256,7 @@ export function getJsxAttributeCompletions(
 
   // 2. Autocomplete attribute values
   if (tagName === "WidgetPlaceholder" && attributeName === "type") {
-    const widgetTypes = getWidgetTypes(workspaceRoot);
+    const widgetTypes = getWidgetTypes(workspaceRoot, customWidgetDir);
     const { widgetRegistry } = require("../registry/widgets");
 
     return widgetTypes.map((type) => {
@@ -304,7 +307,7 @@ export function getJsxAttributeCompletions(
   }
 
   if (tagName === "Preload" && attributeName === "href") {
-    const assets = getPublicAssets(workspaceRoot);
+    const assets = getPublicAssets(workspaceRoot, customPublicDir);
     return assets.map((asset) => ({
       label: asset,
       kind: CompletionItemKind.File,

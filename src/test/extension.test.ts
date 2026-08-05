@@ -656,7 +656,7 @@ suite("Extension Test Suite", () => {
     assert.ok(gdomResult.contents.value.includes("loadDynamicComponent"));
   });
 
-  test("resolveDefinition resolves WidgetPlaceholder, Preload, and Dynamic definitions", () => {
+  test("resolveDefinition resolves WidgetPlaceholder, Preload, and Dynamic definitions", async () => {
     const fs = require("fs");
     const path = require("path");
 
@@ -702,21 +702,21 @@ suite("Extension Test Suite", () => {
     // 1. Test WidgetPlaceholder type
     const typeOffset = code.indexOf("HomeBanner");
     const typeNode = sourceFile.getDescendantAtPos(typeOffset)!;
-    const typeLoc = resolveDefinition(typeNode, tempRoot);
+    const typeLoc = await resolveDefinition(typeNode, tempRoot);
     assert.ok(typeLoc);
     assert.ok(typeLoc.uri.includes("HomeBanner.tsx"));
 
     // 2. Test Preload href
     const hrefOffset = code.indexOf("/styles/main.css");
     const hrefNode = sourceFile.getDescendantAtPos(hrefOffset)!;
-    const hrefLoc = resolveDefinition(hrefNode, tempRoot);
+    const hrefLoc = await resolveDefinition(hrefNode, tempRoot);
     assert.ok(hrefLoc);
     assert.ok(hrefLoc.uri.includes("main.css"));
 
     // 3. Test loadDynamicComponent parameter
     const idOffset = code.indexOf("HomeLander");
     const idNode = sourceFile.getDescendantAtPos(idOffset)!;
-    const idLoc = resolveDefinition(idNode, tempRoot);
+    const idLoc = await resolveDefinition(idNode, tempRoot);
     assert.ok(idLoc);
     assert.ok(idLoc.uri.includes("HomeBanner.tsx"));
     assert.strictEqual(idLoc.range.start.line, 3); // <Dynamic id="HomeLander" /> is on line 3 (0-indexed)
