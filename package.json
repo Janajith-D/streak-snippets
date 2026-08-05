@@ -1,8 +1,15 @@
 {
   "name": "streak-snippets",
   "displayName": "Streak Snippets",
-  "description": "Snippets, commands, and developer productivity tools for the Streak.js React framework",
+  "description": "Snippets, commands, and developer productivity tools for the Streak.js framework",
   "version": "1.0.0",
+  "publisher": "Streak",
+  "license": "MIT",
+  "homepage": "https://github.com/Janajith-D/streak-snippets#readme",
+  "bugs": {
+    "url": "https://github.com/Janajith-D/streak-snippets/issues"
+  },
+  "icon": "images/icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/Janajith-D/streak-snippets.git"
@@ -53,115 +60,210 @@
         },
         "streak.rules.widgetPlaceholderProps.severity": {
           "type": "string",
-          "enum": ["error", "warning", "info", "off"],
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
           "default": "error",
           "description": "Severity for missing <WidgetPlaceholder> id/type props rule (streak:S101, streak:S102)"
         },
         "streak.rules.dataHandlerStatus.severity": {
           "type": "string",
-          "enum": ["error", "warning", "info", "off"],
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
           "default": "warning",
           "description": "Severity for missing status return in data handlers rule (streak:S201)"
         },
         "streak.rules.dataHandlerAsync.severity": {
           "type": "string",
-          "enum": ["error", "warning", "info", "off"],
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
           "default": "error",
           "description": "Severity for data handler must be async rule (streak:S202)"
         },
         "streak.rules.invalidHandlerStatus.severity": {
           "type": "string",
-          "enum": ["error", "warning", "info", "off"],
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
           "default": "warning",
           "description": "Severity for invalid HTTP status code rule (streak:S203)"
         },
         "streak.rules.missingDefaultExport.severity": {
           "type": "string",
-          "enum": ["error", "warning", "info", "off"],
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
           "default": "warning",
           "description": "Severity for missing default export rule (streak:S301)"
         },
         "streak.rules.reactHooksNotAllowed.severity": {
           "type": "string",
-          "enum": ["error", "warning", "info", "off"],
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
           "default": "error",
           "description": "Severity for React hooks not allowed in static widgets rule (streak:S302)"
         },
         "streak.rules.unsafeWidgetDataAccess.severity": {
           "type": "string",
-          "enum": ["error", "warning", "info", "off"],
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
           "default": "error",
           "description": "Severity for unsafe widget props.data access rule (streak:S303)"
         },
         "streak.rules.invalidWidgetPropsContract.severity": {
           "type": "string",
-          "enum": ["error", "warning", "info", "off"],
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
           "default": "warning",
           "description": "Severity for invalid widget props contract rule (streak:S304)"
         },
         "streak.rules.scriptClosureCapture.severity": {
           "type": "string",
-          "enum": ["error", "warning", "info", "off"],
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
           "default": "error",
           "description": "Severity for Script closure variable capture rule (streak:S401)"
         },
         "streak.rules.invalidScriptSignature.severity": {
           "type": "string",
-          "enum": ["error", "warning", "info", "off"],
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
           "default": "error",
           "description": "Severity for invalid Script callback signature rule (streak:S402)"
         },
         "streak.rules.importInsideScript.severity": {
           "type": "string",
-          "enum": ["error", "warning", "info", "off"],
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
           "default": "error",
           "description": "Severity for module imports inside Script rule (streak:S403)"
         },
         "streak.rules.asyncScriptCallback.severity": {
           "type": "string",
-          "enum": ["error", "warning", "info", "off"],
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
           "default": "error",
           "description": "Severity for async Script callback rule (streak:S404)"
         },
         "streak.rules.scriptRequiredId.severity": {
           "type": "string",
-          "enum": ["error", "warning", "info", "off"],
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
           "default": "warning",
           "description": "Severity for missing Script component id rule (streak:S405)"
         },
         "streak.rules.invalidDynamicComponentId.severity": {
           "type": "string",
-          "enum": ["error", "warning", "info", "off"],
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
           "default": "error",
           "description": "Severity for invalid <Dynamic> component id rule (streak:S501)"
         },
         "streak.rules.duplicatedWidget.severity": {
           "type": "string",
-          "enum": ["error", "warning", "info", "off"],
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
           "default": "error",
           "description": "Severity for duplicated widget names rule (streak:S601)"
         },
         "streak.rules.componentNesting.severity": {
           "type": "string",
-          "enum": ["error", "warning", "info", "off"],
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
           "default": "error",
           "description": "Severity for component nesting boundaries rule (streak:S602)"
         },
         "streak.rules.scriptStructure.severity": {
           "type": "string",
-          "enum": ["error", "warning", "info", "off"],
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
           "default": "error",
           "description": "Severity for Script callback children structure rule (streak:S603)"
         },
         "streak.rules.allowedImports.severity": {
           "type": "string",
-          "enum": ["error", "warning", "info", "off"],
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
           "default": "warning",
           "description": "Severity for allowed imports validation rule (streak:S701)"
         },
         "streak.rules.forbiddenPatterns.severity": {
           "type": "string",
-          "enum": ["error", "warning", "info", "off"],
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
           "default": "error",
           "description": "Severity for forbidden code patterns linter rule (streak:S702)"
         },
@@ -170,7 +272,11 @@
           "items": {
             "type": "string"
           },
-          "default": ["streak-forge/components", "react", "react-dom"],
+          "default": [
+            "streak-forge/components",
+            "react",
+            "react-dom"
+          ],
           "description": "List of approved module import specifiers inside project source files."
         },
         "streak.rules.forbiddenPatterns": {
