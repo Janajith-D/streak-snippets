@@ -22,6 +22,11 @@ This document provides detailed SonarQube-style descriptions, rationale, and com
 | [`streak:S403`](#streaks403---import-inside-script) | Script Component | Error | Browser-side Script code must not contain or depend on module imports or `require()`. |
 | [`streak:S404`](#streaks404---async-script-callback) | Script Component | Error | `<Script>` callbacks must not be declared `async`. |
 | [`streak:S501`](#streaks501---invalid-dynamic-component-id) | Dynamic Component | Error | `<Dynamic>` must have a static, non-empty `id`. |
+| [`streak:S601`](#streaks601---duplicated-widget) | Workspace Registry | Error | Custom widget names must be unique across all widget source files. |
+| [`streak:S602`](#streaks602---component-nesting) | Jsx Nesting | Error | Nested `<Script>` tags or `<WidgetPlaceholder>` inside scripts are not allowed. |
+| [`streak:S603`](#streaks603---script-structure) | Script Component | Error | `<Script>` tags must contain exactly one child wrapping the client callback. |
+| [`streak:S701`](#streaks701---allowed-imports) | Imports Control | Warning | Imports must belong to the approved allowed imports whitelist. |
+| [`streak:S702`](#streaks702---forbidden-patterns) | Security / Code Smell | Error | Banned code patterns matched by forbidden regular expressions. |
 
 ---
 
@@ -412,4 +417,135 @@ Browser-side `<Script>` callbacks run directly in the DOM runtime and cannot con
 #### Compliant Code ✅
 ```tsx
 <Dynamic id="interactive-chart" />
+```
+
+---
+
+### `streak:S601` — Duplicated Widget
+
+- **Category**: Workspace Registry
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+All widget components declared under `src/widgets/` must have unique default-exported names across the workspace registry.
+
+#### Non-compliant Code ❌
+```tsx
+// file: src/widgets/ProductCard.tsx
+export default function ProductCard() { return <div>Card</div>; }
+
+// file: src/widgets/nested/ProductCard.tsx
+export default function ProductCard() { return <div>Nested</div>; }
+```
+
+#### Compliant Code ✅
+```tsx
+// file: src/widgets/ProductCard.tsx
+export default function ProductCard() { return <div>Card</div>; }
+
+// file: src/widgets/nested/ProductListItem.tsx
+export default function ProductListItem() { return <div>Item</div>; }
+```
+
+---
+
+### `streak:S602` — Component Nesting
+
+- **Category**: Jsx Nesting
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+Ensures component nesting constraints are respected. Standard Streak components like `<WidgetPlaceholder>` cannot be nested inside browser-side `<Script>` callback functions, and `<Script>` tags cannot be nested inside other `<Script>` tags.
+
+#### Non-compliant Code ❌
+```tsx
+<Script id="my-sc">
+  {(gDom) => (
+    <WidgetPlaceholder id="widget-in-script" type="MyWidget" />
+  )}
+</Script>
+```
+
+#### Compliant Code ✅
+```tsx
+<>
+  <WidgetPlaceholder id="my-widget" type="MyWidget" />
+  <Script id="my-sc">
+    {(gDom) => {
+      console.log("Script executed separately");
+    }}
+  </Script>
+</>
+```
+
+---
+
+### `streak:S603` — Script Structure
+
+- **Category**: Script Component
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+`<Script>` components must contain exactly one child element wrapped inside a JSX expression executing a client-side arrow function or function expression.
+
+#### Non-compliant Code ❌
+```tsx
+<Script id="my-script">
+  <div>Invalid child</div>
+</Script>
+```
+
+#### Compliant Code ✅
+```tsx
+<Script id="my-script">
+  {(gDom) => {
+    console.log("Correct execution callback");
+  }}
+</Script>
+```
+
+---
+
+### `streak:S701` — Allowed Imports
+
+- **Category**: Imports Control
+- **Severity**: `Warning`
+- **Source**: `Streak Engine`
+
+#### Description
+Restricts file imports to a whitelisted set of approved modules (e.g. `streak-forge/components`, `react`). Unapproved module imports are flagged as warnings.
+
+#### Non-compliant Code ❌
+```tsx
+import { someFunc } from "lodash";
+```
+
+#### Compliant Code ✅
+```tsx
+import { useState } from "react";
+import { WidgetPlaceholder } from "streak-forge/components";
+```
+
+---
+
+### `streak:S702` — Forbidden Patterns
+
+- **Category**: Security / Code Smell
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+Scans code content and flags matches of restricted regular expression code structures (e.g. `eval(`, `setTimeout(`) specified in your workspace rules configurations.
+
+#### Non-compliant Code ❌
+```tsx
+const data = eval("x + y");
+```
+
+#### Compliant Code ✅
+```tsx
+const data = x + y;
 ```

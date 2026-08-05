@@ -218,6 +218,13 @@ npm run test           # Run tests
 
 ## Release Notes
 
+### 1.1.0
+
+- **Hardening & Quality Audit (Phase 13)**: Hardening release:
+  - Refactored `getJsxAttributeCompletions` to resolve SonarQube Cognitive Complexity concerns.
+  - Upgraded core library imports to modern `node:` namespace prefixes.
+  - Fixed packaging error by registering Git repository metadata in `package.json`.
+
 ### 1.0.0
 
 - **Production Release & Maintenance (Phase 12)**: Production bundle release:
