@@ -38,6 +38,9 @@ const extensionConfig = {
     ],
   },
   devtool: "nosources-source-map",
+  optimization: {
+    usedExports: true,
+  },
   infrastructureLogging: {
     level: "log",
   },
@@ -74,6 +77,9 @@ const serverConfig = {
     ],
   },
   devtool: "nosources-source-map",
+  optimization: {
+    usedExports: true,
+  },
   infrastructureLogging: {
     level: "log",
   },
