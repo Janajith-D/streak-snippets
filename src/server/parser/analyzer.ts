@@ -126,14 +126,15 @@ function collectJsxElements(sourceFile: SourceFile): string[] {
 }
 
 export function analyzeAndParseDocument(uri: string, content: string): ParseOutput {
-  const filePath = uri.endsWith(".tsx") ? "file.tsx" : "file.ts";
+  const suffix = uri.endsWith(".tsx") ? ".tsx" : ".ts";
+  const uniqueName = encodeURIComponent(uri) + suffix;
 
   // Create or update virtual source file in memory
-  let sourceFile = project.getSourceFile(filePath);
+  let sourceFile = project.getSourceFile(uniqueName);
   if (sourceFile) {
     sourceFile.replaceWithText(content);
   } else {
-    sourceFile = project.createSourceFile(filePath, content);
+    sourceFile = project.createSourceFile(uniqueName, content);
   }
 
   let imports: ImportInfo[] = [];
@@ -164,5 +165,14 @@ export function analyzeAndParseDocument(uri: string, content: string): ParseOutp
 
 export function analyzeDocument(uri: string, content: string): AnalysisResult {
   return analyzeAndParseDocument(uri, content).analysis;
+}
+
+export function cleanupDocumentSourceFile(uri: string): void {
+  const suffix = uri.endsWith(".tsx") ? ".tsx" : ".ts";
+  const uniqueName = encodeURIComponent(uri) + suffix;
+  const sourceFile = project.getSourceFile(uniqueName);
+  if (sourceFile) {
+    project.removeSourceFile(sourceFile);
+  }
 }
 

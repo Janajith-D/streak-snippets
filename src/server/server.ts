@@ -5,21 +5,17 @@ import {
   InitializeParams,
   InitializeResult,
   TextDocumentSyncKind,
-  CodeAction,
-  CodeActionKind,
   Hover,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { fileURLToPath } from "url";
-import { analyzeAndParseDocument } from "./parser/analyzer";
+import { fileURLToPath } from "node:url";
+import { analyzeAndParseDocument, cleanupDocumentSourceFile } from "./parser/analyzer";
 import { runRules } from "./rules/runner";
 import { getCompletions } from "./completion/provider";
 import { resolveHover } from "./hover/provider";
 import { resolveDefinition } from "./definition/provider";
 import { resolveCodeActions } from "./codeaction/provider";
 import { scanWorkspace, scanFile } from "./registry/scanner";
-import { Project, ScriptTarget } from "ts-morph";
-import * as path from "path";
 
 // Create a connection for the server, using Node's IPC / stdio communication
 const connection = createConnection(ProposedFeatures.all);
@@ -55,16 +51,21 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
   };
 });
 
-connection.onInitialized(() => {
+connection.onInitialized(async () => {
   connection.console.log("Streak Language Server initialized successfully.");
   if (workspaceRoot) {
-    scanWorkspace(workspaceRoot);
+    let customWidgetDir: string | undefined;
+    try {
+      const streakSettings = await connection.workspace.getConfiguration("streak");
+      customWidgetDir = streakSettings?.snippets?.widgetDirectory;
+    } catch {}
+    await scanWorkspace(workspaceRoot, customWidgetDir);
     const { widgetRegistry } = require("./registry/widgets");
     connection.sendNotification("streak/didIndexWidgets", { count: widgetRegistry.getAll().length });
   }
 });
 
-connection.onCompletion((params) => {
+connection.onCompletion(async (params) => {
   const uri = params.textDocument.uri;
   const document = documents.get(uri);
   if (!document) {
@@ -72,6 +73,14 @@ connection.onCompletion((params) => {
   }
   const offset = document.offsetAt(params.position);
   const { sourceFile } = analyzeAndParseDocument(uri, document.getText());
+
+  let customWidgetDir: string | undefined;
+  let customPublicDir: string | undefined;
+  try {
+    const streakSettings = await connection.workspace.getConfiguration("streak");
+    customWidgetDir = streakSettings?.snippets?.widgetDirectory;
+    customPublicDir = streakSettings?.snippets?.publicDirectory;
+  } catch {}
 
   return getCompletions(
     {
@@ -83,7 +92,9 @@ connection.onCompletion((params) => {
     },
     document,
     sourceFile,
-    workspaceRoot
+    workspaceRoot,
+    customWidgetDir,
+    customPublicDir
   );
 });
 
@@ -114,7 +125,7 @@ connection.onHover((params): Hover | null => {
   return resolveHover(node);
 });
 
-connection.onDefinition((params) => {
+connection.onDefinition(async (params) => {
   const uri = params.textDocument.uri;
   const document = documents.get(uri);
   if (!document) {
@@ -128,7 +139,15 @@ connection.onDefinition((params) => {
     return null;
   }
 
-  return resolveDefinition(node, workspaceRoot);
+  let customWidgetDir: string | undefined;
+  let customPublicDir: string | undefined;
+  try {
+    const streakSettings = await connection.workspace.getConfiguration("streak");
+    customWidgetDir = streakSettings?.snippets?.widgetDirectory;
+    customPublicDir = streakSettings?.snippets?.publicDirectory;
+  } catch {}
+
+  return await resolveDefinition(node, workspaceRoot, customWidgetDir, customPublicDir);
 });
 
 async function validateDocument(document: TextDocument): Promise<void> {
@@ -141,14 +160,19 @@ async function validateDocument(document: TextDocument): Promise<void> {
 
   try {
     const filePath = fileURLToPath(uri);
-    if (filePath.includes(path.join("src", "widgets")) || filePath.includes(path.join("src", "components"))) {
-      const scanProject = new Project({
-        compilerOptions: {
-          target: ScriptTarget.ES2022,
-          allowJs: true,
-        },
-      });
-      scanFile(filePath, scanProject);
+    let customWidgetDir = "src/widgets";
+    try {
+      const streakSettings = await connection.workspace.getConfiguration("streak");
+      if (streakSettings?.snippets?.widgetDirectory) {
+        customWidgetDir = streakSettings.snippets.widgetDirectory;
+      }
+    } catch {}
+
+    const normalizedPath = filePath.replace(/\\/g, "/");
+    const normalizedWidgetDir = customWidgetDir.replace(/\\/g, "/");
+
+    if (normalizedPath.includes(normalizedWidgetDir) || normalizedPath.includes("src/components")) {
+      await scanFile(filePath);
       const { widgetRegistry } = require("./registry/widgets");
       connection.sendNotification("streak/didIndexWidgets", { count: widgetRegistry.getAll().length });
     }
@@ -223,6 +247,11 @@ documents.onDidOpen((event) => {
 documents.onDidSave((event) => {
   connection.console.log(`[Lifecycle] Document saved: ${event.document.uri}`);
   validateDocument(event.document);
+});
+
+documents.onDidClose((event) => {
+  connection.console.log(`[Lifecycle] Document closed: ${event.document.uri}`);
+  cleanupDocumentSourceFile(event.document.uri);
 });
 
 // Make the text document manager listen on the connection

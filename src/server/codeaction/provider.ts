@@ -1,8 +1,8 @@
 import { Node, SyntaxKind, SourceFile } from "ts-morph";
-import { CodeAction, CodeActionKind, Diagnostic, TextEdit } from "vscode-languageserver/node";
+import { CodeAction, CodeActionKind, Diagnostic } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { fileURLToPath } from "url";
-import * as path from "path";
+import { fileURLToPath } from "node:url";
+import * as path from "node:path";
 
 export function resolveCodeActions(
   diagnostics: Diagnostic[],

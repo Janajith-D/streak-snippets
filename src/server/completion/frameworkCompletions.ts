@@ -3,7 +3,7 @@ import { TextDocument } from "vscode-languageserver-textdocument";
 import { SourceFile } from "ts-morph";
 import { CompletionContext } from "./types";
 import { isInsideScriptCallback } from "./scriptCompletions";
-import * as path from "path";
+import * as path from "node:path";
 
 interface ComponentConfig {
   name: string;

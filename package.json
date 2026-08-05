@@ -3,6 +3,10 @@
   "displayName": "Streak Snippets",
   "description": "Snippets, commands, and developer productivity tools for the Streak.js React framework",
   "version": "1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Janajith-D/streak-snippets.git"
+  },
   "engines": {
     "vscode": "^1.107.0"
   },

@@ -3,7 +3,7 @@ import { DiagnosticSeverity } from "vscode-languageserver/node";
 import { AnalysisResult } from "../../shared/types";
 import { Rule, RuleDiagnostic, RuleOptions } from "./types";
 import { widgetRegistry } from "../registry/widgets";
-import * as path from "path";
+import * as path from "node:path";
 
 export const duplicatedWidgetRule: Rule = {
   id: "streak:duplicated-widget",
@@ -17,7 +17,9 @@ export const duplicatedWidgetRule: Rule = {
 
     const uri = analysis.uri;
     const normalizedUri = uri.replace(/\\/g, "/");
-    if (!normalizedUri.includes("src/widgets")) {
+    const customWidgetDir = options?.ruleOptions?.widgetDirectory || "src/widgets";
+    const normalizedWidgetDir = customWidgetDir.replace(/\\/g, "/");
+    if (!normalizedUri.includes(normalizedWidgetDir)) {
       return diagnostics;
     }
 

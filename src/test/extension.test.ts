@@ -1,6 +1,6 @@
 import * as assert from "assert";
-import * as path from "path";
-import * as fs from "fs";
+import * as path from "node:path";
+import * as fs from "node:fs";
 
 // You can import and use all API from the 'vscode' module
 // as well as import your extension to test it
@@ -33,7 +33,7 @@ import { resolveHover } from "../server/hover/provider";
 import { resolveDefinition } from "../server/definition/provider";
 import { resolveCodeActions } from "../server/codeaction/provider";
 import { widgetRegistry } from "../server/registry/widgets";
-import { scanWorkspace, scanFile } from "../server/registry/scanner";
+import { scanWorkspace } from "../server/registry/scanner";
 
 
 suite("Extension Test Suite", () => {
@@ -656,9 +656,9 @@ suite("Extension Test Suite", () => {
     assert.ok(gdomResult.contents.value.includes("loadDynamicComponent"));
   });
 
-  test("resolveDefinition resolves WidgetPlaceholder, Preload, and Dynamic definitions", () => {
-    const fs = require("fs");
-    const path = require("path");
+  test("resolveDefinition resolves WidgetPlaceholder, Preload, and Dynamic definitions", async () => {
+    const fs = require("node:fs");
+    const path = require("node:path");
 
     const tempRoot = path.join(__dirname, "test-workspace-temp");
     if (!fs.existsSync(tempRoot)) {
@@ -702,21 +702,21 @@ suite("Extension Test Suite", () => {
     // 1. Test WidgetPlaceholder type
     const typeOffset = code.indexOf("HomeBanner");
     const typeNode = sourceFile.getDescendantAtPos(typeOffset)!;
-    const typeLoc = resolveDefinition(typeNode, tempRoot);
+    const typeLoc = await resolveDefinition(typeNode, tempRoot);
     assert.ok(typeLoc);
     assert.ok(typeLoc.uri.includes("HomeBanner.tsx"));
 
     // 2. Test Preload href
     const hrefOffset = code.indexOf("/styles/main.css");
     const hrefNode = sourceFile.getDescendantAtPos(hrefOffset)!;
-    const hrefLoc = resolveDefinition(hrefNode, tempRoot);
+    const hrefLoc = await resolveDefinition(hrefNode, tempRoot);
     assert.ok(hrefLoc);
     assert.ok(hrefLoc.uri.includes("main.css"));
 
     // 3. Test loadDynamicComponent parameter
     const idOffset = code.indexOf("HomeLander");
     const idNode = sourceFile.getDescendantAtPos(idOffset)!;
-    const idLoc = resolveDefinition(idNode, tempRoot);
+    const idLoc = await resolveDefinition(idNode, tempRoot);
     assert.ok(idLoc);
     assert.ok(idLoc.uri.includes("HomeBanner.tsx"));
     assert.strictEqual(idLoc.range.start.line, 3); // <Dynamic id="HomeLander" /> is on line 3 (0-indexed)
@@ -849,9 +849,9 @@ suite("Extension Test Suite", () => {
     assert.ok(actionsS301[0].edit?.changes?.["file:///test/AboutData.tsx"]?.[0]?.newText.includes("export default AboutData;"));
   });
 
-  test("WidgetRegistry and Scanner dynamically extracts widget description and props, providing rich completions and hovers", () => {
-    const fs = require("fs");
-    const path = require("path");
+  test("WidgetRegistry and Scanner dynamically extracts widget description and props, providing rich completions and hovers", async () => {
+    const fs = require("node:fs");
+    const path = require("node:path");
 
     const tempRoot = path.join(__dirname, "..", "..", "test-registry-temp");
     if (!fs.existsSync(tempRoot)) {
@@ -884,7 +884,7 @@ suite("Extension Test Suite", () => {
     `, "utf-8");
 
     // Index the temporary workspace
-    scanWorkspace(tempRoot);
+    await scanWorkspace(tempRoot);
 
     // 1. Assert registry has extracted metadata correctly
     const meta = widgetRegistry.get("ProductCard");
@@ -1099,7 +1099,7 @@ suite("Extension Test Suite", () => {
     (vscode.window as any).showInputBox = async () => "MyScaffoldedWidget";
 
     const tempDir = path.join(__dirname, "..", "..", "test-scaffold-temp");
-    const fs = require("fs");
+    const fs = require("node:fs");
     fs.mkdirSync(tempDir, { recursive: true });
 
     const originalWorkspaceFolders = vscode.workspace.workspaceFolders;

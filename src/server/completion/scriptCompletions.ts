@@ -52,7 +52,7 @@ export function isInsideScriptCallback(text: string, offset: number): boolean {
 /**
  * Generates completions for gDom methods based on the central runtime API definition.
  */
-export function getGDomCompletions(textBeforeCursor: string): CompletionItem[] {
+export function getGDomCompletions(): CompletionItem[] {
   return GDOM_METHODS.map((method) => ({
     label: method.name,
     kind: CompletionItemKind.Method,
@@ -75,7 +75,7 @@ export function getScriptCompletions(
 
   // Check if user is typing a property of gDom
   if (/gDom\.([a-zA-Z0-9_]*)$/.test(textBeforeCursor)) {
-    return getGDomCompletions(textBeforeCursor);
+    return getGDomCompletions();
   }
 
   // Fallback to loadDynamicComponent ID suggestions if inside its quotes

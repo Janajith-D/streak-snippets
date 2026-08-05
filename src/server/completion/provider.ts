@@ -14,7 +14,9 @@ export function getCompletions(
   context: CompletionContext,
   document: TextDocument,
   sourceFile: SourceFile,
-  workspaceRoot: string | undefined
+  workspaceRoot: string | undefined,
+  customWidgetDir?: string,
+  customPublicDir?: string
 ): CompletionItem[] {
   const completions: CompletionItem[] = [];
 
@@ -22,7 +24,7 @@ export function getCompletions(
   completions.push(...getFrameworkCompletions(context, document, sourceFile));
 
   // 2. Check for JSX attributes (e.g. id, type, href, as) and attribute values
-  completions.push(...getJsxAttributeCompletions(context, workspaceRoot));
+  completions.push(...getJsxAttributeCompletions(context, workspaceRoot, customWidgetDir, customPublicDir));
 
   // 3. Check for Script callback loadDynamicComponent completions
   completions.push(...getScriptCompletions(context, workspaceRoot));
