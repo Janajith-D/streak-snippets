@@ -5,6 +5,19 @@ All notable changes to the "streak-snippets" extension will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-08-05
+
+### Added
+- Documented S601-S702 rules details inside `RULES.md` catalog.
+- Added walkthrough guidelines for Phase 13 engineering updates.
+
+### Changed
+- Refactored `getJsxAttributeCompletions` to resolve SonarQube Cognitive Complexity.
+- Upgraded core library imports to use Node `node:` namespace prefix.
+
+### Fixed
+- Fixed packaging warning by introducing `repository` field to `package.json`.
+
 ## [1.0.0] - 2026-08-05
 
 ### Added
