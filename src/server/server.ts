@@ -171,6 +171,9 @@ async function validateDocument(document: TextDocument): Promise<void> {
         asyncScriptCallback: "streak:async-script-callback",
         scriptRequiredId: "streak:script-required-id",
         invalidDynamicComponentId: "streak:invalid-dynamic-component-id",
+        duplicatedWidget: "streak:duplicated-widget",
+        componentNesting: "streak:component-nesting",
+        scriptStructure: "streak:script-structure",
       };
 
       for (const [settingsKey, ruleId] of Object.entries(settingsMap)) {

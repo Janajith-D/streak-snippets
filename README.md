@@ -180,6 +180,9 @@ Configure rule severities and diagnostics in VS Code settings:
 | `streak.rules.asyncScriptCallback.severity` | `string` | `"error"` | Severity for `streak:S404` |
 | `streak.rules.scriptRequiredId.severity` | `string` | `"warning"` | Severity for `streak:S405` |
 | `streak.rules.invalidDynamicComponentId.severity` | `string` | `"error"` | Severity for `streak:S501` |
+| `streak.rules.duplicatedWidget.severity` | `string` | `"error"` | Severity for `streak:S601` |
+| `streak.rules.componentNesting.severity` | `string` | `"error"` | Severity for `streak:S602` |
+| `streak.rules.scriptStructure.severity` | `string` | `"error"` | Severity for `streak:S603` |
 
 ---
 
@@ -212,6 +215,13 @@ npm run test           # Run tests
 ---
 
 ## Release Notes
+
+### 0.7.0
+
+- **Advanced Static Analysis (Phase 9)**: Expanded the validation engine with 3 new rules:
+  - `streak:S601` (Duplicated Widget Names): Flags component name collisions in `src/widgets/`.
+  - `streak:S602` (Component Nesting): Validates component nesting boundaries (no nested `<Script>` blocks, no `<WidgetPlaceholder>` inside scripts).
+  - `streak:S603` (Script Structure): Enforces single JSX expression wrapping an execution callback child on `<Script>`.
 
 ### 0.6.0
 

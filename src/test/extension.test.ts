@@ -19,6 +19,9 @@ import {
   scriptRequiredIdRule,
 } from "../server/rules/scriptRules";
 import { dynamicComponentIdRule } from "../server/rules/dynamicComponentIdRule";
+import { duplicatedWidgetRule } from "../server/rules/duplicatedWidgetRule";
+import { componentNestingRule } from "../server/rules/componentNestingRule";
+import { scriptStructureRule } from "../server/rules/scriptStructureRule";
 import { getCompletions } from "../server/completion/provider";
 import { getJsxContext } from "../server/completion/jsxAttributeCompletions";
 import { getAutoImportEdit } from "../server/completion/frameworkCompletions";
@@ -943,6 +946,100 @@ suite("Extension Test Suite", () => {
     // Clean up
     fs.rmSync(tempRoot, { recursive: true, force: true });
     widgetRegistry.clear();
+  });
+
+  test("streak:S601 flags duplicated widget component names in registry", () => {
+    widgetRegistry.clear();
+    widgetRegistry.set("HeaderWidget", {
+      name: "HeaderWidget",
+      filePath: "c:/project/src/widgets/other/HeaderWidget.tsx",
+      props: [],
+    });
+
+    const code = `
+      export default function HeaderWidget() { return <div />; }
+    `;
+    const { sourceFile } = analyzeAndParseDocument("c:/project/src/widgets/HeaderWidget.tsx", code);
+    const diags = duplicatedWidgetRule.run(
+      sourceFile,
+      { uri: "c:/project/src/widgets/HeaderWidget.tsx", exports: [], components: [], imports: [], jsxElements: [], errors: [] }
+    );
+    assert.strictEqual(diags.length, 1);
+    assert.strictEqual(diags[0].code, "streak:S601");
+    assert.ok(diags[0].message.includes("Duplicated widget component name 'HeaderWidget'"));
+
+    widgetRegistry.clear();
+  });
+
+  test("streak:S602 flags invalid nested components", () => {
+    const code = `
+      import { Script, WidgetPlaceholder } from "streak-forge/components";
+      export default function Test() {
+        return (
+          <Script id="s1">
+            {(gDom) => {
+              return (
+                <>
+                  <Script id="s2">
+                    {() => {}}
+                  </Script>
+                  <WidgetPlaceholder id="wp1" type="Hello" />
+                </>
+              );
+            }}
+          </Script>
+        );
+      }
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/nested.tsx", code);
+    const diags = componentNestingRule.run(
+      sourceFile,
+      { uri: "file:///test/nested.tsx", exports: [], components: [], imports: [], jsxElements: [], errors: [] }
+    );
+    assert.strictEqual(diags.length, 2);
+    assert.strictEqual(diags[0].code, "streak:S602");
+    assert.ok(diags[0].message.includes("Nesting `<Script>` tags"));
+    assert.strictEqual(diags[1].code, "streak:S602");
+    assert.ok(diags[1].message.includes("Nesting `<WidgetPlaceholder>`"));
+  });
+
+  test("streak:S603 flags invalid Script child structure", () => {
+    const code = `
+      import { Script } from "streak-forge/components";
+      export default function Test() {
+        return (
+          <>
+            {/* 1. Empty Script */}
+            <Script id="s1"></Script>
+            
+            {/* 2. Text child */}
+            <Script id="s2">some raw text</Script>
+
+            {/* 3. Non-function child */}
+            <Script id="s3">
+              {123}
+            </Script>
+
+            {/* 4. Valid Script */}
+            <Script id="s4">
+              {() => {}}
+            </Script>
+          </>
+        );
+      }
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/struct.tsx", code);
+    const diags = scriptStructureRule.run(
+      sourceFile,
+      { uri: "file:///test/struct.tsx", exports: [], components: [], imports: [], jsxElements: [], errors: [] }
+    );
+    assert.strictEqual(diags.length, 3);
+    assert.strictEqual(diags[0].code, "streak:S603");
+    assert.ok(diags[0].message.includes("requires an inline execution callback"));
+    assert.strictEqual(diags[1].code, "streak:S603");
+    assert.ok(diags[1].message.includes("must be wrapped in a JSX expression"));
+    assert.strictEqual(diags[2].code, "streak:S603");
+    assert.ok(diags[2].message.includes("must be a client-side function expression"));
   });
 });
 

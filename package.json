@@ -2,7 +2,7 @@
   "name": "streak-snippets",
   "displayName": "Streak Snippets",
   "description": "Snippets, commands, and developer productivity tools for the Streak.js React framework",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "engines": {
     "vscode": "^1.107.0"
   },
@@ -122,6 +122,24 @@
           "enum": ["error", "warning", "info", "off"],
           "default": "error",
           "description": "Severity for invalid <Dynamic> component id rule (streak:S501)"
+        },
+        "streak.rules.duplicatedWidget.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for duplicated widget names rule (streak:S601)"
+        },
+        "streak.rules.componentNesting.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for component nesting boundaries rule (streak:S602)"
+        },
+        "streak.rules.scriptStructure.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for Script callback children structure rule (streak:S603)"
         }
       }
     }

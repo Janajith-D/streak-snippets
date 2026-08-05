@@ -5,6 +5,15 @@ All notable changes to the "streak-snippets" extension will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-08-04
+
+### Added
+- **Advanced Static Analysis (Phase 9)**: Developed 3 new validation rules enforcing framework boundaries:
+  - `streak:S601` (Duplicated Widget Names): Flags component name collisions inside `src/widgets/` to avoid naming conflicts.
+  - `streak:S602` (Component Nesting): Enforces nesting limits (no nested `<Script>` tags, no `<WidgetPlaceholder>` inside `<Script>` tag callback).
+  - `streak:S603` (Script Structure): Validates `<Script>` tags contain exactly a single JSX expression child wrapping a callback function.
+- **Configurable Severities**: Added settings schema configurations allowing workspace rule severity overrides for the new checks.
+
 ## [0.6.0] - 2026-08-03
 
 ### Added

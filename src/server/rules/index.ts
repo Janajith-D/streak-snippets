@@ -15,6 +15,9 @@ import {
   scriptRequiredIdRule,
 } from "./scriptRules";
 import { dynamicComponentIdRule } from "./dynamicComponentIdRule";
+import { duplicatedWidgetRule } from "./duplicatedWidgetRule";
+import { componentNestingRule } from "./componentNestingRule";
+import { scriptStructureRule } from "./scriptStructureRule";
 
 export * from "./types";
 export * from "./widgetPlaceholderRule";
@@ -27,6 +30,9 @@ export * from "./unsafeWidgetDataAccessRule";
 export * from "./invalidWidgetPropsContractRule";
 export * from "./scriptRules";
 export * from "./dynamicComponentIdRule";
+export * from "./duplicatedWidgetRule";
+export * from "./componentNestingRule";
+export * from "./scriptStructureRule";
 
 export const allRules: Rule[] = [
   widgetPlaceholderRule,
@@ -43,4 +49,7 @@ export const allRules: Rule[] = [
   asyncScriptCallbackRule,
   scriptRequiredIdRule,
   dynamicComponentIdRule,
+  duplicatedWidgetRule,
+  componentNestingRule,
+  scriptStructureRule,
 ];
