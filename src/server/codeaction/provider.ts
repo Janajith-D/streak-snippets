@@ -150,11 +150,17 @@ export function resolveCodeActions(
 
     // 6. streak:S301 - Missing Default Export
     if (diag.code === "streak:S301") {
+      let baseName = "";
       try {
         const filePath = fileURLToPath(uri);
-        const baseName = path.basename(filePath, path.extname(filePath));
-        const documentEnd = document.positionAt(document.getText().length);
+        baseName = path.basename(filePath, path.extname(filePath));
+      } catch {
+        const pathname = uri.substring(uri.lastIndexOf("/") + 1);
+        baseName = pathname.substring(0, pathname.lastIndexOf(".")) || pathname;
+      }
 
+      if (baseName) {
+        const documentEnd = document.positionAt(document.getText().length);
         codeActions.push({
           title: `Add default export for ${baseName}`,
           kind: CodeActionKind.QuickFix,
@@ -173,8 +179,6 @@ export function resolveCodeActions(
             },
           },
         });
-      } catch {
-        // Ignore errors
       }
     }
   }

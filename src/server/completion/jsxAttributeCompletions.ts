@@ -254,11 +254,35 @@ export function getJsxAttributeCompletions(
   // 2. Autocomplete attribute values
   if (tagName === "WidgetPlaceholder" && attributeName === "type") {
     const widgetTypes = getWidgetTypes(workspaceRoot);
-    return widgetTypes.map((type) => ({
-      label: type,
-      kind: CompletionItemKind.Value,
-      insertText: type,
-    }));
+    const { widgetRegistry } = require("../registry/widgets");
+
+    return widgetTypes.map((type) => {
+      const widget = widgetRegistry.get(type);
+      const detail = "Custom Project Widget";
+      let documentation = "";
+
+      if (widget) {
+        if (widget.docComment) {
+          documentation += `${widget.docComment}\n\n`;
+        }
+        if (widget.props && widget.props.length > 0) {
+          documentation += `**Available Props:**\n`;
+          for (const prop of widget.props) {
+            const optionalStr = prop.isOptional ? "?" : "";
+            const propDoc = prop.docComment ? ` — ${prop.docComment}` : "";
+            documentation += `- \`${prop.name}${optionalStr}: ${prop.type}\`${propDoc}\n`;
+          }
+        }
+      }
+
+      return {
+        label: type,
+        kind: CompletionItemKind.Value,
+        insertText: type,
+        detail,
+        documentation: documentation ? { kind: "markdown", value: documentation } : undefined,
+      };
+    });
   }
 
   if (tagName === "WidgetPlaceholder" && attributeName === "id") {

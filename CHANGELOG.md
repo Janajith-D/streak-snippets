@@ -5,6 +5,46 @@ All notable changes to the "streak-snippets" extension will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-08-05
+
+### Added
+- **Production Release & Maintenance (Phase 12)**: Release packaging:
+  - Created developer workflow and contribution guidelines inside `CONTRIBUTING.md`.
+  - Added issue templates for structuring project bug reports and feature requests.
+  - Verified tests compilation, eslint formatting, and VSIX packaging validations.
+
+## [0.9.0] - 2026-08-05
+
+### Added
+- **Developer Experience Features (Phase 11)**: Polished workflow integrations inside the VS Code editor UI:
+  - Live **VS Code Status Bar** item showing the count of widgets indexed in the registry database.
+  - Interactive **streak.createWidget** command that prompts, validates, scaffolds, and opens new widgets.
+
+## [0.8.0] - 2026-08-05
+
+### Added
+- **Configuration & Extensibility (Phase 10)**: Implemented advanced customization capabilities via workspace settings:
+  - Custom scanner target folder paths for widgets (`streak.snippets.widgetDirectory`), pages (`streak.snippets.pageDirectory`), and assets (`streak.snippets.publicDirectory`).
+  - `streak:S701` (Import Whitelist Rule): Warns if imports pull unapproved third-party modules.
+  - `streak:S702` (Forbidden Patterns Rule): Checks codebase content for forbidden string matches or regex.
+
+## [0.7.0] - 2026-08-04
+
+### Added
+- **Advanced Static Analysis (Phase 9)**: Developed 3 new validation rules enforcing framework boundaries:
+  - `streak:S601` (Duplicated Widget Names): Flags component name collisions inside `src/widgets/` to avoid naming conflicts.
+  - `streak:S602` (Component Nesting): Enforces nesting limits (no nested `<Script>` tags, no `<WidgetPlaceholder>` inside `<Script>` tag callback).
+  - `streak:S603` (Script Structure): Validates `<Script>` tags contain exactly a single JSX expression child wrapping a callback function.
+- **Configurable Severities**: Added settings schema configurations allowing workspace rule severity overrides for the new checks.
+
+## [0.6.0] - 2026-08-03
+
+### Added
+- **Workspace Widget Registry & Suggestions (Phase 8)**: Implemented an AST-based workspace scanner and registry for custom components under `src/widgets/` and `src/components/`:
+  - Dynamically extracts component descriptions, JSDoc headers, and full props type specifications.
+  - Integrates registry metadata inside `<WidgetPlaceholder type="..." />` autocomplete details, showing property names, types, optionality indicators, and property JSDoc comments.
+  - Integrates registry metadata inside on-hover tooltips when hovering over resolved type string literals.
+
 ## [0.5.0] - 2026-08-03
 
 ### Added

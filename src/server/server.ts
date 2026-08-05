@@ -17,6 +17,9 @@ import { getCompletions } from "./completion/provider";
 import { resolveHover } from "./hover/provider";
 import { resolveDefinition } from "./definition/provider";
 import { resolveCodeActions } from "./codeaction/provider";
+import { scanWorkspace, scanFile } from "./registry/scanner";
+import { Project, ScriptTarget } from "ts-morph";
+import * as path from "path";
 
 // Create a connection for the server, using Node's IPC / stdio communication
 const connection = createConnection(ProposedFeatures.all);
@@ -54,6 +57,11 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
 
 connection.onInitialized(() => {
   connection.console.log("Streak Language Server initialized successfully.");
+  if (workspaceRoot) {
+    scanWorkspace(workspaceRoot);
+    const { widgetRegistry } = require("./registry/widgets");
+    connection.sendNotification("streak/didIndexWidgets", { count: widgetRegistry.getAll().length });
+  }
 });
 
 connection.onCompletion((params) => {
@@ -131,7 +139,25 @@ async function validateDocument(document: TextDocument): Promise<void> {
 
   const { analysis, sourceFile } = analyzeAndParseDocument(uri, content);
 
+  try {
+    const filePath = fileURLToPath(uri);
+    if (filePath.includes(path.join("src", "widgets")) || filePath.includes(path.join("src", "components"))) {
+      const scanProject = new Project({
+        compilerOptions: {
+          target: ScriptTarget.ES2022,
+          allowJs: true,
+        },
+      });
+      scanFile(filePath, scanProject);
+      const { widgetRegistry } = require("./registry/widgets");
+      connection.sendNotification("streak/didIndexWidgets", { count: widgetRegistry.getAll().length });
+    }
+  } catch {
+    // Ignore
+  }
+
   let ruleSeverities: Record<string, string> = {};
+  let ruleOptions: any = {};
   try {
     const streakSettings = await connection.workspace.getConfiguration("streak");
     if (streakSettings?.rules) {
@@ -150,6 +176,11 @@ async function validateDocument(document: TextDocument): Promise<void> {
         asyncScriptCallback: "streak:async-script-callback",
         scriptRequiredId: "streak:script-required-id",
         invalidDynamicComponentId: "streak:invalid-dynamic-component-id",
+        duplicatedWidget: "streak:duplicated-widget",
+        componentNesting: "streak:component-nesting",
+        scriptStructure: "streak:script-structure",
+        allowedImports: "streak:allowed-imports",
+        forbiddenPatterns: "streak:forbidden-patterns",
       };
 
       for (const [settingsKey, ruleId] of Object.entries(settingsMap)) {
@@ -157,12 +188,19 @@ async function validateDocument(document: TextDocument): Promise<void> {
           ruleSeverities[ruleId] = streakSettings.rules[settingsKey].severity;
         }
       }
+
+      if (streakSettings.rules.allowedImports) {
+        ruleOptions.allowedImports = streakSettings.rules.allowedImports;
+      }
+      if (streakSettings.rules.forbiddenPatterns) {
+        ruleOptions.forbiddenPatterns = streakSettings.rules.forbiddenPatterns;
+      }
     }
   } catch (err) {
     connection.console.log(`Failed to fetch configurations: ${err}`);
   }
 
-  const diagnostics = runRules(sourceFile, analysis, { enabled: true, ruleSeverities });
+  const diagnostics = runRules(sourceFile, analysis, { enabled: true, ruleSeverities, ruleOptions });
 
   connection.console.log(
     `[Validation] Found ${diagnostics.length} diagnostic(s) for ${uri}`,

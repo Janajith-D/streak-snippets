@@ -19,6 +19,11 @@ import {
   scriptRequiredIdRule,
 } from "../server/rules/scriptRules";
 import { dynamicComponentIdRule } from "../server/rules/dynamicComponentIdRule";
+import { duplicatedWidgetRule } from "../server/rules/duplicatedWidgetRule";
+import { componentNestingRule } from "../server/rules/componentNestingRule";
+import { scriptStructureRule } from "../server/rules/scriptStructureRule";
+import { allowedImportsRule } from "../server/rules/allowedImportsRule";
+import { forbiddenPatternsRule } from "../server/rules/forbiddenPatternsRule";
 import { getCompletions } from "../server/completion/provider";
 import { getJsxContext } from "../server/completion/jsxAttributeCompletions";
 import { getAutoImportEdit } from "../server/completion/frameworkCompletions";
@@ -27,6 +32,8 @@ import { TextDocument } from "vscode-languageserver-textdocument";
 import { resolveHover } from "../server/hover/provider";
 import { resolveDefinition } from "../server/definition/provider";
 import { resolveCodeActions } from "../server/codeaction/provider";
+import { widgetRegistry } from "../server/registry/widgets";
+import { scanWorkspace, scanFile } from "../server/registry/scanner";
 
 
 suite("Extension Test Suite", () => {
@@ -840,6 +847,294 @@ suite("Extension Test Suite", () => {
     assert.strictEqual(actionsS301.length, 1);
     assert.strictEqual(actionsS301[0].title, "Add default export for AboutData");
     assert.ok(actionsS301[0].edit?.changes?.["file:///test/AboutData.tsx"]?.[0]?.newText.includes("export default AboutData;"));
+  });
+
+  test("WidgetRegistry and Scanner dynamically extracts widget description and props, providing rich completions and hovers", () => {
+    const fs = require("fs");
+    const path = require("path");
+
+    const tempRoot = path.join(__dirname, "..", "..", "test-registry-temp");
+    if (!fs.existsSync(tempRoot)) {
+      fs.mkdirSync(tempRoot, { recursive: true });
+    }
+
+    const widgetsDir = path.join(tempRoot, "src", "widgets");
+    fs.mkdirSync(widgetsDir, { recursive: true });
+
+    // Write a mock widget ProductCard with JSDoc comments and typed props
+    const widgetFilePath = path.join(widgetsDir, "ProductCard.tsx");
+    fs.writeFileSync(widgetFilePath, `
+      export type ProductCardProps = {
+        /**
+         * The display label name of the product item.
+         */
+        title: string;
+        /**
+         * Optional price label tag format.
+         */
+        price?: number;
+      };
+
+      /**
+       * Renders a customizable product item card display.
+       */
+      export default function ProductCard(props: ProductCardProps) {
+        return <div>{props.title}</div>;
+      }
+    `, "utf-8");
+
+    // Index the temporary workspace
+    scanWorkspace(tempRoot);
+
+    // 1. Assert registry has extracted metadata correctly
+    const meta = widgetRegistry.get("ProductCard");
+    assert.ok(meta);
+    assert.strictEqual(meta.name, "ProductCard");
+    assert.strictEqual(meta.docComment, "Renders a customizable product item card display.");
+    assert.strictEqual(meta.props.length, 2);
+
+    const titleProp = meta.props.find(p => p.name === "title");
+    assert.ok(titleProp);
+    assert.strictEqual(titleProp.type, "string");
+    assert.strictEqual(titleProp.isOptional, false);
+    assert.strictEqual(titleProp.docComment, "The display label name of the product item.");
+
+    const priceProp = meta.props.find(p => p.name === "price");
+    assert.ok(priceProp);
+    assert.strictEqual(priceProp.type, "number");
+    assert.strictEqual(priceProp.isOptional, true);
+    assert.strictEqual(priceProp.docComment, "Optional price label tag format.");
+
+    // 2. Assert autocomplete includes rich documentation for ProductCard
+    const autocompleteCode = `
+      import { WidgetPlaceholder } from "streak-forge/components";
+      const val = <WidgetPlaceholder id="wp1" type="ProductCard" />
+    `;
+    // Simulate completions inside type="ProductCard" value
+    const offset = autocompleteCode.indexOf('type="') + 6;
+    const comps = getCompletions(
+      {
+        text: autocompleteCode,
+        uri: "file:///test/main.tsx",
+        offset,
+        line: 2,
+        character: offset,
+      },
+      TextDocument.create("file:///test/main.tsx", "typescriptreact", 1, autocompleteCode),
+      analyzeAndParseDocument("file:///test/main.tsx", autocompleteCode).sourceFile,
+      tempRoot
+    );
+
+    const compItem = comps.find(c => c.label === "ProductCard");
+    assert.ok(compItem);
+    assert.strictEqual(compItem.detail, "Custom Project Widget");
+    assert.ok(compItem.documentation);
+    const docValue = (compItem.documentation as any).value;
+    assert.ok(docValue.includes("Renders a customizable product item card display."));
+    assert.ok(docValue.includes("title: string"));
+    assert.ok(docValue.includes("price?: number"));
+
+    // 3. Assert Hover over type value resolves custom properties documentation
+    const hoverOffset = autocompleteCode.indexOf("ProductCard");
+    const { sourceFile } = analyzeAndParseDocument("file:///test/main.tsx", autocompleteCode);
+    const hoverNode = sourceFile.getDescendantAtPos(hoverOffset)!;
+    const hoverResult = resolveHover(hoverNode);
+    assert.ok(hoverResult);
+    const hoverVal = (hoverResult.contents as any).value;
+    assert.ok(hoverVal.includes("Renders a customizable product item card display."));
+    assert.ok(hoverVal.includes("title: string"));
+    assert.ok(hoverVal.includes("price?: number"));
+
+    // Clean up
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+    widgetRegistry.clear();
+  });
+
+  test("streak:S601 flags duplicated widget component names in registry", () => {
+    widgetRegistry.clear();
+    widgetRegistry.set("HeaderWidget", {
+      name: "HeaderWidget",
+      filePath: "c:/project/src/widgets/other/HeaderWidget.tsx",
+      props: [],
+    });
+
+    const code = `
+      export default function HeaderWidget() { return <div />; }
+    `;
+    const { sourceFile } = analyzeAndParseDocument("c:/project/src/widgets/HeaderWidget.tsx", code);
+    const diags = duplicatedWidgetRule.run(
+      sourceFile,
+      { uri: "c:/project/src/widgets/HeaderWidget.tsx", exports: [], components: [], imports: [], jsxElements: [], errors: [] }
+    );
+    assert.strictEqual(diags.length, 1);
+    assert.strictEqual(diags[0].code, "streak:S601");
+    assert.ok(diags[0].message.includes("Duplicated widget component name 'HeaderWidget'"));
+
+    widgetRegistry.clear();
+  });
+
+  test("streak:S602 flags invalid nested components", () => {
+    const code = `
+      import { Script, WidgetPlaceholder } from "streak-forge/components";
+      export default function Test() {
+        return (
+          <Script id="s1">
+            {(gDom) => {
+              return (
+                <>
+                  <Script id="s2">
+                    {() => {}}
+                  </Script>
+                  <WidgetPlaceholder id="wp1" type="Hello" />
+                </>
+              );
+            }}
+          </Script>
+        );
+      }
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/nested.tsx", code);
+    const diags = componentNestingRule.run(
+      sourceFile,
+      { uri: "file:///test/nested.tsx", exports: [], components: [], imports: [], jsxElements: [], errors: [] }
+    );
+    assert.strictEqual(diags.length, 2);
+    assert.strictEqual(diags[0].code, "streak:S602");
+    assert.ok(diags[0].message.includes("Nesting `<Script>` tags"));
+    assert.strictEqual(diags[1].code, "streak:S602");
+    assert.ok(diags[1].message.includes("Nesting `<WidgetPlaceholder>`"));
+  });
+
+  test("streak:S603 flags invalid Script child structure", () => {
+    const code = `
+      import { Script } from "streak-forge/components";
+      export default function Test() {
+        return (
+          <>
+            {/* 1. Empty Script */}
+            <Script id="s1"></Script>
+            
+            {/* 2. Text child */}
+            <Script id="s2">some raw text</Script>
+
+            {/* 3. Non-function child */}
+            <Script id="s3">
+              {123}
+            </Script>
+
+            {/* 4. Valid Script */}
+            <Script id="s4">
+              {() => {}}
+            </Script>
+          </>
+        );
+      }
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/struct.tsx", code);
+    const diags = scriptStructureRule.run(
+      sourceFile,
+      { uri: "file:///test/struct.tsx", exports: [], components: [], imports: [], jsxElements: [], errors: [] }
+    );
+    assert.strictEqual(diags.length, 3);
+    assert.strictEqual(diags[0].code, "streak:S603");
+    assert.ok(diags[0].message.includes("requires an inline execution callback"));
+    assert.strictEqual(diags[1].code, "streak:S603");
+    assert.ok(diags[1].message.includes("must be wrapped in a JSX expression"));
+    assert.strictEqual(diags[2].code, "streak:S603");
+    assert.ok(diags[2].message.includes("must be a client-side function expression"));
+  });
+
+  test("streak:S701 flags imports not present in allowedImports whitelist", () => {
+    const code = `
+      import { Script } from "streak-forge/components";
+      import { useState } from "react";
+      import { someFunc } from "lodash";
+      import { localHelper } from "./helper";
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/imports.tsx", code);
+
+    // Test with default whitelist (allows "streak-forge/components", "react")
+    const diagsDefault = allowedImportsRule.run(
+      sourceFile,
+      { uri: "file:///test/imports.tsx", exports: [], components: [], imports: [], jsxElements: [], errors: [] },
+      { enabled: true, ruleOptions: { allowedImports: ["streak-forge/components", "react"] } }
+    );
+    assert.strictEqual(diagsDefault.length, 1);
+    assert.strictEqual(diagsDefault[0].code, "streak:S701");
+    assert.ok(diagsDefault[0].message.includes("lodash"));
+
+    // Test with lodash allowed
+    const diagsCustom = allowedImportsRule.run(
+      sourceFile,
+      { uri: "file:///test/imports.tsx", exports: [], components: [], imports: [], jsxElements: [], errors: [] },
+      { enabled: true, ruleOptions: { allowedImports: ["streak-forge/components", "react", "lodash"] } }
+    );
+    assert.strictEqual(diagsCustom.length, 0);
+  });
+
+  test("streak:S702 flags banned patterns matched by regular expressions", () => {
+    const code = `
+      const x = eval("1 + 1");
+      const y = setTimeout(() => {}, 100);
+      console.log("hello");
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/patterns.ts", code);
+
+    // Test with eval and setTimeout banned
+    const diags = forbiddenPatternsRule.run(
+      sourceFile,
+      { uri: "file:///test/patterns.ts", exports: [], components: [], imports: [], jsxElements: [], errors: [] },
+      { enabled: true, ruleOptions: { forbiddenPatterns: ["eval\\(", "setTimeout\\("] } }
+    );
+    assert.strictEqual(diags.length, 2);
+    assert.strictEqual(diags[0].code, "streak:S702");
+    assert.ok(diags[0].message.includes("eval\\("));
+    assert.strictEqual(diags[1].code, "streak:S702");
+    assert.ok(diags[1].message.includes("setTimeout\\("));
+  });
+
+  test("streak.createWidget command is registered and scaffolds a widget file", async () => {
+    process.env.STREAK_TEST_ENVIRONMENT = "1";
+    const originalShowInputBox = vscode.window.showInputBox;
+    (vscode.window as any).showInputBox = async () => "MyScaffoldedWidget";
+
+    const tempDir = path.join(__dirname, "..", "..", "test-scaffold-temp");
+    const fs = require("fs");
+    fs.mkdirSync(tempDir, { recursive: true });
+
+    const originalWorkspaceFolders = vscode.workspace.workspaceFolders;
+    Object.defineProperty(vscode.workspace, "workspaceFolders", {
+      get: () => [{
+        uri: vscode.Uri.file(tempDir),
+        name: "test-workspace",
+        index: 0
+      }],
+      configurable: true
+    });
+
+    const targetDir = path.join(tempDir, "src", "widgets");
+    const testFile = path.join(targetDir, "MyScaffoldedWidget.tsx");
+    if (fs.existsSync(testFile)) {
+      fs.rmSync(testFile);
+    }
+
+    try {
+      await vscode.commands.executeCommand("streak.createWidget");
+
+      assert.ok(fs.existsSync(testFile));
+      const content = fs.readFileSync(testFile, "utf-8");
+      assert.ok(content.includes("const MyScaffoldedWidget = (props: MyScaffoldedWidgetProps) => {"));
+    } finally {
+      delete process.env.STREAK_TEST_ENVIRONMENT;
+      if (fs.existsSync(testFile)) {
+        fs.rmSync(testFile);
+      }
+      vscode.window.showInputBox = originalShowInputBox;
+      Object.defineProperty(vscode.workspace, "workspaceFolders", {
+        get: () => originalWorkspaceFolders,
+        configurable: true
+      });
+    }
   });
 });
 

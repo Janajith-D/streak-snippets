@@ -144,6 +144,20 @@ The extension provides context-aware quick fixes for common validation diagnosti
 
 
 
+### Workspace Widget Registry & Suggestions (LSP Engine)
+
+The extension contains an AST-based Workspace Widget Registry that automatically crawls, indexes, and monitors custom components under `src/widgets/` and `src/components/` in your project.
+
+#### 1. Rich Autocompletions
+When autocompleting the `type` attribute on `<WidgetPlaceholder type="..." />`, the extension queries the registry database to suggest your custom widgets and presents:
+- **JSDoc descriptions**: Extracted from the widget's class/function JSDoc headers.
+- **Properties signature list**: Detailed overview of all typed props, identifying optional properties (`?`), types, and custom property-level JSDoc summaries.
+
+#### 2. On-Hover Prop Tooltips
+Hovering over the `type` string literal value (e.g., `<WidgetPlaceholder type="ProductCard" />`) resolves the component and displays a rich markdown tooltip listing all custom properties and documentation directly inside your editor.
+
+
+
 ## Extension Settings
 
 Configure rule severities and diagnostics in VS Code settings:
@@ -166,6 +180,11 @@ Configure rule severities and diagnostics in VS Code settings:
 | `streak.rules.asyncScriptCallback.severity` | `string` | `"error"` | Severity for `streak:S404` |
 | `streak.rules.scriptRequiredId.severity` | `string` | `"warning"` | Severity for `streak:S405` |
 | `streak.rules.invalidDynamicComponentId.severity` | `string` | `"error"` | Severity for `streak:S501` |
+| `streak.rules.duplicatedWidget.severity` | `string` | `"error"` | Severity for `streak:S601` |
+| `streak.rules.componentNesting.severity` | `string` | `"error"` | Severity for `streak:S602` |
+| `streak.rules.scriptStructure.severity` | `string` | `"error"` | Severity for `streak:S603` |
+| `streak.rules.allowedImports.severity` | `string` | `"warning"` | Severity for `streak:S701` |
+| `streak.rules.forbiddenPatterns.severity` | `string` | `"error"` | Severity for `streak:S702` |
 
 ---
 
@@ -198,6 +217,37 @@ npm run test           # Run tests
 ---
 
 ## Release Notes
+
+### 1.0.0
+
+- **Production Release & Maintenance (Phase 12)**: Production bundle release:
+  - Configured project guidelines `CONTRIBUTING.md`.
+  - Added GitHub issue templates for Bug Reports and Feature Requests.
+  - Verified clean builds, styling, unit/integration testing, and packaging parameters.
+
+### 0.9.0
+
+- **Developer Experience Features (Phase 11)**: Polished workflow integration:
+  - **VS Code Status Bar**: Shows real-time LSP server connection and the count of widgets indexed in the workspace registry.
+  - **Widget Scaffolder Command**: Prompts for a widget name, verifies naming standards, scaffolds target file inside configured directory, and opens it automatically.
+
+### 0.8.0
+
+- **Configuration & Extensibility (Phase 10)**: Introduced workspace options enabling teams to customize folders structures, import boundaries, and codebase standards:
+  - `streak.snippets.widgetDirectory`, `pageDirectory`, and `publicDirectory` options.
+  - `streak:S701` (Import Whitelisting): Ensures files only import approved modules from `streak.rules.allowedImports`.
+  - `streak:S702` (Forbidden Patterns): Scans source code against regex patterns specified in `streak.rules.forbiddenPatterns`.
+
+### 0.7.0
+
+- **Advanced Static Analysis (Phase 9)**: Expanded the validation engine with 3 new rules:
+  - `streak:S601` (Duplicated Widget Names): Flags component name collisions in `src/widgets/`.
+  - `streak:S602` (Component Nesting): Validates component nesting boundaries (no nested `<Script>` blocks, no `<WidgetPlaceholder>` inside scripts).
+  - `streak:S603` (Script Structure): Enforces single JSX expression wrapping an execution callback child on `<Script>`.
+
+### 0.6.0
+
+- **Workspace Widget Registry & Suggestions (Phase 8)**: Implemented an AST-based workspace scanner and registry matching components under `src/widgets/` and `src/components/`. Resolves their JSDoc headers and typed props to display rich markdown autocomplete summaries and properties lists on hovers.
 
 ### 0.5.0
 

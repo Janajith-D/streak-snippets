@@ -18,6 +18,7 @@ export interface RuleDiagnostic {
 export interface RuleOptions {
   enabled: boolean;
   severity?: DiagnosticSeverity;
+  ruleOptions?: any;
 }
 
 export interface Rule {

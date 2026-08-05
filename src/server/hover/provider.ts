@@ -3,6 +3,48 @@ import { Hover } from "vscode-languageserver/node";
 import { GDOM_METHODS } from "../completion/runtimeApi";
 
 export function resolveHover(node: Node): Hover | null {
+  // Case 0: Hovering over type value string literal in WidgetPlaceholder
+  if (Node.isStringLiteral(node)) {
+    const parent = node.getParent();
+    if (parent && Node.isJsxAttribute(parent)) {
+      const attributeName = parent.getNameNode()?.getText();
+      if (attributeName === "type") {
+        let tagNode: Node | undefined = parent.getParent();
+        if (tagNode && tagNode.getKindName() === "JsxAttributes") {
+          tagNode = tagNode.getParent();
+        }
+        if (tagNode && (Node.isJsxOpeningElement(tagNode) || Node.isJsxSelfClosingElement(tagNode))) {
+          const tagName = tagNode.getTagNameNode().getText();
+          if (tagName === "WidgetPlaceholder") {
+            const widgetType = node.getLiteralValue();
+            const { widgetRegistry } = require("../registry/widgets");
+            const widget = widgetRegistry.get(widgetType);
+            if (widget) {
+              let hoverText = `**Widget: ${widget.name}**\n\n`;
+              if (widget.docComment) {
+                hoverText += `${widget.docComment}\n\n`;
+              }
+              if (widget.props && widget.props.length > 0) {
+                hoverText += `**Props:**\n`;
+                for (const prop of widget.props) {
+                  const optional = prop.isOptional ? "?" : "";
+                  const propDoc = prop.docComment ? ` — ${prop.docComment}` : "";
+                  hoverText += `- \`${prop.name}${optional}: ${prop.type}\`${propDoc}\n`;
+                }
+              }
+              return {
+                contents: {
+                  kind: "markdown",
+                  value: hoverText.trim(),
+                },
+              };
+            }
+          }
+        }
+      }
+    }
+  }
+
   // Case 1: Hovering over component tag name
   if (Node.isIdentifier(node)) {
     const tagName = node.getText();

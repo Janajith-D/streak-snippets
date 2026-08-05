@@ -6,7 +6,8 @@ import { RuleDiagnostic, RuleOptions } from "./types";
 
 export interface RuleEngineConfig {
   enabled: boolean;
-  ruleSeverities?: Record<string, string>; // e.g. { "streak-widget-placeholder-props": "error", "streak-missing-default-export": "off" }
+  ruleSeverities?: Record<string, string>;
+  ruleOptions?: any;
 }
 
 /**
@@ -31,6 +32,7 @@ export function runRules(
 
     const options: RuleOptions = {
       enabled: true,
+      ruleOptions: config?.ruleOptions,
     };
 
     const diagnostics = rule.run(sourceFile, analysis, options);
