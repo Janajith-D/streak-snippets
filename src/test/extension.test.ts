@@ -849,7 +849,7 @@ suite("Extension Test Suite", () => {
     assert.ok(actionsS301[0].edit?.changes?.["file:///test/AboutData.tsx"]?.[0]?.newText.includes("export default AboutData;"));
   });
 
-  test("WidgetRegistry and Scanner dynamically extracts widget description and props, providing rich completions and hovers", () => {
+  test("WidgetRegistry and Scanner dynamically extracts widget description and props, providing rich completions and hovers", async () => {
     const fs = require("fs");
     const path = require("path");
 
@@ -884,7 +884,7 @@ suite("Extension Test Suite", () => {
     `, "utf-8");
 
     // Index the temporary workspace
-    scanWorkspace(tempRoot);
+    await scanWorkspace(tempRoot);
 
     // 1. Assert registry has extracted metadata correctly
     const meta = widgetRegistry.get("ProductCard");
