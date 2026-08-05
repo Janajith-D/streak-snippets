@@ -22,6 +22,8 @@ import { dynamicComponentIdRule } from "../server/rules/dynamicComponentIdRule";
 import { duplicatedWidgetRule } from "../server/rules/duplicatedWidgetRule";
 import { componentNestingRule } from "../server/rules/componentNestingRule";
 import { scriptStructureRule } from "../server/rules/scriptStructureRule";
+import { allowedImportsRule } from "../server/rules/allowedImportsRule";
+import { forbiddenPatternsRule } from "../server/rules/forbiddenPatternsRule";
 import { getCompletions } from "../server/completion/provider";
 import { getJsxContext } from "../server/completion/jsxAttributeCompletions";
 import { getAutoImportEdit } from "../server/completion/frameworkCompletions";
@@ -1040,6 +1042,55 @@ suite("Extension Test Suite", () => {
     assert.ok(diags[1].message.includes("must be wrapped in a JSX expression"));
     assert.strictEqual(diags[2].code, "streak:S603");
     assert.ok(diags[2].message.includes("must be a client-side function expression"));
+  });
+
+  test("streak:S701 flags imports not present in allowedImports whitelist", () => {
+    const code = `
+      import { Script } from "streak-forge/components";
+      import { useState } from "react";
+      import { someFunc } from "lodash";
+      import { localHelper } from "./helper";
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/imports.tsx", code);
+
+    // Test with default whitelist (allows "streak-forge/components", "react")
+    const diagsDefault = allowedImportsRule.run(
+      sourceFile,
+      { uri: "file:///test/imports.tsx", exports: [], components: [], imports: [], jsxElements: [], errors: [] },
+      { enabled: true, ruleOptions: { allowedImports: ["streak-forge/components", "react"] } }
+    );
+    assert.strictEqual(diagsDefault.length, 1);
+    assert.strictEqual(diagsDefault[0].code, "streak:S701");
+    assert.ok(diagsDefault[0].message.includes("lodash"));
+
+    // Test with lodash allowed
+    const diagsCustom = allowedImportsRule.run(
+      sourceFile,
+      { uri: "file:///test/imports.tsx", exports: [], components: [], imports: [], jsxElements: [], errors: [] },
+      { enabled: true, ruleOptions: { allowedImports: ["streak-forge/components", "react", "lodash"] } }
+    );
+    assert.strictEqual(diagsCustom.length, 0);
+  });
+
+  test("streak:S702 flags banned patterns matched by regular expressions", () => {
+    const code = `
+      const x = eval("1 + 1");
+      const y = setTimeout(() => {}, 100);
+      console.log("hello");
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/patterns.ts", code);
+
+    // Test with eval and setTimeout banned
+    const diags = forbiddenPatternsRule.run(
+      sourceFile,
+      { uri: "file:///test/patterns.ts", exports: [], components: [], imports: [], jsxElements: [], errors: [] },
+      { enabled: true, ruleOptions: { forbiddenPatterns: ["eval\\(", "setTimeout\\("] } }
+    );
+    assert.strictEqual(diags.length, 2);
+    assert.strictEqual(diags[0].code, "streak:S702");
+    assert.ok(diags[0].message.includes("eval\\("));
+    assert.strictEqual(diags[1].code, "streak:S702");
+    assert.ok(diags[1].message.includes("setTimeout\\("));
   });
 });
 

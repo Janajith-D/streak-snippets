@@ -140,6 +140,49 @@
           "enum": ["error", "warning", "info", "off"],
           "default": "error",
           "description": "Severity for Script callback children structure rule (streak:S603)"
+        },
+        "streak.rules.allowedImports.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "warning",
+          "description": "Severity for allowed imports validation rule (streak:S701)"
+        },
+        "streak.rules.forbiddenPatterns.severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info", "off"],
+          "default": "error",
+          "description": "Severity for forbidden code patterns linter rule (streak:S702)"
+        },
+        "streak.rules.allowedImports": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": ["streak-forge/components", "react", "react-dom"],
+          "description": "List of approved module import specifiers inside project source files."
+        },
+        "streak.rules.forbiddenPatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Disallowed code patterns as regular expression strings."
+        },
+        "streak.snippets.widgetDirectory": {
+          "type": "string",
+          "default": "src/widgets",
+          "description": "The workspace folder path for custom widgets indexing."
+        },
+        "streak.snippets.pageDirectory": {
+          "type": "string",
+          "default": "src/pages",
+          "description": "The workspace folder path for custom pages indexing."
+        },
+        "streak.snippets.publicDirectory": {
+          "type": "string",
+          "default": "public",
+          "description": "The workspace folder path for static assets resolving."
         }
       }
     }

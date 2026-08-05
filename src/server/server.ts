@@ -153,6 +153,7 @@ async function validateDocument(document: TextDocument): Promise<void> {
   }
 
   let ruleSeverities: Record<string, string> = {};
+  let ruleOptions: any = {};
   try {
     const streakSettings = await connection.workspace.getConfiguration("streak");
     if (streakSettings?.rules) {
@@ -174,6 +175,8 @@ async function validateDocument(document: TextDocument): Promise<void> {
         duplicatedWidget: "streak:duplicated-widget",
         componentNesting: "streak:component-nesting",
         scriptStructure: "streak:script-structure",
+        allowedImports: "streak:allowed-imports",
+        forbiddenPatterns: "streak:forbidden-patterns",
       };
 
       for (const [settingsKey, ruleId] of Object.entries(settingsMap)) {
@@ -181,12 +184,19 @@ async function validateDocument(document: TextDocument): Promise<void> {
           ruleSeverities[ruleId] = streakSettings.rules[settingsKey].severity;
         }
       }
+
+      if (streakSettings.rules.allowedImports) {
+        ruleOptions.allowedImports = streakSettings.rules.allowedImports;
+      }
+      if (streakSettings.rules.forbiddenPatterns) {
+        ruleOptions.forbiddenPatterns = streakSettings.rules.forbiddenPatterns;
+      }
     }
   } catch (err) {
     connection.console.log(`Failed to fetch configurations: ${err}`);
   }
 
-  const diagnostics = runRules(sourceFile, analysis, { enabled: true, ruleSeverities });
+  const diagnostics = runRules(sourceFile, analysis, { enabled: true, ruleSeverities, ruleOptions });
 
   connection.console.log(
     `[Validation] Found ${diagnostics.length} diagnostic(s) for ${uri}`,

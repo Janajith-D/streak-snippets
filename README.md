@@ -183,6 +183,8 @@ Configure rule severities and diagnostics in VS Code settings:
 | `streak.rules.duplicatedWidget.severity` | `string` | `"error"` | Severity for `streak:S601` |
 | `streak.rules.componentNesting.severity` | `string` | `"error"` | Severity for `streak:S602` |
 | `streak.rules.scriptStructure.severity` | `string` | `"error"` | Severity for `streak:S603` |
+| `streak.rules.allowedImports.severity` | `string` | `"warning"` | Severity for `streak:S701` |
+| `streak.rules.forbiddenPatterns.severity` | `string` | `"error"` | Severity for `streak:S702` |
 
 ---
 
@@ -215,6 +217,13 @@ npm run test           # Run tests
 ---
 
 ## Release Notes
+
+### 0.8.0
+
+- **Configuration & Extensibility (Phase 10)**: Introduced workspace options enabling teams to customize folders structures, import boundaries, and codebase standards:
+  - `streak.snippets.widgetDirectory`, `pageDirectory`, and `publicDirectory` options.
+  - `streak:S701` (Import Whitelisting): Ensures files only import approved modules from `streak.rules.allowedImports`.
+  - `streak:S702` (Forbidden Patterns): Scans source code against regex patterns specified in `streak.rules.forbiddenPatterns`.
 
 ### 0.7.0
 
