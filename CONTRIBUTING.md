@@ -19,6 +19,10 @@ Thank you for contributing to Streak Snippets! This document provides informatio
    npm install
    ```
 
+### Running Locally
+1. Press `F5` in VS Code to launch the Extension Development Host window.
+2. Open a `.ts` or `.tsx` file inside the new window to test diagnostics, autocomplete, hovers, or scaffolding commands.
+
 ---
 
 ## Build Commands
