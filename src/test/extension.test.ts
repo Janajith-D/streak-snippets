@@ -1,6 +1,6 @@
 import * as assert from "assert";
-import * as path from "path";
-import * as fs from "fs";
+import * as path from "node:path";
+import * as fs from "node:fs";
 
 // You can import and use all API from the 'vscode' module
 // as well as import your extension to test it
@@ -657,8 +657,8 @@ suite("Extension Test Suite", () => {
   });
 
   test("resolveDefinition resolves WidgetPlaceholder, Preload, and Dynamic definitions", async () => {
-    const fs = require("fs");
-    const path = require("path");
+    const fs = require("node:fs");
+    const path = require("node:path");
 
     const tempRoot = path.join(__dirname, "test-workspace-temp");
     if (!fs.existsSync(tempRoot)) {
@@ -850,8 +850,8 @@ suite("Extension Test Suite", () => {
   });
 
   test("WidgetRegistry and Scanner dynamically extracts widget description and props, providing rich completions and hovers", async () => {
-    const fs = require("fs");
-    const path = require("path");
+    const fs = require("node:fs");
+    const path = require("node:path");
 
     const tempRoot = path.join(__dirname, "..", "..", "test-registry-temp");
     if (!fs.existsSync(tempRoot)) {
@@ -1099,7 +1099,7 @@ suite("Extension Test Suite", () => {
     (vscode.window as any).showInputBox = async () => "MyScaffoldedWidget";
 
     const tempDir = path.join(__dirname, "..", "..", "test-scaffold-temp");
-    const fs = require("fs");
+    const fs = require("node:fs");
     fs.mkdirSync(tempDir, { recursive: true });
 
     const originalWorkspaceFolders = vscode.workspace.workspaceFolders;

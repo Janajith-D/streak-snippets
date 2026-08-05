@@ -1,6 +1,6 @@
 import { CompletionItem, CompletionItemKind } from "vscode-languageserver/node";
-import * as fs from "fs";
-import * as path from "path";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { CompletionContext } from "./types";
 
 export interface JsxContext {
@@ -236,93 +236,136 @@ export function getJsxAttributeCompletions(
 
   // 1. Autocomplete attribute names
   if (!inAttributeValue) {
-    let attributes: string[] = [];
-    if (tagName === "WidgetPlaceholder") {
-      attributes = ["id", "type"];
-    } else if (tagName === "Preload") {
-      attributes = ["href", "as", "media", "crossOrigin"];
-    } else if (tagName === "Dynamic") {
-      attributes = ["id", "component", "data"];
-    } else if (tagName === "Script") {
-      attributes = ["id", "options"];
-    }
-
-    return attributes.map((attr) => ({
-      label: attr,
-      kind: CompletionItemKind.Property,
-      insertText: `${attr}=""`,
-    }));
+    return getAttributeNameCompletions(tagName);
   }
 
   // 2. Autocomplete attribute values
-  if (tagName === "WidgetPlaceholder" && attributeName === "type") {
-    const widgetTypes = getWidgetTypes(workspaceRoot, customWidgetDir);
-    const { widgetRegistry } = require("../registry/widgets");
+  return getAttributeValueCompletions(tagName, attributeName, workspaceRoot, customWidgetDir, customPublicDir, context);
+}
 
-    return widgetTypes.map((type) => {
-      const widget = widgetRegistry.get(type);
-      const detail = "Custom Project Widget";
-      let documentation = "";
-
-      if (widget) {
-        if (widget.docComment) {
-          documentation += `${widget.docComment}\n\n`;
-        }
-        if (widget.props && widget.props.length > 0) {
-          documentation += `**Available Props:**\n`;
-          for (const prop of widget.props) {
-            const optionalStr = prop.isOptional ? "?" : "";
-            const propDoc = prop.docComment ? ` — ${prop.docComment}` : "";
-            documentation += `- \`${prop.name}${optionalStr}: ${prop.type}\`${propDoc}\n`;
-          }
-        }
-      }
-
-      return {
-        label: type,
-        kind: CompletionItemKind.Value,
-        insertText: type,
-        detail,
-        documentation: documentation ? { kind: "markdown", value: documentation } : undefined,
-      };
-    });
+function getAttributeNameCompletions(tagName: string): CompletionItem[] {
+  let attributes: string[] = [];
+  if (tagName === "WidgetPlaceholder") {
+    attributes = ["id", "type"];
+  } else if (tagName === "Preload") {
+    attributes = ["href", "as", "media", "crossOrigin"];
+  } else if (tagName === "Dynamic") {
+    attributes = ["id", "component", "data"];
+  } else if (tagName === "Script") {
+    attributes = ["id", "options"];
   }
 
-  if (tagName === "WidgetPlaceholder" && attributeName === "id") {
-    const widgetIds = getWidgetIdsFromDataHandlers(workspaceRoot);
-    return widgetIds.map((id) => ({
-      label: id,
-      kind: CompletionItemKind.Value,
-      insertText: id,
-    }));
+  return attributes.map((attr) => ({
+    label: attr,
+    kind: CompletionItemKind.Property,
+    insertText: `${attr}=""`,
+  }));
+}
+
+function getAttributeValueCompletions(
+  tagName: string,
+  attributeName: string | undefined,
+  workspaceRoot: string | undefined,
+  customWidgetDir: string | undefined,
+  customPublicDir: string | undefined,
+  context: CompletionContext
+): CompletionItem[] {
+  if (tagName === "WidgetPlaceholder") {
+    if (attributeName === "type") {
+      return getWidgetPlaceholderTypeCompletions(workspaceRoot, customWidgetDir);
+    }
+    if (attributeName === "id") {
+      return getWidgetPlaceholderIdCompletions(workspaceRoot);
+    }
   }
 
-  if (tagName === "Preload" && attributeName === "as") {
-    const asValues = ["image", "font", "style", "script", "video"];
-    return asValues.map((val) => ({
-      label: val,
-      kind: CompletionItemKind.Value,
-      insertText: val,
-    }));
-  }
-
-  if (tagName === "Preload" && attributeName === "href") {
-    const assets = getPublicAssets(workspaceRoot, customPublicDir);
-    return assets.map((asset) => ({
-      label: asset,
-      kind: CompletionItemKind.File,
-      insertText: asset,
-    }));
+  if (tagName === "Preload") {
+    if (attributeName === "as") {
+      return getPreloadAsCompletions();
+    }
+    if (attributeName === "href") {
+      return getPreloadHrefCompletions(workspaceRoot, customPublicDir);
+    }
   }
 
   if (tagName === "Dynamic" && attributeName === "id") {
-    const dynamicIds = getDynamicComponentIds(workspaceRoot, context.text);
-    return dynamicIds.map((id) => ({
-      label: id,
-      kind: CompletionItemKind.Value,
-      insertText: id,
-    }));
+    return getDynamicIdCompletions(workspaceRoot, context.text);
   }
 
   return [];
+}
+
+function getWidgetPlaceholderTypeCompletions(
+  workspaceRoot: string | undefined,
+  customWidgetDir: string | undefined
+): CompletionItem[] {
+  const widgetTypes = getWidgetTypes(workspaceRoot, customWidgetDir);
+  const { widgetRegistry } = require("../registry/widgets");
+
+  return widgetTypes.map((type) => {
+    const widget = widgetRegistry.get(type);
+    const detail = "Custom Project Widget";
+    let documentation = "";
+
+    if (widget) {
+      if (widget.docComment) {
+        documentation += `${widget.docComment}\n\n`;
+      }
+      if (widget.props && widget.props.length > 0) {
+        documentation += `**Available Props:**\n`;
+        for (const prop of widget.props) {
+          const optionalStr = prop.isOptional ? "?" : "";
+          const propDoc = prop.docComment ? ` — ${prop.docComment}` : "";
+          documentation += `- \`${prop.name}${optionalStr}: ${prop.type}\`${propDoc}\n`;
+        }
+      }
+    }
+
+    return {
+      label: type,
+      kind: CompletionItemKind.Value,
+      insertText: type,
+      detail,
+      documentation: documentation ? { kind: "markdown", value: documentation } : undefined,
+    };
+  });
+}
+
+function getWidgetPlaceholderIdCompletions(workspaceRoot: string | undefined): CompletionItem[] {
+  const widgetIds = getWidgetIdsFromDataHandlers(workspaceRoot);
+  return widgetIds.map((id) => ({
+    label: id,
+    kind: CompletionItemKind.Value,
+    insertText: id,
+  }));
+}
+
+function getPreloadAsCompletions(): CompletionItem[] {
+  const asValues = ["image", "font", "style", "script", "video"];
+  return asValues.map((val) => ({
+    label: val,
+    kind: CompletionItemKind.Value,
+    insertText: val,
+  }));
+}
+
+function getPreloadHrefCompletions(
+  workspaceRoot: string | undefined,
+  customPublicDir: string | undefined
+): CompletionItem[] {
+  const assets = getPublicAssets(workspaceRoot, customPublicDir);
+  return assets.map((asset) => ({
+    label: asset,
+    kind: CompletionItemKind.File,
+    insertText: asset,
+  }));
+}
+
+function getDynamicIdCompletions(workspaceRoot: string | undefined, text: string): CompletionItem[] {
+  const dynamicIds = getDynamicComponentIds(workspaceRoot, text);
+  return dynamicIds.map((id) => ({
+    label: id,
+    kind: CompletionItemKind.Value,
+    insertText: id,
+  }));
 }

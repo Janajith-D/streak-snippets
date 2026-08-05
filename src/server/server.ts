@@ -10,7 +10,7 @@ import {
   Hover,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { fileURLToPath } from "url";
+import { fileURLToPath } from "node:url";
 import { analyzeAndParseDocument, cleanupDocumentSourceFile } from "./parser/analyzer";
 import { runRules } from "./rules/runner";
 import { getCompletions } from "./completion/provider";
@@ -19,7 +19,7 @@ import { resolveDefinition } from "./definition/provider";
 import { resolveCodeActions } from "./codeaction/provider";
 import { scanWorkspace, scanFile } from "./registry/scanner";
 import { Project, ScriptTarget } from "ts-morph";
-import * as path from "path";
+import * as path from "node:path";
 
 // Create a connection for the server, using Node's IPC / stdio communication
 const connection = createConnection(ProposedFeatures.all);

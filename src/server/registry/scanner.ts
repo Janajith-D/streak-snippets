@@ -1,6 +1,6 @@
 import { Node, Project, ScriptTarget, SyntaxKind } from "ts-morph";
-import * as path from "path";
-import * as fs from "fs";
+import * as path from "node:path";
+import * as fs from "node:fs";
 import { widgetRegistry, WidgetProp } from "./widgets";
 
 // Single shared compiler project instance to avoid redundant instantiation overhead

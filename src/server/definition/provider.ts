@@ -1,8 +1,8 @@
 import { Node, Project, ScriptTarget } from "ts-morph";
 import { Location, Range } from "vscode-languageserver/node";
-import * as path from "path";
-import * as fs from "fs";
-import { pathToFileURL } from "url";
+import * as path from "node:path";
+import * as fs from "node:fs";
+import { pathToFileURL } from "node:url";
 
 // Single shared project to avoid redundant ts-morph Project creation overhead
 const defProject = new Project({

@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import * as path from "path";
+import * as path from "node:path";
 import {
   LanguageClient,
   LanguageClientOptions,
@@ -105,7 +105,7 @@ export function activate(context: vscode.ExtensionContext) {
     const rootPath = workspaceFolders[0].uri.fsPath;
     const targetDir = path.join(rootPath, widgetSubdir);
 
-    const fs = require("fs");
+    const fs = require("node:fs");
     if (!fs.existsSync(targetDir)) {
       fs.mkdirSync(targetDir, { recursive: true });
     }
