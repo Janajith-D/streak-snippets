@@ -33,7 +33,7 @@ import { resolveHover } from "../server/hover/provider";
 import { resolveDefinition } from "../server/definition/provider";
 import { resolveCodeActions } from "../server/codeaction/provider";
 import { widgetRegistry } from "../server/registry/widgets";
-import { scanWorkspace, scanFile } from "../server/registry/scanner";
+import { scanWorkspace } from "../server/registry/scanner";
 
 
 suite("Extension Test Suite", () => {

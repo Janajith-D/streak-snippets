@@ -5,8 +5,6 @@ import {
   InitializeParams,
   InitializeResult,
   TextDocumentSyncKind,
-  CodeAction,
-  CodeActionKind,
   Hover,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -18,8 +16,6 @@ import { resolveHover } from "./hover/provider";
 import { resolveDefinition } from "./definition/provider";
 import { resolveCodeActions } from "./codeaction/provider";
 import { scanWorkspace, scanFile } from "./registry/scanner";
-import { Project, ScriptTarget } from "ts-morph";
-import * as path from "node:path";
 
 // Create a connection for the server, using Node's IPC / stdio communication
 const connection = createConnection(ProposedFeatures.all);

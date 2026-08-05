@@ -3,3 +3,6 @@ dist
 node_modules
 .vscode-test/
 *.vsix
+test-registry-temp/
+test-scaffold-temp/
+test-workspace-temp/

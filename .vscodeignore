@@ -12,3 +12,9 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
+.github/**
+CONTRIBUTING.md
+vscode_language_support_roadmap.md
+test-registry-temp/**
+test-scaffold-temp/**
+test-workspace-temp/**
