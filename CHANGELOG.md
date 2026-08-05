@@ -5,6 +5,14 @@ All notable changes to the "streak-snippets" extension will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-08-05
+
+### Added
+- **Production Release & Maintenance (Phase 12)**: Release packaging:
+  - Created developer workflow and contribution guidelines inside `CONTRIBUTING.md`.
+  - Added issue templates for structuring project bug reports and feature requests.
+  - Verified tests compilation, eslint formatting, and VSIX packaging validations.
+
 ## [0.9.0] - 2026-08-05
 
 ### Added

@@ -218,6 +218,13 @@ npm run test           # Run tests
 
 ## Release Notes
 
+### 1.0.0
+
+- **Production Release & Maintenance (Phase 12)**: Production bundle release:
+  - Configured project guidelines `CONTRIBUTING.md`.
+  - Added GitHub issue templates for Bug Reports and Feature Requests.
+  - Verified clean builds, styling, unit/integration testing, and packaging parameters.
+
 ### 0.9.0
 
 - **Developer Experience Features (Phase 11)**: Polished workflow integration:
