@@ -18,17 +18,13 @@ export function getCompletions(
   customWidgetDir?: string,
   customPublicDir?: string
 ): CompletionItem[] {
-  const completions: CompletionItem[] = [];
-
-  // 1. Check for Streak built-in components (e.g. <WidgetPlaceholder)
-  completions.push(...getFrameworkCompletions(context, document, sourceFile));
-
-  // 2. Check for JSX attributes (e.g. id, type, href, as) and attribute values
-  completions.push(...getJsxAttributeCompletions(context, workspaceRoot, customWidgetDir, customPublicDir));
-
-  // 3. Check for Script callback loadDynamicComponent completions
-  completions.push(...getScriptCompletions(context, workspaceRoot));
-
-  return completions;
+  return [
+    // 1. Streak built-in components (e.g. <WidgetPlaceholder, sfS snippet)
+    ...getFrameworkCompletions(context, document, sourceFile),
+    // 2. JSX attributes (e.g. id, type, href, as) and attribute values
+    ...getJsxAttributeCompletions(context, workspaceRoot, customWidgetDir, customPublicDir),
+    // 3. Script callback — gDom methods and loadDynamicComponent IDs
+    ...getScriptCompletions(context, workspaceRoot),
+  ];
 }
 export * from "./types";

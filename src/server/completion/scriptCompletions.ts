@@ -2,6 +2,7 @@ import { CompletionItem, CompletionItemKind, InsertTextFormat } from "vscode-lan
 import { CompletionContext } from "./types";
 import { getDynamicComponentIds } from "./jsxAttributeCompletions";
 import { GDOM_METHODS } from "./runtimeApi";
+import { GDOM_ACCESS_RE, LOAD_DYNAMIC_RE, SCRIPT_CALLBACK_RE } from "../../shared/completionConstants";
 
 /**
  * Checks if the cursor is currently inside the first argument of a loadDynamicComponent call.
@@ -9,8 +10,7 @@ import { GDOM_METHODS } from "./runtimeApi";
  */
 export function isInsideLoadDynamicComponent(text: string, offset: number): boolean {
   const textBeforeCursor = text.slice(0, offset);
-  const regex = /(?:[a-zA-Z0-9_]+\.)?loadDynamicComponent\s*\(\s*["']([^"']*)$/;
-  return regex.test(textBeforeCursor);
+  return LOAD_DYNAMIC_RE.test(textBeforeCursor);
 }
 
 /**
@@ -26,7 +26,7 @@ export function isInsideScriptCallback(text: string, offset: number): boolean {
   }
 
   const scriptContent = textBefore.slice(lastOpen);
-  const callbackStart = scriptContent.match(/\{\s*\(\s*gDom\s*(?::\s*[a-zA-Z0-9_]+)?\s*(?:,\s*[a-zA-Z0-9_]+\s*(?::\s*[a-zA-Z0-9_]+)?)?\s*\)\s*=>\s*\{/);
+  const callbackStart = SCRIPT_CALLBACK_RE.exec(scriptContent);
   if (!callbackStart) {
     return false;
   }
@@ -74,7 +74,7 @@ export function getScriptCompletions(
   const textBeforeCursor = context.text.slice(0, context.offset);
 
   // Check if user is typing a property of gDom
-  if (/gDom\.([a-zA-Z0-9_]*)$/.test(textBeforeCursor)) {
+  if (GDOM_ACCESS_RE.test(textBeforeCursor)) {
     return getGDomCompletions();
   }
 
