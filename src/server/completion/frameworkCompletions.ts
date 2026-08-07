@@ -4,7 +4,7 @@ import { SourceFile } from "ts-morph";
 import { CompletionContext } from "./types";
 import { isInsideScriptCallback } from "./scriptCompletions";
 import * as path from "node:path";
-import { TRAILING_WORD_RE } from "../../shared/completionConstants";
+
 
 interface ComponentConfig {
   name: string;
@@ -85,11 +85,11 @@ function isJsxTagStart(text: string, offset: number): boolean {
 
 /**
  * Extracts the partial identifier being typed immediately before the cursor.
- * Uses shared TRAILING_WORD_RE to avoid duplication.
+ * Uses string split on non-word chars — O(n), no regex backtracking.
  */
 function getTrailingWord(context: CompletionContext): string {
   const textBefore = context.text.slice(0, context.offset);
-  return TRAILING_WORD_RE.exec(textBefore)?.[1] ?? "";
+  return textBefore.split(/\W/).at(-1) ?? "";
 }
 
 /**

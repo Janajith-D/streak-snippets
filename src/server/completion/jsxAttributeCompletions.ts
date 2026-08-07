@@ -16,14 +16,12 @@ export interface JsxContext {
 const TAG_RE = /^(\w+)/;
 
 /** The JSX tags this extension provides completions for. */
-const SUPPORTED_TAGS = new Set(["WidgetPlaceholder", "Preload", "Dynamic", "Script"]);
-
-/**
- * Matches an attribute assignment at the end of a string, e.g. `type="val` or `href='val`.
- * Group 1 = attribute name, group 2 = double-quoted value, group 3 = single-quoted value.
- * Uses separate branches per quote type to avoid super-linear backtracking.
- */
-const ATTR_MATCH_RE = /(\w[\w-]*)\s*=\s*(?:"([^"]*)|'([^']*))$/;
+const SUPPORTED_TAGS = new Set([
+  "WidgetPlaceholder",
+  "Preload",
+  "Dynamic",
+  "Script",
+]);
 
 /** Matches object key lines inside return { ... } blocks, e.g. `  myKey:`. */
 const KEY_RE = /^\s*(\w[\w-]*)\s*:/;
@@ -38,9 +36,53 @@ const EXCLUDED_KEYS = new Set(["status", "PageHead", "data"]);
  * supported tags, or `undefined` otherwise.
  * Extracted to reduce cognitive complexity of getJsxContext.
  */
-function parseTagName(text: string, from: number, to: number): string | undefined {
+function parseTagName(
+  text: string,
+  from: number,
+  to: number,
+): string | undefined {
   const m = TAG_RE.exec(text.slice(from, to));
   return m && SUPPORTED_TAGS.has(m[1]) ? m[1] : undefined;
+}
+
+/**
+ * Detects whether the cursor is inside an open attribute value and extracts
+ * the attribute name and partial value.
+ *
+ * Uses `lastIndexOf` + a reverse character scan — pure string operations,
+ * O(n), no regex backtracking risk.
+ *
+ * Returns `{ name, value }` if inside an open attribute value, or `undefined`.
+ */
+function parseAttrSection(
+  attrSection: string,
+): { name: string; value: string } | undefined {
+  // Find the last unmatched quote (the one opening the current value)
+  const lastDq = attrSection.lastIndexOf('"');
+  const lastSq = attrSection.lastIndexOf("'");
+  const quoteIdx = Math.max(lastDq, lastSq);
+  if (quoteIdx === -1) {
+    return undefined;
+  }
+
+  // Text before the quote, trimmed — must end with '=' to be a valid attr value
+  const beforeQuote = attrSection.slice(0, quoteIdx).trimEnd();
+  if (!beforeQuote.endsWith("=")) {
+    return undefined;
+  }
+
+  // Extract the attribute name by scanning backwards from the '='
+  const beforeEq = beforeQuote.slice(0, -1).trimEnd();
+  let nameStart = beforeEq.length;
+  while (nameStart > 0 && /[\w-]/.test(beforeEq[nameStart - 1])) {
+    nameStart--;
+  }
+  const name = beforeEq.slice(nameStart);
+  if (!name) {
+    return undefined;
+  }
+
+  return { name, value: attrSection.slice(quoteIdx + 1) };
 }
 
 /**
@@ -77,7 +119,7 @@ function buildWidgetDocumentation(
           docComment?: string;
         }>;
       }
-    | undefined
+    | undefined,
 ): string {
   if (!widget) {
     return "";
@@ -99,7 +141,10 @@ function buildWidgetDocumentation(
 /**
  * Parses backwards from cursor offset to see if we are inside a relevant JSX opening tag.
  */
-export function getJsxContext(text: string, offset: number): JsxContext | undefined {
+export function getJsxContext(
+  text: string,
+  offset: number,
+): JsxContext | undefined {
   let tagStart = -1;
   let tagName = "";
 
@@ -129,14 +174,14 @@ export function getJsxContext(text: string, offset: number): JsxContext | undefi
 
   const attrSection = text.slice(tagStart + tagName.length + 1, offset);
   // Check if we are inside an unclosed attribute value, e.g. type="something
-  const attrMatch = ATTR_MATCH_RE.exec(attrSection);
+  const attrResult = parseAttrSection(attrSection);
 
-  if (attrMatch) {
+  if (attrResult) {
     return {
       tagName,
-      attributeName: attrMatch[1],
+      attributeName: attrResult.name,
       inAttributeValue: true,
-      attributeValue: attrMatch[2] ?? attrMatch[3] ?? "",
+      attributeValue: attrResult.value,
     };
   }
 
@@ -149,7 +194,10 @@ export function getJsxContext(text: string, offset: number): JsxContext | undefi
 /**
  * Scans src/widgets directory and returns file names (minus extensions).
  */
-export function getWidgetTypes(workspaceRoot: string | undefined, customWidgetDir = "src/widgets"): string[] {
+export function getWidgetTypes(
+  workspaceRoot: string | undefined,
+  customWidgetDir = "src/widgets",
+): string[] {
   if (!workspaceRoot) {
     return [];
   }
@@ -170,7 +218,10 @@ export function getWidgetTypes(workspaceRoot: string | undefined, customWidgetDi
 /**
  * Scans the workspace /public directory recursively and returns all asset paths.
  */
-export function getPublicAssets(workspaceRoot: string | undefined, customPublicDir = "public"): string[] {
+export function getPublicAssets(
+  workspaceRoot: string | undefined,
+  customPublicDir = "public",
+): string[] {
   if (!workspaceRoot) {
     return [];
   }
@@ -205,7 +256,9 @@ export function getPublicAssets(workspaceRoot: string | undefined, customPublicD
 /**
  * Scans pages or handlers in src/pages directory and collects return keys as Widget IDs.
  */
-export function getWidgetIdsFromDataHandlers(workspaceRoot: string | undefined): string[] {
+export function getWidgetIdsFromDataHandlers(
+  workspaceRoot: string | undefined,
+): string[] {
   if (!workspaceRoot) {
     return [];
   }
@@ -244,7 +297,7 @@ export function getWidgetIdsFromDataHandlers(workspaceRoot: string | undefined):
  */
 export function getDynamicComponentIds(
   workspaceRoot: string | undefined,
-  currentFileText: string
+  currentFileText: string,
 ): string[] {
   const ids = new Set<string>();
   // Non-backtracking pattern: [^>]*? (lazy) + \b avoids super-linear runtime
@@ -270,7 +323,9 @@ export function getDynamicComponentIds(
             } else if (file.endsWith(".tsx")) {
               const content = fs.readFileSync(fullPath, "utf-8");
               if (content.includes("<Dynamic")) {
-                for (const m of content.matchAll(/<Dynamic\b[^>]*?\bid=["']([^"']+)["']/g)) {
+                for (const m of content.matchAll(
+                  /<Dynamic\b[^>]*?\bid=["']([^"']+)["']/g,
+                )) {
                   ids.add(m[1]);
                 }
               }
@@ -291,7 +346,7 @@ export function getJsxAttributeCompletions(
   context: CompletionContext,
   workspaceRoot: string | undefined,
   customWidgetDir?: string,
-  customPublicDir?: string
+  customPublicDir?: string,
 ): CompletionItem[] {
   const jsxCtx = getJsxContext(context.text, context.offset);
   if (!jsxCtx) {
@@ -306,7 +361,14 @@ export function getJsxAttributeCompletions(
   }
 
   // 2. Autocomplete attribute values
-  return getAttributeValueCompletions(tagName, attributeName, workspaceRoot, customWidgetDir, customPublicDir, context);
+  return getAttributeValueCompletions(
+    tagName,
+    attributeName,
+    workspaceRoot,
+    customWidgetDir,
+    customPublicDir,
+    context,
+  );
 }
 
 function getAttributeNameCompletions(tagName: string): CompletionItem[] {
@@ -334,11 +396,14 @@ function getAttributeValueCompletions(
   workspaceRoot: string | undefined,
   customWidgetDir: string | undefined,
   customPublicDir: string | undefined,
-  context: CompletionContext
+  context: CompletionContext,
 ): CompletionItem[] {
   if (tagName === "WidgetPlaceholder") {
     if (attributeName === "type") {
-      return getWidgetPlaceholderTypeCompletions(workspaceRoot, customWidgetDir);
+      return getWidgetPlaceholderTypeCompletions(
+        workspaceRoot,
+        customWidgetDir,
+      );
     }
     if (attributeName === "id") {
       return getWidgetPlaceholderIdCompletions(workspaceRoot);
@@ -363,7 +428,7 @@ function getAttributeValueCompletions(
 
 function getWidgetPlaceholderTypeCompletions(
   workspaceRoot: string | undefined,
-  customWidgetDir: string | undefined
+  customWidgetDir: string | undefined,
 ): CompletionItem[] {
   const widgetTypes = getWidgetTypes(workspaceRoot, customWidgetDir);
   const { widgetRegistry } = require("../registry/widgets");
@@ -378,12 +443,16 @@ function getWidgetPlaceholderTypeCompletions(
       kind: CompletionItemKind.Value,
       insertText: type,
       detail,
-      documentation: documentation ? { kind: "markdown", value: documentation } : undefined,
+      documentation: documentation
+        ? { kind: "markdown", value: documentation }
+        : undefined,
     };
   });
 }
 
-function getWidgetPlaceholderIdCompletions(workspaceRoot: string | undefined): CompletionItem[] {
+function getWidgetPlaceholderIdCompletions(
+  workspaceRoot: string | undefined,
+): CompletionItem[] {
   const widgetIds = getWidgetIdsFromDataHandlers(workspaceRoot);
   return widgetIds.map((id) => ({
     label: id,
@@ -403,7 +472,7 @@ function getPreloadAsCompletions(): CompletionItem[] {
 
 function getPreloadHrefCompletions(
   workspaceRoot: string | undefined,
-  customPublicDir: string | undefined
+  customPublicDir: string | undefined,
 ): CompletionItem[] {
   const assets = getPublicAssets(workspaceRoot, customPublicDir);
   return assets.map((asset) => ({
@@ -413,7 +482,10 @@ function getPreloadHrefCompletions(
   }));
 }
 
-function getDynamicIdCompletions(workspaceRoot: string | undefined, text: string): CompletionItem[] {
+function getDynamicIdCompletions(
+  workspaceRoot: string | undefined,
+  text: string,
+): CompletionItem[] {
   const dynamicIds = getDynamicComponentIds(workspaceRoot, text);
   return dynamicIds.map((id) => ({
     label: id,

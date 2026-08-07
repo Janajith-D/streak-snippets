@@ -1,13 +1,11 @@
 /**
  * Shared regex constants for completion providers.
  * Centralised here to avoid duplication and satisfy SonarQube pattern rules.
+ *
+ * Note: TRAILING_WORD_RE was intentionally NOT added here — a trailing-word
+ * extraction via `text.split(/\W/).at(-1)` is used instead, which is O(n)
+ * and carries no regex backtracking risk.
  */
-
-/**
- * Matches a trailing word (identifier chars) at the end of a string.
- * Anchored with $ to prevent backtracking. Group 1 = the word.
- */
-export const TRAILING_WORD_RE = /(\w*)$/;
 
 /**
  * Matches a `gDom.<method>` property access at the end of a text slice.
