@@ -149,10 +149,9 @@ async function resolveLoadDynamicDefinition(
 function resolveWidgetTypeDefinition(
   value: string,
   workspaceRoot: string,
-  customWidgetDir?: string
+  customWidgetDir = "src/widgets"
 ): Location | null {
-  const subDir = customWidgetDir ?? "src/widgets";
-  const baseWidgetPath = path.join(workspaceRoot, subDir, value);
+  const baseWidgetPath = path.join(workspaceRoot, customWidgetDir, value);
   for (const ext of [".tsx", ".ts", ".jsx", ".js"]) {
     const fullPath = baseWidgetPath + ext;
     if (fs.existsSync(fullPath)) {
@@ -169,10 +168,10 @@ function resolveWidgetTypeDefinition(
 function resolvePreloadHrefDefinition(
   value: string,
   workspaceRoot: string,
-  customPublicDir?: string
+  customPublicDir = "public"
 ): Location | null {
   const cleanHref = value.startsWith("/") ? value.substring(1) : value;
-  const fullPath = path.join(workspaceRoot, customPublicDir ?? "public", cleanHref);
+  const fullPath = path.join(workspaceRoot, customPublicDir, cleanHref);
   if (fs.existsSync(fullPath)) {
     return Location.create(pathToFileURL(fullPath).toString(), Range.create(0, 0, 0, 0));
   }
