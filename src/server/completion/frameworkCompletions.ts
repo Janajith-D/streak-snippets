@@ -271,7 +271,7 @@ export function getAutoImportEdit(
   let suffix = "\n";
 
   if (imports.length > 0) {
-    insertOffset = imports[imports.length - 1].getEnd();
+    insertOffset = imports.at(-1)?.getEnd() ?? 0;
     prefix = "\n";
     suffix = "";
   }

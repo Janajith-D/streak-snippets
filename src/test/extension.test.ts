@@ -1,3 +1,4 @@
+import { type Hover, type MarkupContent, type Diagnostic } from "vscode-languageserver/node";
 import * as assert from "assert";
 import * as path from "node:path";
 import * as fs from "node:fs";
@@ -275,10 +276,10 @@ suite("Extension Test Suite", () => {
     test(`Snippet file ${file} entries have required fields`, () => {
       const filePath = path.join(snippetDir, file);
       const content = fs.readFileSync(filePath, "utf-8");
-      const parsed: Record<
+      const parsed = JSON.parse(content) as Record<
         string,
         { prefix?: unknown; body?: unknown; description?: unknown }
-      > = JSON.parse(content);
+      >;
 
       for (const [name, entry] of Object.entries(parsed)) {
         assert.ok(
@@ -299,7 +300,7 @@ suite("Extension Test Suite", () => {
     test(`Snippet file ${file} has no duplicate prefixes`, () => {
       const filePath = path.join(snippetDir, file);
       const content = fs.readFileSync(filePath, "utf-8");
-      const parsed: Record<string, { prefix: string }> = JSON.parse(content);
+      const parsed = JSON.parse(content) as Record<string, { prefix: string }>;
 
       const prefixes = Object.values(parsed).map((e) => e.prefix);
       const duplicates = prefixes.filter((p, i) => prefixes.indexOf(p) !== i);
@@ -315,7 +316,9 @@ suite("Extension Test Suite", () => {
 
   test("package.json has snippet contributions", () => {
     const pkgPath = path.resolve(__dirname, "../../package.json");
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8")) as {
+      contributes?: { snippets: unknown[] };
+    };
     assert.ok(
       Array.isArray(pkg.contributes?.snippets),
       "package.json must have contributes.snippets array",
@@ -328,7 +331,9 @@ suite("Extension Test Suite", () => {
 
   test("package.json has configuration schema", () => {
     const pkgPath = path.resolve(__dirname, "../../package.json");
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8")) as {
+      contributes?: { configuration?: { properties: Record<string, unknown> } };
+    };
     assert.ok(
       pkg.contributes?.configuration?.properties,
       "package.json must have contributes.configuration.properties",
@@ -575,7 +580,7 @@ suite("Extension Test Suite", () => {
       {
         text: code,
         uri: "file:///test/gdomComp.tsx",
-        offset: offset,
+        offset,
         line: 6,
         character: offset - code.lastIndexOf("\n") - 1,
       },
@@ -615,7 +620,7 @@ suite("Extension Test Suite", () => {
       {
         text: code,
         uri: "file:///test/sfComp.tsx",
-        offset: offset,
+        offset,
         line: 5,
         character: offset - code.lastIndexOf("\n") - 1,
       },
@@ -700,11 +705,12 @@ suite("Extension Test Suite", () => {
     // 1. Test WidgetPlaceholder
     const wpNode = sourceFile.getDescendantAtPos(
       code.indexOf("<WidgetPlaceholder") + 1,
-    )!;
-    const wpResult = resolveHover(wpNode) as any;
+    );
+    assert.ok(wpNode);
+    const wpResult = resolveHover(wpNode) as Hover;
     assert.ok(wpResult);
     assert.ok(
-      wpResult.contents.value.includes(
+      (wpResult.contents as MarkupContent).value.includes(
         "Streak `<WidgetPlaceholder>` Component",
       ),
     );
@@ -712,24 +718,27 @@ suite("Extension Test Suite", () => {
     // 2. Test Preload
     const preNode = sourceFile.getDescendantAtPos(
       code.indexOf("<Preload") + 1,
-    )!;
-    const preResult = resolveHover(preNode) as any;
+    );
+    assert.ok(preNode);
+    const preResult = resolveHover(preNode) as Hover;
     assert.ok(preResult);
     assert.ok(
-      preResult.contents.value.includes("Streak `<Preload>` Component"),
+      (preResult.contents as MarkupContent).value.includes("Streak `<Preload>` Component"),
     );
 
     // 3. Test Dynamic
-    const dyNode = sourceFile.getDescendantAtPos(code.indexOf("<Dynamic") + 1)!;
-    const dyResult = resolveHover(dyNode) as any;
+    const dyNode = sourceFile.getDescendantAtPos(code.indexOf("<Dynamic") + 1);
+    assert.ok(dyNode);
+    const dyResult = resolveHover(dyNode) as Hover;
     assert.ok(dyResult);
-    assert.ok(dyResult.contents.value.includes("Streak `<Dynamic>` Component"));
+    assert.ok((dyResult.contents as MarkupContent).value.includes("Streak `<Dynamic>` Component"));
 
     // 4. Test Script
-    const scNode = sourceFile.getDescendantAtPos(code.indexOf("<Script") + 1)!;
-    const scResult = resolveHover(scNode) as any;
+    const scNode = sourceFile.getDescendantAtPos(code.indexOf("<Script") + 1);
+    assert.ok(scNode);
+    const scResult = resolveHover(scNode) as Hover;
     assert.ok(scResult);
-    assert.ok(scResult.contents.value.includes("Streak `<Script>` Component"));
+    assert.ok((scResult.contents as MarkupContent).value.includes("Streak `<Script>` Component"));
   });
 
   test("resolveHover displays documentation for tag attributes and gDom methods", () => {
@@ -756,41 +765,42 @@ suite("Extension Test Suite", () => {
 
     // 1. Test WidgetPlaceholder type attribute
     const typeOffset = code.indexOf('type="Banner"') + 1;
-    const typeNode = sourceFile.getDescendantAtPos(typeOffset)!;
-    const typeResult = resolveHover(typeNode) as any;
+    const typeNode = sourceFile.getDescendantAtPos(typeOffset);
+    assert.ok(typeNode);
+    const typeResult = resolveHover(typeNode) as Hover;
     assert.ok(typeResult);
     assert.ok(
-      typeResult.contents.value.includes("The widget name matching a file"),
+      (typeResult.contents as MarkupContent).value.includes("The widget name matching a file"),
     );
 
     // 2. Test Preload href attribute
     const hrefOffset = code.indexOf('href="/style.css"') + 1;
-    const hrefNode = sourceFile.getDescendantAtPos(hrefOffset)!;
-    const hrefResult = resolveHover(hrefNode) as any;
+    const hrefNode = sourceFile.getDescendantAtPos(hrefOffset);
+    assert.ok(hrefNode);
+    const hrefResult = resolveHover(hrefNode) as Hover;
     assert.ok(hrefResult);
     assert.ok(
-      hrefResult.contents.value.includes("The path to the static asset"),
+      (hrefResult.contents as MarkupContent).value.includes("The path to the static asset"),
     );
 
     // 3. Test Preload as attribute
     const asOffset = code.indexOf('as="style"') + 1;
-    const asNode = sourceFile.getDescendantAtPos(asOffset)!;
-    const asResult = resolveHover(asNode) as any;
+    const asNode = sourceFile.getDescendantAtPos(asOffset);
+    assert.ok(asNode);
+    const asResult = resolveHover(asNode) as Hover;
     assert.ok(asResult);
-    assert.ok(asResult.contents.value.includes("The resource classification"));
+    assert.ok((asResult.contents as MarkupContent).value.includes("The resource classification"));
 
     // 4. Test gDom.loadDynamicComponent method
     const gdomOffset = code.indexOf("loadDynamicComponent");
-    const gdomNode = sourceFile.getDescendantAtPos(gdomOffset)!;
-    const gdomResult = resolveHover(gdomNode) as any;
+    const gdomNode = sourceFile.getDescendantAtPos(gdomOffset);
+    assert.ok(gdomNode);
+    const gdomResult = resolveHover(gdomNode) as Hover;
     assert.ok(gdomResult);
-    assert.ok(gdomResult.contents.value.includes("loadDynamicComponent"));
+    assert.ok((gdomResult.contents as MarkupContent).value.includes("loadDynamicComponent"));
   });
 
   test("resolveDefinition resolves WidgetPlaceholder, Preload, and Dynamic definitions", async () => {
-    const fs = require("node:fs");
-    const path = require("node:path");
-
     const tempRoot = path.join(__dirname, "test-workspace-temp");
     if (!fs.existsSync(tempRoot)) {
       fs.mkdirSync(tempRoot, { recursive: true });
@@ -839,21 +849,24 @@ suite("Extension Test Suite", () => {
 
     // 1. Test WidgetPlaceholder type
     const typeOffset = code.indexOf("HomeBanner");
-    const typeNode = sourceFile.getDescendantAtPos(typeOffset)!;
+    const typeNode = sourceFile.getDescendantAtPos(typeOffset);
+    assert.ok(typeNode);
     const typeLoc = await resolveDefinition(typeNode, tempRoot);
     assert.ok(typeLoc);
     assert.ok(typeLoc.uri.includes("HomeBanner.tsx"));
 
     // 2. Test Preload href
     const hrefOffset = code.indexOf("/styles/main.css");
-    const hrefNode = sourceFile.getDescendantAtPos(hrefOffset)!;
+    const hrefNode = sourceFile.getDescendantAtPos(hrefOffset);
+    assert.ok(hrefNode);
     const hrefLoc = await resolveDefinition(hrefNode, tempRoot);
     assert.ok(hrefLoc);
     assert.ok(hrefLoc.uri.includes("main.css"));
 
     // 3. Test loadDynamicComponent parameter
     const idOffset = code.indexOf("HomeLander");
-    const idNode = sourceFile.getDescendantAtPos(idOffset)!;
+    const idNode = sourceFile.getDescendantAtPos(idOffset);
+    assert.ok(idNode);
     const idLoc = await resolveDefinition(idNode, tempRoot);
     assert.ok(idLoc);
     assert.ok(idLoc.uri.includes("HomeBanner.tsx"));
@@ -896,7 +909,7 @@ suite("Extension Test Suite", () => {
       code: "streak:S405",
       message: "Missing ID",
       range: { start: scriptPos, end: scriptPos },
-    } as any;
+    } as unknown as Diagnostic;
 
     const actionsS405 = resolveCodeActions([diagS405], doc, sourceFile);
     assert.strictEqual(actionsS405.length, 1);
@@ -914,7 +927,7 @@ suite("Extension Test Suite", () => {
       code: "streak:S101",
       message: "Missing ID",
       range: { start: wpPos, end: wpPos },
-    } as any;
+    } as unknown as Diagnostic;
 
     const actionsS101 = resolveCodeActions([diagS101], doc, sourceFile);
     assert.strictEqual(actionsS101.length, 1);
@@ -928,7 +941,7 @@ suite("Extension Test Suite", () => {
       code: "streak:S102",
       message: "Missing Type",
       range: { start: wpPos, end: wpPos },
-    } as any;
+    } as unknown as Diagnostic;
 
     const actionsS102 = resolveCodeActions([diagS102], doc, sourceFile);
     assert.strictEqual(actionsS102.length, 1);
@@ -944,7 +957,7 @@ suite("Extension Test Suite", () => {
       code: "streak:S501",
       message: "Missing ID",
       range: { start: dyPos, end: dyPos },
-    } as any;
+    } as unknown as Diagnostic;
 
     const actionsS501 = resolveCodeActions([diagS501], doc, sourceFile);
     assert.strictEqual(actionsS501.length, 1);
@@ -973,7 +986,7 @@ suite("Extension Test Suite", () => {
       code: "streak:S202",
       message: "Must be async",
       range: { start: fnPos, end: fnPos },
-    } as any;
+    } as unknown as Diagnostic;
 
     const actionsS202_1 = resolveCodeActions([diagS202_1], doc, sourceFile);
     assert.strictEqual(actionsS202_1.length, 1);
@@ -990,7 +1003,7 @@ suite("Extension Test Suite", () => {
       code: "streak:S202",
       message: "Must be async",
       range: { start: arrowPos, end: arrowPos },
-    } as any;
+    } as unknown as Diagnostic;
 
     const actionsS202_2 = resolveCodeActions([diagS202_2], doc, sourceFile);
     assert.strictEqual(actionsS202_2.length, 1);
@@ -1017,7 +1030,7 @@ suite("Extension Test Suite", () => {
       code: "streak:S301",
       message: "Missing default export",
       range: { start: startPos, end: startPos },
-    } as any;
+    } as unknown as Diagnostic;
 
     const actionsS301 = resolveCodeActions([diagS301], doc, sourceFile);
     assert.strictEqual(actionsS301.length, 1);
@@ -1033,9 +1046,6 @@ suite("Extension Test Suite", () => {
   });
 
   test("WidgetRegistry and Scanner dynamically extracts widget description and props, providing rich completions and hovers", async () => {
-    const fs = require("node:fs");
-    const path = require("node:path");
-
     const tempRoot = path.join(__dirname, "..", "..", "test-registry-temp");
     if (!fs.existsSync(tempRoot)) {
       fs.mkdirSync(tempRoot, { recursive: true });
@@ -1131,7 +1141,7 @@ suite("Extension Test Suite", () => {
     assert.ok(compItem);
     assert.strictEqual(compItem.detail, "Custom Project Widget");
     assert.ok(compItem.documentation);
-    const docValue = (compItem.documentation as any).value;
+    const docValue = (compItem.documentation as MarkupContent).value;
     assert.ok(
       docValue.includes("Renders a customizable product item card display."),
     );
@@ -1144,10 +1154,11 @@ suite("Extension Test Suite", () => {
       "file:///test/main.tsx",
       autocompleteCode,
     );
-    const hoverNode = sourceFile.getDescendantAtPos(hoverOffset)!;
+    const hoverNode = sourceFile.getDescendantAtPos(hoverOffset);
+    assert.ok(hoverNode);
     const hoverResult = resolveHover(hoverNode);
     assert.ok(hoverResult);
-    const hoverVal = (hoverResult.contents as any).value;
+    const hoverVal = (hoverResult.contents as MarkupContent).value;
     assert.ok(
       hoverVal.includes("Renders a customizable product item card display."),
     );
@@ -1372,10 +1383,10 @@ suite("Extension Test Suite", () => {
   test("streak.createWidget command is registered and scaffolds a widget file", async () => {
     process.env.STREAK_TEST_ENVIRONMENT = "1";
     const originalShowInputBox = vscode.window.showInputBox;
-    (vscode.window as any).showInputBox = async () => "MyScaffoldedWidget";
+    // eslint-disable-next-line @typescript-eslint/require-await
+    (vscode.window as unknown as { showInputBox: () => Promise<string> }).showInputBox = async () => "MyScaffoldedWidget";
 
     const tempDir = path.join(__dirname, "..", "..", "test-scaffold-temp");
-    const fs = require("node:fs");
     fs.mkdirSync(tempDir, { recursive: true });
 
     const originalWorkspaceFolders = vscode.workspace.workspaceFolders;
