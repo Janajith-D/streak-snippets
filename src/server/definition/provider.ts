@@ -118,10 +118,10 @@ async function findDynamicTagLocation(
       const end = child.getEnd();
       const startLines = content.substring(0, start).split(/\r?\n/);
       const startLine = Math.max(0, startLines.length - 1);
-      const startChar = Math.max(0, startLines.at(-1)!.length);
+      const startChar = Math.max(0, startLines[startLines.length - 1].length);
       const endLines = content.substring(0, end).split(/\r?\n/);
       const endLine = Math.max(0, endLines.length - 1);
-      const endChar = Math.max(0, endLines.at(-1)!.length);
+      const endChar = Math.max(0, endLines[endLines.length - 1].length);
 
       foundLocation = Location.create(
         pathToFileURL(filePath).toString(),

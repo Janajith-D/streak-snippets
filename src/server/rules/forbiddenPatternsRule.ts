@@ -40,13 +40,13 @@ export const forbiddenPatternsRule: Rule = {
           const prefix = text.substring(0, matchIndex);
           const lines = prefix.split("\n");
           const startLine = lines.length - 1;
-          const startChar = lines.at(-1)!.length;
+          const startChar = lines[lines.length - 1].length;
 
           const matchLines = matchText.split("\n");
           const endLine = startLine + matchLines.length - 1;
           const endChar =
             matchLines.length > 1
-              ? matchLines.at(-1)!.length
+              ? matchLines[matchLines.length - 1].length
               : startChar + matchText.length;
 
           diagnostics.push({

@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "node:path";
+import * as fs from "node:fs";
 import {
   LanguageClient,
   TransportKind,
@@ -46,7 +47,7 @@ function startLanguageServer(context: vscode.ExtensionContext) {
     clientOptions,
   );
 
-  client.start();
+  void client.start();
   outputChannel.appendLine("Streak Language Server client started");
 
   client.onNotification("streak/didIndexWidgets", (data: { count: number }) => {
@@ -113,7 +114,6 @@ export function activate(context: vscode.ExtensionContext) {
       const rootPath = workspaceFolders[0].uri.fsPath;
       const targetDir = path.join(rootPath, widgetSubdir);
 
-      const fs = require("node:fs");
       if (!fs.existsSync(targetDir)) {
         fs.mkdirSync(targetDir, { recursive: true });
       }
