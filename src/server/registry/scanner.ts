@@ -14,24 +14,55 @@ const scanProject = new Project({
 // ── Private helpers ───────────────────────────────────────────────────────────
 
 /**
+ * Extracts the component name from a default export symbol, if one exists.
+ * Extracted to reduce cognitive complexity of resolveComponentName.
+ */
+function getDefaultExportComponentName(sourceFile: ReturnType<typeof scanProject.createSourceFile>): string | undefined {
+  const defaultExportSymbol = sourceFile.getDefaultExportSymbol();
+  if (!defaultExportSymbol) {
+    return undefined;
+  }
+  const decl = defaultExportSymbol.getDeclarations()[0];
+  if (!decl) {
+    return undefined;
+  }
+  if (Node.isExportAssignment(decl)) {
+    const expr = decl.getExpression();
+    if (expr && Node.isIdentifier(expr)) {
+      return expr.getText();
+    }
+  } else if (Node.isFunctionDeclaration(decl) || Node.isClassDeclaration(decl)) {
+    return decl.getName() ?? "";
+  }
+  return undefined;
+}
+
+/**
+ * Extracts the component name from a PascalCase variable declaration, if one exists.
+ * Extracted to reduce cognitive complexity of resolveComponentName.
+ */
+function getVariableDeclComponentName(sourceFile: ReturnType<typeof scanProject.createSourceFile>): string | undefined {
+  for (const vd of sourceFile.getVariableDeclarations()) {
+    const name = vd.getName();
+    if (name && /^[A-Z]/.test(name)) {
+      const init = vd.getInitializer();
+      if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
+        return name;
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
  * Resolves the component name from a source file.
- * Priority: default export symbol → first PascalCase function → file basename.
+ * Priority: default export symbol → first PascalCase function → PascalCase variable → file basename.
  * Extracted to reduce cognitive complexity of scanFile.
  */
 function resolveComponentName(sourceFile: ReturnType<typeof scanProject.createSourceFile>, filePath: string): string {
-  const defaultExportSymbol = sourceFile.getDefaultExportSymbol();
-  if (defaultExportSymbol) {
-    const decl = defaultExportSymbol.getDeclarations()[0];
-    if (decl) {
-      if (Node.isExportAssignment(decl)) {
-        const expr = decl.getExpression();
-        if (expr && Node.isIdentifier(expr)) {
-          return expr.getText();
-        }
-      } else if (Node.isFunctionDeclaration(decl) || Node.isClassDeclaration(decl)) {
-        return decl.getName() ?? "";
-      }
-    }
+  const defaultName = getDefaultExportComponentName(sourceFile);
+  if (defaultName) {
+    return defaultName;
   }
 
   for (const fn of sourceFile.getFunctions()) {
@@ -41,14 +72,9 @@ function resolveComponentName(sourceFile: ReturnType<typeof scanProject.createSo
     }
   }
 
-  for (const vd of sourceFile.getVariableDeclarations()) {
-    const name = vd.getName();
-    if (name && /^[A-Z]/.test(name)) {
-      const init = vd.getInitializer();
-      if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
-        return name;
-      }
-    }
+  const varName = getVariableDeclComponentName(sourceFile);
+  if (varName) {
+    return varName;
   }
 
   const basename = path.basename(filePath, path.extname(filePath));

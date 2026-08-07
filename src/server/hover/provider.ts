@@ -1,16 +1,22 @@
 import { Node } from "ts-morph";
 import { Hover } from "vscode-languageserver/node";
 import { GDOM_METHODS } from "../completion/runtimeApi";
+import { WidgetMetadata } from "../registry/widgets";
 
 // ── Private helpers ───────────────────────────────────────────────────────────
 
 /** Walks from a JSX attribute node up to the enclosing tag name, or undefined. */
-function getTagNameFromAttrNode(attrParent: Node | undefined): string | undefined {
+function getTagNameFromAttrNode(
+  attrParent: Node | undefined,
+): string | undefined {
   let tagNode: Node | undefined = attrParent;
-  if (tagNode?.getKindName() === "JsxAttributes") {  // optional chain fix
+  if (tagNode?.getKindName() === "JsxAttributes") {
     tagNode = tagNode.getParent();
   }
-  if (tagNode && (Node.isJsxOpeningElement(tagNode) || Node.isJsxSelfClosingElement(tagNode))) {
+  if (
+    tagNode &&
+    (Node.isJsxOpeningElement(tagNode) || Node.isJsxSelfClosingElement(tagNode))
+  ) {
     return tagNode.getTagNameNode().getText();
   }
   return undefined;
@@ -19,6 +25,26 @@ function getTagNameFromAttrNode(attrParent: Node | undefined): string | undefine
 /** Produces a markdown Hover object. */
 function mkHover(value: string): Hover {
   return { contents: { kind: "markdown", value } };
+}
+
+/**
+ * Builds the hover text for a widget type attribute.
+ * Extracted to reduce cognitive complexity of resolveWidgetTypeHover.
+ */
+function buildWidgetHoverText(widget: WidgetMetadata): string {
+  let hoverText = `**Widget: ${widget.name}**\n\n`;
+  if (widget.docComment) {
+    hoverText += `${widget.docComment}\n\n`;
+  }
+  if (widget.props && widget.props.length > 0) {
+    hoverText += `**Props:**\n`;
+    for (const prop of widget.props) {
+      const optional = prop.isOptional ? "?" : "";
+      const propDoc = prop.docComment ? ` — ${prop.docComment}` : "";
+      hoverText += `- \`${prop.name}${optional}: ${prop.type}\`${propDoc}\n`;
+    }
+  }
+  return hoverText.trim();
 }
 
 /**
@@ -48,19 +74,7 @@ function resolveWidgetTypeHover(node: Node): Hover | null {
     return null;
   }
 
-  let hoverText = `**Widget: ${widget.name}**\n\n`;
-  if (widget.docComment) {
-    hoverText += `${widget.docComment}\n\n`;
-  }
-  if (widget.props && widget.props.length > 0) {
-    hoverText += `**Props:**\n`;
-    for (const prop of widget.props) {
-      const optional = prop.isOptional ? "?" : "";
-      const propDoc = prop.docComment ? ` — ${prop.docComment}` : "";
-      hoverText += `- \`${prop.name}${optional}: ${prop.type}\`${propDoc}\n`;
-    }
-  }
-  return mkHover(hoverText.trim());
+  return mkHover(buildWidgetHoverText(widget));
 }
 
 /**
@@ -98,7 +112,7 @@ function resolveTagNameHover(node: Node): Hover | null {
           "```tsx",
           '<WidgetPlaceholder id="main-panel" type="HelloBanner" />',
           "```",
-        ].join("\n")
+        ].join("\n"),
       );
 
     case "Preload":
@@ -109,14 +123,14 @@ function resolveTagNameHover(node: Node): Hover | null {
           "Preloads static resources (e.g., styles, scripts, fonts, images) during build-time to improve page performance.",
           "",
           "*Required Attributes:*",
-          '- `href`: Path to the asset inside the `public/` directory.',
+          "- `href`: Path to the asset inside the `public/` directory.",
           '- `as`: Resource type (e.g. `"image"`, `"font"`, `"style"`, `"script"`, `"video"`).',
           "",
           "*Example:*",
           "```tsx",
           '<Preload href="/styles/tailwind.css" as="style" />',
           "```",
-        ].join("\n")
+        ].join("\n"),
       );
 
     case "Dynamic":
@@ -135,7 +149,7 @@ function resolveTagNameHover(node: Node): Hover | null {
           "  <ExpensiveComponent />",
           "</Dynamic>",
           "```",
-        ].join("\n")
+        ].join("\n"),
       );
 
     case "Script":
@@ -156,9 +170,35 @@ function resolveTagNameHover(node: Node): Hover | null {
           "  }}",
           "</Script>",
           "```",
-        ].join("\n")
+        ].join("\n"),
       );
 
+    default:
+      return null;
+  }
+}
+
+/**
+ * Returns hover text for attributes of <Preload>.
+ */
+function getPreloadAttrHover(attributeName: string): Hover | null {
+  switch (attributeName) {
+    case "href":
+      return mkHover(
+        "The path to the static asset relative to the `public/` directory (e.g. `/styles/main.css`).",
+      );
+    case "as":
+      return mkHover(
+        "The resource classification (e.g., `'image'`, `'font'`, `'style'`, `'script'`, `'video'`) used by the browser to allocate preload priority.",
+      );
+    case "media":
+      return mkHover(
+        "Optional media query string for responsive preloading (e.g., `(max-width: 600px)`).",
+      );
+    case "crossOrigin":
+      return mkHover(
+        "Optional CORS configuration option for cross-origin preloading requests (e.g., `anonymous`).",
+      );
     default:
       return null;
   }
@@ -181,44 +221,47 @@ function resolveAttributeHover(node: Node): Hover | null {
     return null;
   }
 
-  if (tagName === "WidgetPlaceholder") {
-    if (attributeName === "id") {
-      return mkHover("The unique ID of the widget placeholder, matching sitemap routes or handler targets.");
-    }
-    if (attributeName === "type") {
-      return mkHover("The widget name matching a file in `src/widgets/` (case-sensitive, without file extension).");
-    }
-  }
+  switch (tagName) {
+    case "WidgetPlaceholder":
+      if (attributeName === "id") {
+        return mkHover(
+          "The unique ID of the widget placeholder, matching sitemap routes or handler targets.",
+        );
+      }
+      if (attributeName === "type") {
+        return mkHover(
+          "The widget name matching a file in `src/widgets/` (case-sensitive, without file extension).",
+        );
+      }
+      return null;
 
-  if (tagName === "Preload") {
-    if (attributeName === "href") {
-      return mkHover("The path to the static asset relative to the `public/` directory (e.g. `/styles/main.css`).");
-    }
-    if (attributeName === "as") {
-      return mkHover("The resource classification (e.g., `'image'`, `'font'`, `'style'`, `'script'`, `'video'`) used by the browser to allocate preload priority.");
-    }
-    if (attributeName === "media") {
-      return mkHover("Optional media query string for responsive preloading (e.g., `(max-width: 600px)`).");
-    }
-    if (attributeName === "crossOrigin") {
-      return mkHover("Optional CORS configuration option for cross-origin preloading requests (e.g., `anonymous`).");
-    }
-  }
+    case "Preload":
+      return getPreloadAttrHover(attributeName);
 
-  if (tagName === "Dynamic" && attributeName === "id") {
-    return mkHover("The dynamic bundle ID. Triggering scripts use this ID with `gDom.loadDynamicComponent` to inject this component into the DOM.");
-  }
+    case "Dynamic":
+      if (attributeName === "id") {
+        return mkHover(
+          "The dynamic bundle ID. Triggering scripts use this ID with `gDom.loadDynamicComponent` to inject this component into the DOM.",
+        );
+      }
+      return null;
 
-  if (tagName === "Script") {
-    if (attributeName === "id") {
-      return mkHover("The unique identifier of the script. Required to coordinate execution hooks and client side hydration.");
-    }
-    if (attributeName === "options") {
-      return mkHover("Key-value options object serialized and forwarded as the second parameter of the script callback.");
-    }
-  }
+    case "Script":
+      if (attributeName === "id") {
+        return mkHover(
+          "The unique identifier of the script. Required to coordinate execution hooks and client side hydration.",
+        );
+      }
+      if (attributeName === "options") {
+        return mkHover(
+          "Key-value options object serialized and forwarded as the second parameter of the script callback.",
+        );
+      }
+      return null;
 
-  return null;
+    default:
+      return null;
+  }
 }
 
 /**
@@ -247,7 +290,7 @@ function resolveGDomMethodHover(node: Node): Hover | null {
       `\`\`\`typescript\n${method.signature}: ${method.returnType}\n\`\`\``,
       "---",
       method.documentation,
-    ].join("\n")
+    ].join("\n"),
   );
 }
 

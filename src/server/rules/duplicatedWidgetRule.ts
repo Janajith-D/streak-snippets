@@ -6,6 +6,30 @@ import { widgetRegistry } from "../registry/widgets";
 import * as path from "node:path";
 
 /**
+ * Extracts the component name from a default export symbol, if one exists.
+ * Extracted to reduce cognitive complexity of resolveWidgetComponentName.
+ */
+function getDefaultExportComponentName(sourceFile: SourceFile): string | undefined {
+  const defaultExportSymbol = sourceFile.getDefaultExportSymbol();
+  if (!defaultExportSymbol) {
+    return undefined;
+  }
+  const decl = defaultExportSymbol.getDeclarations()[0];
+  if (!decl) {
+    return undefined;
+  }
+  if (Node.isExportAssignment(decl)) {
+    const expr = decl.getExpression();
+    if (expr && Node.isIdentifier(expr)) {
+      return expr.getText();
+    }
+  } else if (Node.isFunctionDeclaration(decl) || Node.isClassDeclaration(decl)) {
+    return decl.getName() ?? "";
+  }
+  return undefined;
+}
+
+/**
  * Resolves the component name from a source file using three fallback strategies:
  * 1. Default export symbol
  * 2. First PascalCase function
@@ -14,19 +38,9 @@ import * as path from "node:path";
  * Extracted to reduce cognitive complexity of the `run` method.
  */
 function resolveWidgetComponentName(sourceFile: SourceFile, uri: string): string {
-  const defaultExportSymbol = sourceFile.getDefaultExportSymbol();
-  if (defaultExportSymbol) {
-    const decl = defaultExportSymbol.getDeclarations()[0];
-    if (decl) {
-      if (Node.isExportAssignment(decl)) {
-        const expr = decl.getExpression();
-        if (expr && Node.isIdentifier(expr)) {
-          return expr.getText();
-        }
-      } else if (Node.isFunctionDeclaration(decl) || Node.isClassDeclaration(decl)) {
-        return decl.getName() ?? "";
-      }
-    }
+  const defaultName = getDefaultExportComponentName(sourceFile);
+  if (defaultName) {
+    return defaultName;
   }
 
   for (const fn of sourceFile.getFunctions()) {
@@ -52,9 +66,9 @@ export const duplicatedWidgetRule: Rule = {
     const severity = options?.severity ?? this.defaultSeverity;
 
     const uri = analysis.uri;
-    const normalizedUri = uri.replaceAll("\\", "/");                                     // replaceAll fix
+    const normalizedUri = uri.replaceAll("\\", "/");
     const customWidgetDir = options?.ruleOptions?.widgetDirectory || "src/widgets";
-    const normalizedWidgetDir = customWidgetDir.replaceAll("\\", "/");                   // replaceAll fix
+    const normalizedWidgetDir = customWidgetDir.replaceAll("\\", "/");
     if (!normalizedUri.includes(normalizedWidgetDir)) {
       return diagnostics;
     }
@@ -68,7 +82,7 @@ export const duplicatedWidgetRule: Rule = {
     const duplicates = allWidgets.filter(
       (w) =>
         w.name === componentName &&
-        w.filePath.replaceAll("\\", "/").toLowerCase() !== normalizedUri.toLowerCase()   // replaceAll fix
+        w.filePath.replaceAll("\\", "/").toLowerCase() !== normalizedUri.toLowerCase()
     );
 
     if (duplicates.length > 0) {

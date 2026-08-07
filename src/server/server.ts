@@ -168,8 +168,8 @@ async function validateDocument(document: TextDocument): Promise<void> {
       }
     } catch {}
 
-    const normalizedPath = filePath.replace(/\\/g, "/");
-    const normalizedWidgetDir = customWidgetDir.replace(/\\/g, "/");
+    const normalizedPath = filePath.replaceAll("\\", "/");
+    const normalizedWidgetDir = customWidgetDir.replaceAll("\\", "/");
 
     if (normalizedPath.includes(normalizedWidgetDir) || normalizedPath.includes("src/components")) {
       await scanFile(filePath);

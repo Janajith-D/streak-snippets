@@ -24,7 +24,7 @@ async function findFiles(dir: string, ext: string): Promise<string[]> {
     for (const file of list) {
       const filePath = path.join(dir, file);
       const stat = await fs.promises.stat(filePath);
-      if (stat?.isDirectory()) {  // optional chain fix
+      if (stat?.isDirectory()) {
         if (file !== "node_modules" && file !== ".git" && file !== "dist" && file !== "out" && file !== ".vscode") {
           results = results.concat(await findFiles(filePath, ext));
         }
@@ -67,7 +67,7 @@ async function findDynamicTagLocation(
       return null;
     }
 
-    // Use a stable, non-random temp file name (Math.random fix)
+    // Use a stable, non-random temp file name
     const tempName = `def_${Date.now()}_${++_tempFileCounter}.temp.tsx`;
     const tempFile = defProject.createSourceFile(tempName, content);
     let foundLocation: Location | null = null;
@@ -143,6 +143,43 @@ async function resolveLoadDynamicDefinition(
 }
 
 /**
+ * Jump to Widget source file for a WidgetPlaceholder type attribute.
+ * Extracted to reduce cognitive complexity of resolveJsxAttrDefinition.
+ */
+function resolveWidgetTypeDefinition(
+  value: string,
+  workspaceRoot: string,
+  customWidgetDir?: string
+): Location | null {
+  const subDir = customWidgetDir ?? "src/widgets";
+  const baseWidgetPath = path.join(workspaceRoot, subDir, value);
+  for (const ext of [".tsx", ".ts", ".jsx", ".js"]) {
+    const fullPath = baseWidgetPath + ext;
+    if (fs.existsSync(fullPath)) {
+      return Location.create(pathToFileURL(fullPath).toString(), Range.create(0, 0, 0, 0));
+    }
+  }
+  return null;
+}
+
+/**
+ * Jump to public asset file for a Preload href attribute.
+ * Extracted to reduce cognitive complexity of resolveJsxAttrDefinition.
+ */
+function resolvePreloadHrefDefinition(
+  value: string,
+  workspaceRoot: string,
+  customPublicDir?: string
+): Location | null {
+  const cleanHref = value.startsWith("/") ? value.substring(1) : value;
+  const fullPath = path.join(workspaceRoot, customPublicDir ?? "public", cleanHref);
+  if (fs.existsSync(fullPath)) {
+    return Location.create(pathToFileURL(fullPath).toString(), Range.create(0, 0, 0, 0));
+  }
+  return null;
+}
+
+/**
  * Handles F12/Go-to-definition for JSX attribute values:
  * - WidgetPlaceholder type → widget source file
  * - Preload href → public asset file
@@ -168,7 +205,7 @@ async function resolveJsxAttrDefinition(
 
   const attributeName = jsxAttr.getNameNode().getText();
   let tagNode: Node | undefined = jsxAttr.getParent();
-  if (tagNode?.getKindName() === "JsxAttributes") {  // optional chain fix
+  if (tagNode?.getKindName() === "JsxAttributes") {
     tagNode = tagNode.getParent();
   }
   if (!tagNode || (!Node.isJsxOpeningElement(tagNode) && !Node.isJsxSelfClosingElement(tagNode))) {
@@ -178,22 +215,11 @@ async function resolveJsxAttrDefinition(
   const tagName = tagNode.getTagNameNode().getText();
 
   if (tagName === "WidgetPlaceholder" && attributeName === "type") {
-    const subDir = customWidgetDir ?? "src/widgets";
-    const baseWidgetPath = path.join(workspaceRoot, subDir, value);
-    for (const ext of [".tsx", ".ts", ".jsx", ".js"]) {
-      const fullPath = baseWidgetPath + ext;
-      if (fs.existsSync(fullPath)) {
-        return Location.create(pathToFileURL(fullPath).toString(), Range.create(0, 0, 0, 0));
-      }
-    }
+    return resolveWidgetTypeDefinition(value, workspaceRoot, customWidgetDir);
   }
 
   if (tagName === "Preload" && attributeName === "href") {
-    const cleanHref = value.startsWith("/") ? value.substring(1) : value;
-    const fullPath = path.join(workspaceRoot, customPublicDir ?? "public", cleanHref);
-    if (fs.existsSync(fullPath)) {
-      return Location.create(pathToFileURL(fullPath).toString(), Range.create(0, 0, 0, 0));
-    }
+    return resolvePreloadHrefDefinition(value, workspaceRoot, customPublicDir);
   }
 
   return null;
