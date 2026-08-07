@@ -54,7 +54,7 @@ The extension includes a Language Server Protocol (LSP) analysis engine that par
 | `streak:S405` | Script Component | Warning | Script component requires a non-empty `id` attribute |
 | `streak:S501` | Dynamic Component | Error | Missing or empty `id` attribute on `<Dynamic>` |
 
-> For detailed descriptions, rationale, and ❌/✅ code examples for every rule, refer to the [Rule Catalog (`RULES.md`)](RULES.md).
+> For detailed descriptions, rationale, and ❌/✅ code examples for every rule, refer to the [Rule Catalog (`docs/RULES.md`)](docs/RULES.md).
 
 ---
 

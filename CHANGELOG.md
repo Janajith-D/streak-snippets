@@ -5,6 +5,16 @@ All notable changes to the "streak-snippets" extension will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-08-08
+
+### Changed
+- Reorganized documentation files (`RULES.md`, `vscode_language_support_roadmap.md`) into a dedicated `/docs` folder for better repository structure.
+
+### Fixed
+- Achieved complete `strict-mode` TypeScript ESLint compliance (`tseslint.configs.recommendedTypeChecked`) across client, server, and test suites.
+- Resolved zero-tolerance type bypasses, migrating `as any` casts to formally verified `Hover` and `Diagnostic` models within test logic.
+- Remediated SonarQube cognitive complexity and style warnings (`unicorn/prefer-at`, forbidden non-null assertions).
+
 ## [1.1.0] - 2026-08-05
 
 ### Added
