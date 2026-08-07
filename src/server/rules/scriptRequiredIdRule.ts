@@ -1,7 +1,13 @@
-import { Node, SourceFile } from "ts-morph";
+import { Node, type SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
-import { AnalysisResult } from "../../shared/types";
-import { getJsxAttrValue, getRangeFromNode, Rule, RuleDiagnostic, RuleOptions } from "./types";
+import type { AnalysisResult } from "../../shared/types";
+import {
+  getJsxAttrValue,
+  getRangeFromNode,
+  type Rule,
+  type RuleDiagnostic,
+  type RuleOptions,
+} from "./types";
 
 /**
  * Returns true when the attribute value is non-empty and not one of the
@@ -23,7 +29,11 @@ export const scriptRequiredIdRule: Rule = {
   description: "Ensures <Script> components have a non-empty 'id' attribute.",
   defaultSeverity: DiagnosticSeverity.Warning,
 
-  run(sourceFile: SourceFile, _analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
+  run(
+    sourceFile: SourceFile,
+    _analysis: AnalysisResult,
+    options?: RuleOptions,
+  ): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
@@ -49,7 +59,10 @@ export const scriptRequiredIdRule: Rule = {
 
       let hasId = false;
       for (const attr of attributes) {
-        if (Node.isJsxAttribute(attr) && attr.getNameNode()?.getText() === "id") {
+        if (
+          Node.isJsxAttribute(attr) &&
+          attr.getNameNode()?.getText() === "id"
+        ) {
           hasId = isValidNonEmptyId(getJsxAttrValue(attr));
         }
       }

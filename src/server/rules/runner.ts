@@ -1,13 +1,13 @@
-import { Diagnostic } from "vscode-languageserver/node";
-import { SourceFile } from "ts-morph";
-import { AnalysisResult } from "../../shared/types";
+import type { Diagnostic } from "vscode-languageserver/node";
+import type { SourceFile } from "ts-morph";
+import type { AnalysisResult } from "../../shared/types";
 import { allRules } from "./index";
-import { RuleDiagnostic, RuleOptions } from "./types";
+import type { RuleDiagnostic, RuleOptions } from "./types";
 
 export interface RuleEngineConfig {
   enabled: boolean;
   ruleSeverities?: Record<string, string>;
-  ruleOptions?: any;
+  ruleOptions?: Record<string, unknown>;
 }
 
 /**

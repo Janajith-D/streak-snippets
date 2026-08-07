@@ -1,4 +1,4 @@
-import { Rule } from "./types";
+import type { Rule } from "./types";
 import { widgetPlaceholderRule } from "./widgetPlaceholderRule";
 import { dataHandlerStatusRule } from "./dataHandlerStatusRule";
 import { missingDefaultExportRule } from "./missingDefaultExportRule";

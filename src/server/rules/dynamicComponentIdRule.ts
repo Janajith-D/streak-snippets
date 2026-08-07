@@ -1,7 +1,12 @@
-import { Node, SourceFile } from "ts-morph";
+import { Node, type SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
-import { AnalysisResult } from "../../shared/types";
-import { getRangeFromNode, Rule, RuleDiagnostic, RuleOptions } from "./types";
+import type { AnalysisResult } from "../../shared/types";
+import {
+  getRangeFromNode,
+  type Rule,
+  type RuleDiagnostic,
+  type RuleOptions,
+} from "./types";
 
 function hasValidStaticId(attributes: Node[]): boolean {
   for (const attr of attributes) {
@@ -16,7 +21,11 @@ function hasValidStaticId(attributes: Node[]): boolean {
   return false;
 }
 
-function checkDynamicElement(node: Node, sourceFile: SourceFile, severity: DiagnosticSeverity): RuleDiagnostic | undefined {
+function checkDynamicElement(
+  node: Node,
+  sourceFile: SourceFile,
+  severity: DiagnosticSeverity,
+): RuleDiagnostic | undefined {
   let tagName = "";
   let attributes: Node[] = [];
 
@@ -33,7 +42,8 @@ function checkDynamicElement(node: Node, sourceFile: SourceFile, severity: Diagn
     const range = getRangeFromNode(sourceFile, node);
     return {
       code: "streak:S501",
-      message: "<Dynamic> component must have a static, non-empty 'id' attribute.",
+      message:
+        "<Dynamic> component must have a static, non-empty 'id' attribute.",
       range,
       severity,
       source: "Streak Engine",
@@ -45,10 +55,15 @@ function checkDynamicElement(node: Node, sourceFile: SourceFile, severity: Diagn
 export const dynamicComponentIdRule: Rule = {
   id: "streak:invalid-dynamic-component-id",
   name: "Invalid Dynamic Component ID",
-  description: "Ensures <Dynamic> components have a static, non-empty 'id' attribute.",
+  description:
+    "Ensures <Dynamic> components have a static, non-empty 'id' attribute.",
   defaultSeverity: DiagnosticSeverity.Error,
 
-  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
+  run(
+    sourceFile: SourceFile,
+    analysis: AnalysisResult,
+    options?: RuleOptions,
+  ): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
@@ -66,4 +81,3 @@ export const dynamicComponentIdRule: Rule = {
     return diagnostics;
   },
 };
-

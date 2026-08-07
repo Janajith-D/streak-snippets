@@ -1,7 +1,12 @@
-import { SourceFile, SyntaxKind } from "ts-morph";
+import { SyntaxKind, type SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
-import { AnalysisResult } from "../../shared/types";
-import { getRangeFromNode, Rule, RuleDiagnostic, RuleOptions } from "./types";
+import type { AnalysisResult } from "../../shared/types";
+import {
+  getRangeFromNode,
+  type Rule,
+  type RuleDiagnostic,
+  type RuleOptions,
+} from "./types";
 
 const DISALLOWED_HOOKS = new Set([
   "useState",
@@ -19,10 +24,15 @@ const DISALLOWED_HOOKS = new Set([
 export const reactHooksNotAllowedRule: Rule = {
   id: "streak:react-hooks-not-allowed",
   name: "React Hooks Not Allowed",
-  description: "Ensures Streak static widgets do not use React runtime hooks (useState, useEffect, etc.).",
+  description:
+    "Ensures Streak static widgets do not use React runtime hooks (useState, useEffect, etc.).",
   defaultSeverity: DiagnosticSeverity.Error,
 
-  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
+  run(
+    sourceFile: SourceFile,
+    analysis: AnalysisResult,
+    options?: RuleOptions,
+  ): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
@@ -30,7 +40,9 @@ export const reactHooksNotAllowedRule: Rule = {
       return diagnostics;
     }
 
-    const callExprs = sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression);
+    const callExprs = sourceFile.getDescendantsOfKind(
+      SyntaxKind.CallExpression,
+    );
     for (const call of callExprs) {
       const expression = call.getExpression();
       const calleeText = expression.getText();
@@ -55,4 +67,3 @@ export const reactHooksNotAllowedRule: Rule = {
     return diagnostics;
   },
 };
-

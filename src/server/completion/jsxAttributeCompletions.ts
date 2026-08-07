@@ -1,7 +1,11 @@
-import { CompletionItem, CompletionItemKind } from "vscode-languageserver/node";
+import {
+  type CompletionItem,
+  CompletionItemKind,
+} from "vscode-languageserver/node";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { CompletionContext } from "./types";
+import { type CompletionContext } from "./types";
+import { widgetRegistry } from "../registry/widgets";
 
 export interface JsxContext {
   tagName: string;
@@ -241,7 +245,7 @@ export function getPublicAssets(
         if (stat.isDirectory()) {
           traverse(fullPath, relativePath);
         } else {
-          results.push("/" + relativePath);
+          results.push(`/${relativePath}`);
         }
       }
     } catch {
@@ -431,7 +435,6 @@ function getWidgetPlaceholderTypeCompletions(
   customWidgetDir: string | undefined,
 ): CompletionItem[] {
   const widgetTypes = getWidgetTypes(workspaceRoot, customWidgetDir);
-  const { widgetRegistry } = require("../registry/widgets");
 
   return widgetTypes.map((type) => {
     const widget = widgetRegistry.get(type);

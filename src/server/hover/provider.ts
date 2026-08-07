@@ -1,7 +1,7 @@
 import { Node } from "ts-morph";
-import { Hover } from "vscode-languageserver/node";
+import { type Hover } from "vscode-languageserver/node";
 import { GDOM_METHODS } from "../completion/runtimeApi";
-import { WidgetMetadata } from "../registry/widgets";
+import { type WidgetMetadata, widgetRegistry } from "../registry/widgets";
 
 // ── Private helpers ───────────────────────────────────────────────────────────
 
@@ -68,7 +68,6 @@ function resolveWidgetTypeHover(node: Node): Hover | null {
   }
 
   const widgetType = node.getLiteralValue();
-  const { widgetRegistry } = require("../registry/widgets");
   const widget = widgetRegistry.get(widgetType);
   if (!widget) {
     return null;

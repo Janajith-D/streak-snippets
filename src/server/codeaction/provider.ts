@@ -1,6 +1,10 @@
-import { Node, SyntaxKind, SourceFile } from "ts-morph";
-import { CodeAction, CodeActionKind, Diagnostic } from "vscode-languageserver/node";
-import { TextDocument } from "vscode-languageserver-textdocument";
+import { Node, SyntaxKind, type SourceFile } from "ts-morph";
+import {
+  type CodeAction,
+  CodeActionKind,
+  type Diagnostic,
+} from "vscode-languageserver/node";
+import { type TextDocument } from "vscode-languageserver-textdocument";
 import { fileURLToPath } from "node:url";
 import * as path from "node:path";
 
@@ -12,7 +16,7 @@ function buildInlineAttrInsertAction(
   uri: string,
   title: string,
   charOffset: number,
-  newText: string
+  newText: string,
 ): CodeAction {
   return {
     title,
@@ -23,8 +27,14 @@ function buildInlineAttrInsertAction(
         [uri]: [
           {
             range: {
-              start: { line: diag.range.start.line, character: diag.range.start.character + charOffset },
-              end: { line: diag.range.start.line, character: diag.range.start.character + charOffset },
+              start: {
+                line: diag.range.start.line,
+                character: diag.range.start.character + charOffset,
+              },
+              end: {
+                line: diag.range.start.line,
+                character: diag.range.start.character + charOffset,
+              },
             },
             newText,
           },
@@ -36,22 +46,46 @@ function buildInlineAttrInsertAction(
 
 /** streak:S405 — Missing <Script> id */
 function buildScriptIdAction(diag: Diagnostic, uri: string): CodeAction {
-  return buildInlineAttrInsertAction(diag, uri, 'Add id attribute to <Script>', 7, ' id="my-script"');
+  return buildInlineAttrInsertAction(
+    diag,
+    uri,
+    "Add id attribute to <Script>",
+    7,
+    ' id="my-script"',
+  );
 }
 
 /** streak:S101 — Missing <WidgetPlaceholder> id */
 function buildWidgetIdAction(diag: Diagnostic, uri: string): CodeAction {
-  return buildInlineAttrInsertAction(diag, uri, 'Add id attribute to <WidgetPlaceholder>', 18, ' id="placeholder-id"');
+  return buildInlineAttrInsertAction(
+    diag,
+    uri,
+    "Add id attribute to <WidgetPlaceholder>",
+    18,
+    ' id="placeholder-id"',
+  );
 }
 
 /** streak:S102 — Missing <WidgetPlaceholder> type */
 function buildWidgetTypeAction(diag: Diagnostic, uri: string): CodeAction {
-  return buildInlineAttrInsertAction(diag, uri, 'Add type attribute to <WidgetPlaceholder>', 18, ' type="WidgetName"');
+  return buildInlineAttrInsertAction(
+    diag,
+    uri,
+    "Add type attribute to <WidgetPlaceholder>",
+    18,
+    ' type="WidgetName"',
+  );
 }
 
 /** streak:S501 — Missing <Dynamic> id */
 function buildDynamicIdAction(diag: Diagnostic, uri: string): CodeAction {
-  return buildInlineAttrInsertAction(diag, uri, 'Add id attribute to <Dynamic>', 8, ' id="dynamic-id"');
+  return buildInlineAttrInsertAction(
+    diag,
+    uri,
+    "Add id attribute to <Dynamic>",
+    8,
+    ' id="dynamic-id"',
+  );
 }
 
 /** streak:S202 — Data handler must be async */
@@ -59,7 +93,7 @@ function buildAsyncHandlerAction(
   diag: Diagnostic,
   document: TextDocument,
   sourceFile: SourceFile,
-  uri: string
+  uri: string,
 ): CodeAction | null {
   const startOffset = document.offsetAt(diag.range.start);
   const node = sourceFile.getDescendantAtPos(startOffset);
@@ -83,7 +117,9 @@ function buildAsyncHandlerAction(
 
   let insertOffset = fnNode.getStart();
   if (Node.isFunctionDeclaration(fnNode)) {
-    const functionKeyword = fnNode.getFirstChildByKind(SyntaxKind.FunctionKeyword);
+    const functionKeyword = fnNode.getFirstChildByKind(
+      SyntaxKind.FunctionKeyword,
+    );
     if (functionKeyword) {
       insertOffset = functionKeyword.getStart();
     }
@@ -96,7 +132,12 @@ function buildAsyncHandlerAction(
     diagnostics: [diag],
     edit: {
       changes: {
-        [uri]: [{ range: { start: insertPosition, end: insertPosition }, newText: "async " }],
+        [uri]: [
+          {
+            range: { start: insertPosition, end: insertPosition },
+            newText: "async ",
+          },
+        ],
       },
     },
   };
@@ -106,9 +147,9 @@ function buildAsyncHandlerAction(
 function buildDefaultExportAction(
   diag: Diagnostic,
   document: TextDocument,
-  uri: string
+  uri: string,
 ): CodeAction | null {
-  let baseName = "";
+  let baseName;
   try {
     const filePath = fileURLToPath(uri);
     baseName = path.basename(filePath, path.extname(filePath));
@@ -144,16 +185,23 @@ function buildCodeAction(
   diag: Diagnostic,
   document: TextDocument,
   sourceFile: SourceFile,
-  uri: string
+  uri: string,
 ): CodeAction | null {
   switch (diag.code) {
-    case "streak:S405": return buildScriptIdAction(diag, uri);
-    case "streak:S101": return buildWidgetIdAction(diag, uri);
-    case "streak:S102": return buildWidgetTypeAction(diag, uri);
-    case "streak:S501": return buildDynamicIdAction(diag, uri);
-    case "streak:S202": return buildAsyncHandlerAction(diag, document, sourceFile, uri);
-    case "streak:S301": return buildDefaultExportAction(diag, document, uri);
-    default:            return null;
+    case "streak:S405":
+      return buildScriptIdAction(diag, uri);
+    case "streak:S101":
+      return buildWidgetIdAction(diag, uri);
+    case "streak:S102":
+      return buildWidgetTypeAction(diag, uri);
+    case "streak:S501":
+      return buildDynamicIdAction(diag, uri);
+    case "streak:S202":
+      return buildAsyncHandlerAction(diag, document, sourceFile, uri);
+    case "streak:S301":
+      return buildDefaultExportAction(diag, document, uri);
+    default:
+      return null;
   }
 }
 
@@ -162,7 +210,7 @@ function buildCodeAction(
 export function resolveCodeActions(
   diagnostics: Diagnostic[],
   document: TextDocument,
-  sourceFile: SourceFile
+  sourceFile: SourceFile,
 ): CodeAction[] {
   const uri = document.uri;
   const codeActions: CodeAction[] = [];

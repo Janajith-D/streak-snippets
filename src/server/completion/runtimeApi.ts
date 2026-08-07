@@ -9,7 +9,8 @@ export const GDOM_METHODS: RuntimeMethod[] = [
   {
     name: "loadDynamicComponent",
     signature: "loadDynamicComponent(id: string, callback?: () => void)",
-    documentation: "Loads a dynamic component and executes a callback after rendering.",
+    documentation:
+      "Loads a dynamic component and executes a callback after rendering.",
     returnType: "void",
   },
   {

@@ -1,7 +1,7 @@
-import { CompletionItem } from "vscode-languageserver/node";
-import { TextDocument } from "vscode-languageserver-textdocument";
-import { SourceFile } from "ts-morph";
-import { CompletionContext } from "./types";
+import { type CompletionItem } from "vscode-languageserver/node";
+import { type TextDocument } from "vscode-languageserver-textdocument";
+import { type SourceFile } from "ts-morph";
+import { type CompletionContext } from "./types";
 import { getFrameworkCompletions } from "./frameworkCompletions";
 import { getJsxAttributeCompletions } from "./jsxAttributeCompletions";
 import { getScriptCompletions } from "./scriptCompletions";
@@ -16,13 +16,18 @@ export function getCompletions(
   sourceFile: SourceFile,
   workspaceRoot: string | undefined,
   customWidgetDir?: string,
-  customPublicDir?: string
+  customPublicDir?: string,
 ): CompletionItem[] {
   return [
     // 1. Streak built-in components (e.g. <WidgetPlaceholder, sfS snippet)
     ...getFrameworkCompletions(context, document, sourceFile),
     // 2. JSX attributes (e.g. id, type, href, as) and attribute values
-    ...getJsxAttributeCompletions(context, workspaceRoot, customWidgetDir, customPublicDir),
+    ...getJsxAttributeCompletions(
+      context,
+      workspaceRoot,
+      customWidgetDir,
+      customPublicDir,
+    ),
     // 3. Script callback — gDom methods and loadDynamicComponent IDs
     ...getScriptCompletions(context, workspaceRoot),
   ];

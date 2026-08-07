@@ -1,15 +1,25 @@
-import { SourceFile, SyntaxKind } from "ts-morph";
+import { SyntaxKind, type SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
-import { AnalysisResult } from "../../shared/types";
-import { getRangeFromNode, Rule, RuleDiagnostic, RuleOptions } from "./types";
+import type { AnalysisResult } from "../../shared/types";
+import {
+  getRangeFromNode,
+  type Rule,
+  type RuleDiagnostic,
+  type RuleOptions,
+} from "./types";
 
 export const unsafeWidgetDataAccessRule: Rule = {
   id: "streak:unsafe-widget-data-access",
   name: "Unsafe Widget Data Access",
-  description: "Ensures widget data is accessed safely because props.data may be undefined.",
+  description:
+    "Ensures widget data is accessed safely because props.data may be undefined.",
   defaultSeverity: DiagnosticSeverity.Error,
 
-  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
+  run(
+    sourceFile: SourceFile,
+    analysis: AnalysisResult,
+    options?: RuleOptions,
+  ): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
@@ -17,7 +27,9 @@ export const unsafeWidgetDataAccessRule: Rule = {
       return diagnostics;
     }
 
-    const propAccesses = sourceFile.getDescendantsOfKind(SyntaxKind.PropertyAccessExpression);
+    const propAccesses = sourceFile.getDescendantsOfKind(
+      SyntaxKind.PropertyAccessExpression,
+    );
     for (const pa of propAccesses) {
       const exprText = pa.getExpression().getText();
 
@@ -41,4 +53,3 @@ export const unsafeWidgetDataAccessRule: Rule = {
     return diagnostics;
   },
 };
-

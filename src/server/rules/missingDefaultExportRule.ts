@@ -1,7 +1,7 @@
-import { SourceFile } from "ts-morph";
+import type { SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
-import { AnalysisResult } from "../../shared/types";
-import { Rule, RuleDiagnostic, RuleOptions } from "./types";
+import type { AnalysisResult } from "../../shared/types";
+import type { Rule, RuleDiagnostic, RuleOptions } from "./types";
 
 export const missingDefaultExportRule: Rule = {
   id: "streak:missing-default-export",

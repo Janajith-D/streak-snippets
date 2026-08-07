@@ -16,7 +16,9 @@ export class WidgetRegistry {
   private static instance: WidgetRegistry;
   private readonly registry = new Map<string, WidgetMetadata>();
 
-  private constructor() {}
+  private constructor() {
+    /* ignore */
+  }
 
   public static getInstance(): WidgetRegistry {
     if (!WidgetRegistry.instance) {

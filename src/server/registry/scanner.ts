@@ -1,7 +1,7 @@
 import { Node, Project, ScriptTarget, SyntaxKind } from "ts-morph";
 import * as path from "node:path";
 import * as fs from "node:fs";
-import { widgetRegistry, WidgetProp } from "./widgets";
+import { type WidgetProp, widgetRegistry } from "./widgets";
 
 // Single shared compiler project instance to avoid redundant instantiation overhead
 const scanProject = new Project({
@@ -17,7 +17,9 @@ const scanProject = new Project({
  * Extracts the component name from a default export symbol, if one exists.
  * Extracted to reduce cognitive complexity of resolveComponentName.
  */
-function getDefaultExportComponentName(sourceFile: ReturnType<typeof scanProject.createSourceFile>): string | undefined {
+function getDefaultExportComponentName(
+  sourceFile: ReturnType<typeof scanProject.createSourceFile>,
+): string | undefined {
   const defaultExportSymbol = sourceFile.getDefaultExportSymbol();
   if (!defaultExportSymbol) {
     return undefined;
@@ -31,7 +33,10 @@ function getDefaultExportComponentName(sourceFile: ReturnType<typeof scanProject
     if (expr && Node.isIdentifier(expr)) {
       return expr.getText();
     }
-  } else if (Node.isFunctionDeclaration(decl) || Node.isClassDeclaration(decl)) {
+  } else if (
+    Node.isFunctionDeclaration(decl) ||
+    Node.isClassDeclaration(decl)
+  ) {
     return decl.getName() ?? "";
   }
   return undefined;
@@ -41,12 +46,17 @@ function getDefaultExportComponentName(sourceFile: ReturnType<typeof scanProject
  * Extracts the component name from a PascalCase variable declaration, if one exists.
  * Extracted to reduce cognitive complexity of resolveComponentName.
  */
-function getVariableDeclComponentName(sourceFile: ReturnType<typeof scanProject.createSourceFile>): string | undefined {
+function getVariableDeclComponentName(
+  sourceFile: ReturnType<typeof scanProject.createSourceFile>,
+): string | undefined {
   for (const vd of sourceFile.getVariableDeclarations()) {
     const name = vd.getName();
     if (name && /^[A-Z]/.test(name)) {
       const init = vd.getInitializer();
-      if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
+      if (
+        init &&
+        (Node.isArrowFunction(init) || Node.isFunctionExpression(init))
+      ) {
         return name;
       }
     }
@@ -59,7 +69,10 @@ function getVariableDeclComponentName(sourceFile: ReturnType<typeof scanProject.
  * Priority: default export symbol → first PascalCase function → PascalCase variable → file basename.
  * Extracted to reduce cognitive complexity of scanFile.
  */
-function resolveComponentName(sourceFile: ReturnType<typeof scanProject.createSourceFile>, filePath: string): string {
+function resolveComponentName(
+  sourceFile: ReturnType<typeof scanProject.createSourceFile>,
+  filePath: string,
+): string {
   const defaultName = getDefaultExportComponentName(sourceFile);
   if (defaultName) {
     return defaultName;
@@ -88,7 +101,7 @@ function resolveComponentName(sourceFile: ReturnType<typeof scanProject.createSo
  */
 function resolveComponentNode(
   sourceFile: ReturnType<typeof scanProject.createSourceFile>,
-  componentName: string
+  componentName: string,
 ): Node | undefined {
   const fn = sourceFile.getFunction(componentName);
   if (fn) {
@@ -97,7 +110,10 @@ function resolveComponentNode(
   const vd = sourceFile.getVariableDeclaration(componentName);
   if (vd) {
     const init = vd.getInitializer();
-    if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
+    if (
+      init &&
+      (Node.isArrowFunction(init) || Node.isFunctionExpression(init))
+    ) {
       return init;
     }
   }
@@ -110,14 +126,23 @@ function resolveComponentNode(
  */
 function extractDocComment(componentNode: Node): string {
   let docNode: Node = componentNode;
-  if (Node.isArrowFunction(componentNode) || Node.isFunctionExpression(componentNode)) {
-    const varStatement = componentNode.getFirstAncestorByKind(SyntaxKind.VariableStatement);
+  if (
+    Node.isArrowFunction(componentNode) ||
+    Node.isFunctionExpression(componentNode)
+  ) {
+    const varStatement = componentNode.getFirstAncestorByKind(
+      SyntaxKind.VariableStatement,
+    );
     if (varStatement) {
       docNode = varStatement;
     }
   }
   if (Node.isJSDocable(docNode)) {
-    return docNode.getJsDocs().map((jd) => jd.getDescription().trim()).join("\n").trim();
+    return docNode
+      .getJsDocs()
+      .map((jd) => jd.getDescription().trim())
+      .join("\n")
+      .trim();
   }
   return "";
 }
@@ -152,7 +177,8 @@ function extractProps(componentNode: Node): WidgetProp[] {
     const valDecl = prop.getValueDeclaration();
     let typeText: string;
     if (valDecl) {
-      const typeNode = (valDecl as any).getTypeNode?.();
+      const typedNode = valDecl as unknown as { getTypeNode?(): Node };
+      const typeNode = typedNode.getTypeNode?.();
       typeText = typeNode ? typeNode.getText() : valDecl.getType().getText();
     } else {
       typeText = prop.getDeclaredType().getText();
@@ -160,9 +186,15 @@ function extractProps(componentNode: Node): WidgetProp[] {
 
     let propDoc = "";
     for (const decl of prop.getDeclarations()) {
-      const jsDocs = (decl as any).getJsDocs?.();
+      const jsDocable = decl as unknown as {
+        getJsDocs?(): { getDescription(): string }[];
+      };
+      const jsDocs = jsDocable.getJsDocs?.();
       if (jsDocs) {
-        propDoc = jsDocs.map((jd: any) => jd.getDescription().trim()).join("\n").trim();
+        propDoc = jsDocs
+          .map((jd) => jd.getDescription().trim())
+          .join("\n")
+          .trim();
       }
     }
 
@@ -182,7 +214,11 @@ function extractProps(componentNode: Node): WidgetProp[] {
 export async function scanFile(filePath: string): Promise<void> {
   try {
     const content = await fs.promises.readFile(filePath, "utf-8");
-    const sourceFile = scanProject.createSourceFile(filePath + ".temp.tsx", content, { overwrite: true });
+    const sourceFile = scanProject.createSourceFile(
+      `${filePath}.temp.tsx`,
+      content,
+      { overwrite: true },
+    );
 
     // 1. Resolve component name
     const componentName = resolveComponentName(sourceFile, filePath);
@@ -215,7 +251,10 @@ export async function scanFile(filePath: string): Promise<void> {
   }
 }
 
-export async function scanWorkspace(workspaceRoot: string, customWidgetDir?: string): Promise<void> {
+export async function scanWorkspace(
+  workspaceRoot: string,
+  customWidgetDir?: string,
+): Promise<void> {
   const resolvedWidgetDir = customWidgetDir
     ? path.join(workspaceRoot, customWidgetDir)
     : path.join(workspaceRoot, "src", "widgets");
@@ -242,12 +281,15 @@ async function findFilesRecursive(dir: string): Promise<string[]> {
     for (const file of list) {
       const filePath = path.join(dir, file);
       const stat = await fs.promises.stat(filePath);
-      if (stat?.isDirectory()) {   // optional chain fix
+      if (stat?.isDirectory()) {
+        // optional chain fix
         results = results.concat(await findFilesRecursive(filePath));
       } else if (filePath.endsWith(".tsx") || filePath.endsWith(".ts")) {
         results.push(filePath);
       }
     }
-  } catch {}
+  } catch {
+    /* ignore */
+  }
   return results;
 }

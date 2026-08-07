@@ -25,7 +25,13 @@ async function findFiles(dir: string, ext: string): Promise<string[]> {
       const filePath = path.join(dir, file);
       const stat = await fs.promises.stat(filePath);
       if (stat?.isDirectory()) {
-        if (file !== "node_modules" && file !== ".git" && file !== "dist" && file !== "out" && file !== ".vscode") {
+        if (
+          file !== "node_modules" &&
+          file !== ".git" &&
+          file !== "dist" &&
+          file !== "out" &&
+          file !== ".vscode"
+        ) {
           results = results.concat(await findFiles(filePath, ext));
         }
       } else if (filePath.endsWith(ext)) {
@@ -50,7 +56,10 @@ function isLoadDynamicComponentCall(parent: Node | undefined): boolean {
   if (!Node.isPropertyAccessExpression(callExpr)) {
     return false;
   }
-  return callExpr.getExpression().getText() === "gDom" && callExpr.getName() === "loadDynamicComponent";
+  return (
+    callExpr.getExpression().getText() === "gDom" &&
+    callExpr.getName() === "loadDynamicComponent"
+  );
 }
 
 /**
@@ -59,7 +68,7 @@ function isLoadDynamicComponentCall(parent: Node | undefined): boolean {
  */
 async function findDynamicTagLocation(
   filePath: string,
-  value: string
+  value: string,
 ): Promise<Location | null> {
   try {
     const content = await fs.promises.readFile(filePath, "utf-8");
@@ -73,7 +82,10 @@ async function findDynamicTagLocation(
     let foundLocation: Location | null = null;
 
     tempFile.forEachDescendant((child) => {
-      if (!Node.isJsxOpeningElement(child) && !Node.isJsxSelfClosingElement(child)) {
+      if (
+        !Node.isJsxOpeningElement(child) &&
+        !Node.isJsxSelfClosingElement(child)
+      ) {
         return;
       }
       if (child.getTagNameNode().getText() !== "Dynamic") {
@@ -113,7 +125,7 @@ async function findDynamicTagLocation(
 
       foundLocation = Location.create(
         pathToFileURL(filePath).toString(),
-        Range.create(startLine, startChar, endLine, endChar)
+        Range.create(startLine, startChar, endLine, endChar),
       );
     });
 
@@ -130,7 +142,7 @@ async function findDynamicTagLocation(
  */
 async function resolveLoadDynamicDefinition(
   value: string,
-  workspaceRoot: string
+  workspaceRoot: string,
 ): Promise<Location | null> {
   const files = await findFiles(workspaceRoot, ".tsx");
   for (const filePath of files) {
@@ -149,13 +161,16 @@ async function resolveLoadDynamicDefinition(
 function resolveWidgetTypeDefinition(
   value: string,
   workspaceRoot: string,
-  customWidgetDir = "src/widgets"
+  customWidgetDir = "src/widgets",
 ): Location | null {
   const baseWidgetPath = path.join(workspaceRoot, customWidgetDir, value);
   for (const ext of [".tsx", ".ts", ".jsx", ".js"]) {
     const fullPath = baseWidgetPath + ext;
     if (fs.existsSync(fullPath)) {
-      return Location.create(pathToFileURL(fullPath).toString(), Range.create(0, 0, 0, 0));
+      return Location.create(
+        pathToFileURL(fullPath).toString(),
+        Range.create(0, 0, 0, 0),
+      );
     }
   }
   return null;
@@ -168,12 +183,15 @@ function resolveWidgetTypeDefinition(
 function resolvePreloadHrefDefinition(
   value: string,
   workspaceRoot: string,
-  customPublicDir = "public"
+  customPublicDir = "public",
 ): Location | null {
   const cleanHref = value.startsWith("/") ? value.substring(1) : value;
   const fullPath = path.join(workspaceRoot, customPublicDir, cleanHref);
   if (fs.existsSync(fullPath)) {
-    return Location.create(pathToFileURL(fullPath).toString(), Range.create(0, 0, 0, 0));
+    return Location.create(
+      pathToFileURL(fullPath).toString(),
+      Range.create(0, 0, 0, 0),
+    );
   }
   return null;
 }
@@ -185,13 +203,13 @@ function resolvePreloadHrefDefinition(
  *
  * Extracted to reduce cognitive complexity of resolveDefinition.
  */
-async function resolveJsxAttrDefinition(
+function resolveJsxAttrDefinition(
   node: Node,
   value: string,
   workspaceRoot: string,
   customWidgetDir?: string,
-  customPublicDir?: string
-): Promise<Location | null> {
+  customPublicDir?: string,
+): Location | null {
   const parent = node.getParent();
 
   let jsxAttr: Node | undefined = parent;
@@ -207,7 +225,11 @@ async function resolveJsxAttrDefinition(
   if (tagNode?.getKindName() === "JsxAttributes") {
     tagNode = tagNode.getParent();
   }
-  if (!tagNode || (!Node.isJsxOpeningElement(tagNode) && !Node.isJsxSelfClosingElement(tagNode))) {
+  if (
+    !tagNode ||
+    (!Node.isJsxOpeningElement(tagNode) &&
+      !Node.isJsxSelfClosingElement(tagNode))
+  ) {
     return null;
   }
 
@@ -230,14 +252,17 @@ export async function resolveDefinition(
   node: Node,
   workspaceRoot: string | undefined,
   customWidgetDir?: string,
-  customPublicDir?: string
+  customPublicDir?: string,
 ): Promise<Location | null> {
   if (!workspaceRoot) {
     return null;
   }
 
   // Only string/template literals carry navigable values
-  if (!Node.isStringLiteral(node) && !Node.isNoSubstitutionTemplateLiteral(node)) {
+  if (
+    !Node.isStringLiteral(node) &&
+    !Node.isNoSubstitutionTemplateLiteral(node)
+  ) {
     return null;
   }
 
@@ -250,5 +275,11 @@ export async function resolveDefinition(
   }
 
   // Case 2: JSX attribute value → widget file or public asset
-  return resolveJsxAttrDefinition(node, value, workspaceRoot, customWidgetDir, customPublicDir);
+  return resolveJsxAttrDefinition(
+    node,
+    value,
+    workspaceRoot,
+    customWidgetDir,
+    customPublicDir,
+  );
 }

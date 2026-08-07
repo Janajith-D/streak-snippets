@@ -1,10 +1,14 @@
-import { CompletionItem, CompletionItemKind, InsertTextFormat, TextEdit } from "vscode-languageserver/node";
-import { TextDocument } from "vscode-languageserver-textdocument";
-import { SourceFile } from "ts-morph";
-import { CompletionContext } from "./types";
+import {
+  type CompletionItem,
+  CompletionItemKind,
+  InsertTextFormat,
+  type TextEdit,
+} from "vscode-languageserver/node";
+import { type TextDocument } from "vscode-languageserver-textdocument";
+import { type SourceFile } from "ts-morph";
+import { type CompletionContext } from "./types";
 import { isInsideScriptCallback } from "./scriptCompletions";
 import * as path from "node:path";
-
 
 interface ComponentConfig {
   name: string;
@@ -16,43 +20,46 @@ interface ComponentConfig {
 const BU_COMPONENTS: ComponentConfig[] = [
   {
     name: "WidgetPlaceholder",
-    snippet: '<WidgetPlaceholder id="${1:widget-id}" type="${2:widget-type}" />',
+    snippet:
+      '<WidgetPlaceholder id="${1:widget-id}" type="${2:widget-type}" />',
     detail: "Streak WidgetPlaceholder Component",
-    documentation: "Specifies a placeholder where a widget will be injected dynamically.",
+    documentation:
+      "Specifies a placeholder where a widget will be injected dynamically.",
   },
   {
     name: "Script",
     snippet: [
-      '<Script',
+      "<Script",
       '  id="${1:my-script}"',
-      '  options={{',
+      "  options={{",
       '    ${2:color}: "${3:#818cf8}",',
       "        ${4:delay}: ${5:800}",
-      '  }}',
-      '>',
-      '  {(gDom: any, options: any) => {',
-      '    $0',
-      '  }}',
-      '</Script>',
+      "  }}",
+      ">",
+      "  {(gDom: any, options: any) => {",
+      "    $0",
+      "  }}",
+      "</Script>",
     ].join("\n"),
     detail: "Streak Browser-side Script Component",
-    documentation: "Executes client-side script code with direct access to the DOM node via gDom.",
+    documentation:
+      "Executes client-side script code with direct access to the DOM node via gDom.",
   },
   {
     name: "Preload",
     snippet: '<Preload href="${1:/style.css}" as="${2:style}" />',
     detail: "Streak Asset Preload Component",
-    documentation: "Preloads static resources (e.g., styles, scripts, fonts, images) during build-time.",
+    documentation:
+      "Preloads static resources (e.g., styles, scripts, fonts, images) during build-time.",
   },
   {
     name: "Dynamic",
-    snippet: [
-      '<Dynamic id="${1:dynamic-id}">',
-      "  $2",
-      "</Dynamic>",
-    ].join("\n"),
+    snippet: ['<Dynamic id="${1:dynamic-id}">', "  $2", "</Dynamic>"].join(
+      "\n",
+    ),
     detail: "Streak Dynamic Injected Component",
-    documentation: "Wraps components that will be dynamically injected/loaded on the client side.",
+    documentation:
+      "Wraps components that will be dynamically injected/loaded on the client side.",
   },
 ];
 
@@ -100,7 +107,7 @@ function getTrailingWord(context: CompletionContext): string {
 function buildUpdatedImportText(
   originalText: string,
   originalQuotes: string,
-  newNames: string[]
+  newNames: string[],
 ): string {
   // Single-name + single-line stays as a one-liner; otherwise go multi-line
   if (newNames.length <= 1 && !originalText.includes("\n")) {
@@ -119,7 +126,9 @@ function buildUpdatedImportText(
 
   return [
     "import {",
-    ...newNames.map((name, i) => `${indent}${name}${i === newNames.length - 1 ? "" : ","}`),
+    ...newNames.map(
+      (name, i) => `${indent}${name}${i === newNames.length - 1 ? "" : ","}`,
+    ),
     `} from ${originalQuotes}streak-forge/components${originalQuotes};`,
   ].join("\n");
 }
@@ -128,7 +137,10 @@ function buildUpdatedImportText(
  * Returns sfWid / sfWidE scaffold completions when editing inside a widgets/ folder.
  * Extracted to reduce cognitive complexity of getFrameworkCompletions.
  */
-function getWidgetScaffoldCompletions(context: CompletionContext, word: string): CompletionItem[] {
+function getWidgetScaffoldCompletions(
+  context: CompletionContext,
+  word: string,
+): CompletionItem[] {
   const componentName = path.basename(context.uri).replace(/\.[^/.]+$/, "");
   const completions: CompletionItem[] = [];
 
@@ -180,7 +192,7 @@ function getWidgetScaffoldCompletions(context: CompletionContext, word: string):
 function getScriptSnippetCompletion(
   document: TextDocument,
   sourceFile: SourceFile,
-  word: string
+  word: string,
 ): CompletionItem[] {
   if (!("sfS".startsWith(word) || word === "")) {
     return [];
@@ -205,7 +217,8 @@ function getScriptSnippetCompletion(
         "</Script>",
       ].join("\n"),
       detail: "Script Element (sfS)",
-      documentation: "Insert a Script element template with options and callback.",
+      documentation:
+        "Insert a Script element template with options and callback.",
       additionalTextEdits: autoImports,
     },
   ];
@@ -217,10 +230,10 @@ function getScriptSnippetCompletion(
 export function getAutoImportEdit(
   document: TextDocument,
   sourceFile: SourceFile,
-  componentName: string
+  componentName: string,
 ): TextEdit[] {
   const importDecl = sourceFile.getImportDeclaration(
-    (d) => d.getModuleSpecifierValue() === "streak-forge/components"
+    (d) => d.getModuleSpecifierValue() === "streak-forge/components",
   );
 
   if (importDecl) {
@@ -229,10 +242,16 @@ export function getAutoImportEdit(
       return [];
     }
 
-    const newNames = [...namedImports, componentName].sort((a, b) => a.localeCompare(b));
+    const newNames = [...namedImports, componentName].sort((a, b) =>
+      a.localeCompare(b),
+    );
     const originalText = importDecl.getText();
     const originalQuotes = originalText.includes("'") ? "'" : '"';
-    const newImportText = buildUpdatedImportText(originalText, originalQuotes, newNames);
+    const newImportText = buildUpdatedImportText(
+      originalText,
+      originalQuotes,
+      newNames,
+    );
 
     return [
       {
@@ -271,7 +290,7 @@ export function getAutoImportEdit(
 export function getFrameworkCompletions(
   context: CompletionContext,
   document: TextDocument,
-  sourceFile: SourceFile
+  sourceFile: SourceFile,
 ): CompletionItem[] {
   // 1. JSX component tag completions (e.g. <WidgetPlaceholder, <Script)
   if (isJsxTagStart(context.text, context.offset)) {
@@ -299,8 +318,15 @@ export function getFrameworkCompletions(
   }
 
   // 3. sfS Script snippet — only in .tsx files, outside Script callbacks
-  if (context.uri.endsWith(".tsx") && !isInsideScriptCallback(context.text, context.offset)) {
-    return getScriptSnippetCompletion(document, sourceFile, getTrailingWord(context));
+  if (
+    context.uri.endsWith(".tsx") &&
+    !isInsideScriptCallback(context.text, context.offset)
+  ) {
+    return getScriptSnippetCompletion(
+      document,
+      sourceFile,
+      getTrailingWord(context),
+    );
   }
 
   return [];

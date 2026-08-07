@@ -1,7 +1,7 @@
-import { Node, SourceFile } from "ts-morph";
+import { Node, type SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
-import { AnalysisResult } from "../../shared/types";
-import { Rule, RuleDiagnostic, RuleOptions } from "./types";
+import type { AnalysisResult } from "../../shared/types";
+import type { Rule, RuleDiagnostic, RuleOptions } from "./types";
 import { widgetRegistry } from "../registry/widgets";
 import * as path from "node:path";
 
@@ -9,7 +9,9 @@ import * as path from "node:path";
  * Extracts the component name from a default export symbol, if one exists.
  * Extracted to reduce cognitive complexity of resolveWidgetComponentName.
  */
-function getDefaultExportComponentName(sourceFile: SourceFile): string | undefined {
+function getDefaultExportComponentName(
+  sourceFile: SourceFile,
+): string | undefined {
   const defaultExportSymbol = sourceFile.getDefaultExportSymbol();
   if (!defaultExportSymbol) {
     return undefined;
@@ -23,7 +25,10 @@ function getDefaultExportComponentName(sourceFile: SourceFile): string | undefin
     if (expr && Node.isIdentifier(expr)) {
       return expr.getText();
     }
-  } else if (Node.isFunctionDeclaration(decl) || Node.isClassDeclaration(decl)) {
+  } else if (
+    Node.isFunctionDeclaration(decl) ||
+    Node.isClassDeclaration(decl)
+  ) {
     return decl.getName() ?? "";
   }
   return undefined;
@@ -37,7 +42,10 @@ function getDefaultExportComponentName(sourceFile: SourceFile): string | undefin
  *
  * Extracted to reduce cognitive complexity of the `run` method.
  */
-function resolveWidgetComponentName(sourceFile: SourceFile, uri: string): string {
+function resolveWidgetComponentName(
+  sourceFile: SourceFile,
+  uri: string,
+): string {
   const defaultName = getDefaultExportComponentName(sourceFile);
   if (defaultName) {
     return defaultName;
@@ -58,17 +66,24 @@ function resolveWidgetComponentName(sourceFile: SourceFile, uri: string): string
 export const duplicatedWidgetRule: Rule = {
   id: "streak:duplicated-widget",
   name: "Duplicated Widget Rule",
-  description: "Checks if multiple widget source files in the project declare the same component name.",
+  description:
+    "Checks if multiple widget source files in the project declare the same component name.",
   defaultSeverity: DiagnosticSeverity.Error,
 
-  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
+  run(
+    sourceFile: SourceFile,
+    analysis: AnalysisResult,
+    options?: RuleOptions,
+  ): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
     const uri = analysis.uri;
     const normalizedUri = uri.replaceAll("\\", "/");
-    const customWidgetDir = options?.ruleOptions?.widgetDirectory || "src/widgets";
-    const normalizedWidgetDir = customWidgetDir.replaceAll("\\", "/");
+    const widgetDir =
+      (options?.ruleOptions?.widgetDirectory as string | undefined) ??
+      "src/widgets";
+    const normalizedWidgetDir = widgetDir.replaceAll("\\", "/");
     if (!normalizedUri.includes(normalizedWidgetDir)) {
       return diagnostics;
     }
@@ -82,11 +97,14 @@ export const duplicatedWidgetRule: Rule = {
     const duplicates = allWidgets.filter(
       (w) =>
         w.name === componentName &&
-        w.filePath.replaceAll("\\", "/").toLowerCase() !== normalizedUri.toLowerCase()
+        w.filePath.replaceAll("\\", "/").toLowerCase() !==
+          normalizedUri.toLowerCase(),
     );
 
     if (duplicates.length > 0) {
-      const duplicatePaths = duplicates.map((d) => path.basename(d.filePath)).join(", ");
+      const duplicatePaths = duplicates
+        .map((d) => path.basename(d.filePath))
+        .join(", ");
       diagnostics.push({
         code: "streak:S601",
         message: `Duplicated widget component name '${componentName}' detected. Also declared in: ${duplicatePaths}. Component names must be unique across all widget source files.`,

@@ -1,6 +1,6 @@
-import { DiagnosticSeverity } from "vscode-languageserver/node";
-import { Node, SourceFile } from "ts-morph";
-import { AnalysisResult } from "../../shared/types";
+import type { DiagnosticSeverity } from "vscode-languageserver/node";
+import { Node, type SourceFile } from "ts-morph";
+import type { AnalysisResult } from "../../shared/types";
 
 export interface RangeLocation {
   start: { line: number; character: number };
@@ -18,7 +18,7 @@ export interface RuleDiagnostic {
 export interface RuleOptions {
   enabled: boolean;
   severity?: DiagnosticSeverity;
-  ruleOptions?: any;
+  ruleOptions?: Record<string, unknown>;
 }
 
 export interface Rule {
@@ -29,16 +29,25 @@ export interface Rule {
   run(
     sourceFile: SourceFile,
     analysis: AnalysisResult,
-    options?: RuleOptions
+    options?: RuleOptions,
   ): RuleDiagnostic[];
 }
 
-export function getRangeFromNode(sourceFile: SourceFile, node: Node): RangeLocation {
+export function getRangeFromNode(
+  sourceFile: SourceFile,
+  node: Node,
+): RangeLocation {
   const startPos = sourceFile.getLineAndColumnAtPos(node.getStart());
   const endPos = sourceFile.getLineAndColumnAtPos(node.getEnd());
   return {
-    start: { line: Math.max(0, startPos.line - 1), character: Math.max(0, startPos.column - 1) },
-    end: { line: Math.max(0, endPos.line - 1), character: Math.max(0, endPos.column - 1) },
+    start: {
+      line: Math.max(0, startPos.line - 1),
+      character: Math.max(0, startPos.column - 1),
+    },
+    end: {
+      line: Math.max(0, endPos.line - 1),
+      character: Math.max(0, endPos.column - 1),
+    },
   };
 }
 
@@ -51,9 +60,12 @@ export function getRangeFromNode(sourceFile: SourceFile, node: Node): RangeLocat
  * Shared by scriptRequiredIdRule and widgetPlaceholderRule.
  */
 export function getJsxAttrValue(attr: Node): string {
-  const init = (attr as any).getInitializer?.() as Node | undefined;
+  if (!Node.isJsxAttribute(attr)) {
+    return "";
+  }
+  const init = attr.getInitializer();
   if (!init) {
     return "";
   }
-  return Node.isStringLiteral(init) ? (init as any).getLiteralValue() : init.getText();
+  return Node.isStringLiteral(init) ? init.getLiteralValue() : init.getText();
 }
