@@ -11,145 +11,170 @@ const scanProject = new Project({
   },
 });
 
+// ── Private helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Resolves the component name from a source file.
+ * Priority: default export symbol → first PascalCase function → file basename.
+ * Extracted to reduce cognitive complexity of scanFile.
+ */
+function resolveComponentName(sourceFile: ReturnType<typeof scanProject.createSourceFile>, filePath: string): string {
+  const defaultExportSymbol = sourceFile.getDefaultExportSymbol();
+  if (defaultExportSymbol) {
+    const decl = defaultExportSymbol.getDeclarations()[0];
+    if (decl) {
+      if (Node.isExportAssignment(decl)) {
+        const expr = decl.getExpression();
+        if (expr && Node.isIdentifier(expr)) {
+          return expr.getText();
+        }
+      } else if (Node.isFunctionDeclaration(decl) || Node.isClassDeclaration(decl)) {
+        return decl.getName() ?? "";
+      }
+    }
+  }
+
+  for (const fn of sourceFile.getFunctions()) {
+    const name = fn.getName();
+    if (name && /^[A-Z]/.test(name)) {
+      return name;
+    }
+  }
+
+  for (const vd of sourceFile.getVariableDeclarations()) {
+    const name = vd.getName();
+    if (name && /^[A-Z]/.test(name)) {
+      const init = vd.getInitializer();
+      if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
+        return name;
+      }
+    }
+  }
+
+  const basename = path.basename(filePath, path.extname(filePath));
+  return /^[A-Z]/.test(basename) ? basename : "";
+}
+
+/**
+ * Resolves the AST node for the named component.
+ * Falls back to searching by name if not already discovered during name resolution.
+ * Extracted to reduce cognitive complexity of scanFile.
+ */
+function resolveComponentNode(
+  sourceFile: ReturnType<typeof scanProject.createSourceFile>,
+  componentName: string
+): Node | undefined {
+  const fn = sourceFile.getFunction(componentName);
+  if (fn) {
+    return fn;
+  }
+  const vd = sourceFile.getVariableDeclaration(componentName);
+  if (vd) {
+    const init = vd.getInitializer();
+    if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
+      return init;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Extracts the JSDoc description from a component node.
+ * Extracted to reduce cognitive complexity of scanFile.
+ */
+function extractDocComment(componentNode: Node): string {
+  let docNode: Node = componentNode;
+  if (Node.isArrowFunction(componentNode) || Node.isFunctionExpression(componentNode)) {
+    const varStatement = componentNode.getFirstAncestorByKind(SyntaxKind.VariableStatement);
+    if (varStatement) {
+      docNode = varStatement;
+    }
+  }
+  if (Node.isJSDocable(docNode)) {
+    return docNode.getJsDocs().map((jd) => jd.getDescription().trim()).join("\n").trim();
+  }
+  return "";
+}
+
+/**
+ * Extracts the typed prop list from a function/arrow/expression component.
+ * Extracted to reduce cognitive complexity of scanFile.
+ * Also fixes the SonarQube "useless assignment" by hoisting typeText declaration.
+ */
+function extractProps(componentNode: Node): WidgetProp[] {
+  if (
+    !Node.isFunctionDeclaration(componentNode) &&
+    !Node.isArrowFunction(componentNode) &&
+    !Node.isFunctionExpression(componentNode)
+  ) {
+    return [];
+  }
+
+  const firstParam = componentNode.getParameters()[0];
+  if (!firstParam) {
+    return [];
+  }
+
+  const propsList: WidgetProp[] = [];
+  const type = firstParam.getType();
+
+  for (const prop of type.getProperties()) {
+    const name = prop.getName();
+    const isOptional = prop.isOptional();
+
+    // Fix: hoist typeText — no useless "any" initialisation before conditional overwrite
+    const valDecl = prop.getValueDeclaration();
+    let typeText: string;
+    if (valDecl) {
+      const typeNode = (valDecl as any).getTypeNode?.();
+      typeText = typeNode ? typeNode.getText() : valDecl.getType().getText();
+    } else {
+      typeText = prop.getDeclaredType().getText();
+    }
+
+    let propDoc = "";
+    for (const decl of prop.getDeclarations()) {
+      const jsDocs = (decl as any).getJsDocs?.();
+      if (jsDocs) {
+        propDoc = jsDocs.map((jd: any) => jd.getDescription().trim()).join("\n").trim();
+      }
+    }
+
+    propsList.push({
+      name,
+      type: typeText,
+      isOptional,
+      docComment: propDoc || undefined,
+    });
+  }
+
+  return propsList;
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
 export async function scanFile(filePath: string): Promise<void> {
   try {
     const content = await fs.promises.readFile(filePath, "utf-8");
     const sourceFile = scanProject.createSourceFile(filePath + ".temp.tsx", content, { overwrite: true });
 
-    let componentName = "";
-    let componentNode: Node | undefined;
-
-    // 1. Look for default export symbol
-    const defaultExportSymbol = sourceFile.getDefaultExportSymbol();
-    if (defaultExportSymbol) {
-      const decl = defaultExportSymbol.getDeclarations()[0];
-      if (decl) {
-        if (Node.isExportAssignment(decl)) {
-          const expr = decl.getExpression();
-          if (expr && Node.isIdentifier(expr)) {
-            componentName = expr.getText();
-          }
-        } else if (Node.isFunctionDeclaration(decl) || Node.isClassDeclaration(decl)) {
-          componentName = decl.getName() ?? "";
-          componentNode = decl;
-        }
-      }
-    }
-
-    // 2. Fallback to first PascalCase function or variable
-    if (!componentName) {
-      for (const fn of sourceFile.getFunctions()) {
-        const name = fn.getName();
-        if (name && /^[A-Z]/.test(name)) {
-          componentName = name;
-          componentNode = fn;
-          break;
-        }
-      }
-    }
-
-    if (!componentName) {
-      for (const vd of sourceFile.getVariableDeclarations()) {
-        const name = vd.getName();
-        if (name && /^[A-Z]/.test(name)) {
-          const init = vd.getInitializer();
-          if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
-            componentName = name;
-            componentNode = init;
-            break;
-          }
-        }
-      }
-    }
-
-    if (!componentName) {
-      const basename = path.basename(filePath, path.extname(filePath));
-      if (/^[A-Z]/.test(basename)) {
-        componentName = basename;
-      }
-    }
-
+    // 1. Resolve component name
+    const componentName = resolveComponentName(sourceFile, filePath);
     if (!componentName) {
       sourceFile.delete();
       return;
     }
 
-    if (!componentNode) {
-      const fn = sourceFile.getFunction(componentName);
-      if (fn) {
-        componentNode = fn;
-      } else {
-        const vd = sourceFile.getVariableDeclaration(componentName);
-        if (vd) {
-          const init = vd.getInitializer();
-          if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
-            componentNode = init;
-          }
-        }
-      }
-    }
+    // 2. Resolve component AST node
+    const componentNode = resolveComponentNode(sourceFile, componentName);
 
-    // Extract component description
-    let docComment = "";
-    if (componentNode) {
-      let docNode: Node = componentNode;
-      if (Node.isArrowFunction(componentNode) || Node.isFunctionExpression(componentNode)) {
-        const varStatement = componentNode.getFirstAncestorByKind(SyntaxKind.VariableStatement);
-        if (varStatement) {
-          docNode = varStatement;
-        }
-      }
-      if (Node.isJSDocable(docNode)) {
-        docComment = docNode.getJsDocs().map(jd => jd.getDescription().trim()).join("\n").trim();
-      }
-    }
+    // 3. Extract JSDoc
+    const docComment = componentNode ? extractDocComment(componentNode) : "";
 
-    // Extract props
-    const propsList: WidgetProp[] = [];
-    if (
-      componentNode &&
-      (Node.isFunctionDeclaration(componentNode) ||
-        Node.isArrowFunction(componentNode) ||
-        Node.isFunctionExpression(componentNode))
-    ) {
-      const firstParam = componentNode.getParameters()[0];
-      if (firstParam) {
-        const type = firstParam.getType();
-        for (const prop of type.getProperties()) {
-          const name = prop.getName();
-          const isOptional = prop.isOptional();
+    // 4. Extract props
+    const propsList = componentNode ? extractProps(componentNode) : [];
 
-          let typeText = "any";
-          const valDecl = prop.getValueDeclaration();
-          if (valDecl) {
-            const typeNode = (valDecl as any).getTypeNode?.();
-            if (typeNode) {
-              typeText = typeNode.getText();
-            } else {
-              typeText = valDecl.getType().getText();
-            }
-          } else {
-            typeText = prop.getDeclaredType().getText();
-          }
-
-          let propDoc = "";
-          for (const decl of prop.getDeclarations()) {
-            const jsDocs = (decl as any).getJsDocs?.();
-            if (jsDocs) {
-              propDoc = jsDocs.map((jd: any) => jd.getDescription().trim()).join("\n").trim();
-            }
-          }
-
-          propsList.push({
-            name,
-            type: typeText,
-            isOptional,
-            docComment: propDoc || undefined,
-          });
-        }
-      }
-    }
-
+    // 5. Update registry
     widgetRegistry.deleteByPath(filePath);
     widgetRegistry.set(componentName, {
       name: componentName,
@@ -165,7 +190,7 @@ export async function scanFile(filePath: string): Promise<void> {
 }
 
 export async function scanWorkspace(workspaceRoot: string, customWidgetDir?: string): Promise<void> {
-  const resolvedWidgetDir = customWidgetDir 
+  const resolvedWidgetDir = customWidgetDir
     ? path.join(workspaceRoot, customWidgetDir)
     : path.join(workspaceRoot, "src", "widgets");
   const fallbackWidgetDir = path.join(workspaceRoot, "src", "components");
@@ -191,7 +216,7 @@ async function findFilesRecursive(dir: string): Promise<string[]> {
     for (const file of list) {
       const filePath = path.join(dir, file);
       const stat = await fs.promises.stat(filePath);
-      if (stat && stat.isDirectory()) {
+      if (stat?.isDirectory()) {   // optional chain fix
         results = results.concat(await findFilesRecursive(filePath));
       } else if (filePath.endsWith(".tsx") || filePath.endsWith(".ts")) {
         results.push(filePath);

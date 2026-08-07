@@ -42,3 +42,18 @@ export function getRangeFromNode(sourceFile: SourceFile, node: Node): RangeLocat
   };
 }
 
+/**
+ * Returns the string value of a JSX attribute initializer.
+ * - StringLiteral  → `getLiteralValue()` (strips surrounding quotes)
+ * - Anything else  → raw `.getText()` (e.g. expressions)
+ * - No initializer → `""`
+ *
+ * Shared by scriptRequiredIdRule and widgetPlaceholderRule.
+ */
+export function getJsxAttrValue(attr: Node): string {
+  const init = (attr as any).getInitializer?.() as Node | undefined;
+  if (!init) {
+    return "";
+  }
+  return Node.isStringLiteral(init) ? (init as any).getLiteralValue() : init.getText();
+}

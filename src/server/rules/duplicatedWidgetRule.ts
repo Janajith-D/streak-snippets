@@ -5,6 +5,42 @@ import { Rule, RuleDiagnostic, RuleOptions } from "./types";
 import { widgetRegistry } from "../registry/widgets";
 import * as path from "node:path";
 
+/**
+ * Resolves the component name from a source file using three fallback strategies:
+ * 1. Default export symbol
+ * 2. First PascalCase function
+ * 3. Basename from the URI
+ *
+ * Extracted to reduce cognitive complexity of the `run` method.
+ */
+function resolveWidgetComponentName(sourceFile: SourceFile, uri: string): string {
+  const defaultExportSymbol = sourceFile.getDefaultExportSymbol();
+  if (defaultExportSymbol) {
+    const decl = defaultExportSymbol.getDeclarations()[0];
+    if (decl) {
+      if (Node.isExportAssignment(decl)) {
+        const expr = decl.getExpression();
+        if (expr && Node.isIdentifier(expr)) {
+          return expr.getText();
+        }
+      } else if (Node.isFunctionDeclaration(decl) || Node.isClassDeclaration(decl)) {
+        return decl.getName() ?? "";
+      }
+    }
+  }
+
+  for (const fn of sourceFile.getFunctions()) {
+    const name = fn.getName();
+    if (name && /^[A-Z]/.test(name)) {
+      return name;
+    }
+  }
+
+  const pathname = uri.substring(uri.lastIndexOf("/") + 1);
+  const base = pathname.substring(0, pathname.lastIndexOf(".")) || pathname;
+  return /^[A-Z]/.test(base) ? base : "";
+}
+
 export const duplicatedWidgetRule: Rule = {
   id: "streak:duplicated-widget",
   name: "Duplicated Widget Rule",
@@ -16,47 +52,14 @@ export const duplicatedWidgetRule: Rule = {
     const severity = options?.severity ?? this.defaultSeverity;
 
     const uri = analysis.uri;
-    const normalizedUri = uri.replace(/\\/g, "/");
+    const normalizedUri = uri.replaceAll("\\", "/");                                     // replaceAll fix
     const customWidgetDir = options?.ruleOptions?.widgetDirectory || "src/widgets";
-    const normalizedWidgetDir = customWidgetDir.replace(/\\/g, "/");
+    const normalizedWidgetDir = customWidgetDir.replaceAll("\\", "/");                   // replaceAll fix
     if (!normalizedUri.includes(normalizedWidgetDir)) {
       return diagnostics;
     }
 
-    let componentName = "";
-    const defaultExportSymbol = sourceFile.getDefaultExportSymbol();
-    if (defaultExportSymbol) {
-      const decl = defaultExportSymbol.getDeclarations()[0];
-      if (decl) {
-        if (Node.isExportAssignment(decl)) {
-          const expr = decl.getExpression();
-          if (expr && Node.isIdentifier(expr)) {
-            componentName = expr.getText();
-          }
-        } else if (Node.isFunctionDeclaration(decl) || Node.isClassDeclaration(decl)) {
-          componentName = decl.getName() ?? "";
-        }
-      }
-    }
-
-    if (!componentName) {
-      for (const fn of sourceFile.getFunctions()) {
-        const name = fn.getName();
-        if (name && /^[A-Z]/.test(name)) {
-          componentName = name;
-          break;
-        }
-      }
-    }
-
-    if (!componentName) {
-      const pathname = uri.substring(uri.lastIndexOf("/") + 1);
-      const base = pathname.substring(0, pathname.lastIndexOf(".")) || pathname;
-      if (/^[A-Z]/.test(base)) {
-        componentName = base;
-      }
-    }
-
+    const componentName = resolveWidgetComponentName(sourceFile, uri);
     if (!componentName) {
       return diagnostics;
     }
@@ -65,7 +68,7 @@ export const duplicatedWidgetRule: Rule = {
     const duplicates = allWidgets.filter(
       (w) =>
         w.name === componentName &&
-        w.filePath.replace(/\\/g, "/").toLowerCase() !== normalizedUri.toLowerCase()
+        w.filePath.replaceAll("\\", "/").toLowerCase() !== normalizedUri.toLowerCase()   // replaceAll fix
     );
 
     if (duplicates.length > 0) {
