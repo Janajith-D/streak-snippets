@@ -23,8 +23,7 @@
   ],
   "activationEvents": [
     "onLanguage:typescript",
-    "onLanguage:typescriptreact",
-    "onCommand:streak.createWidget"
+    "onLanguage:typescriptreact"
   ],
   "main": "./dist/extension.js",
   "contributes": {
