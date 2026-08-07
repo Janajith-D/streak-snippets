@@ -1,7 +1,11 @@
-import { CompletionItem, CompletionItemKind } from "vscode-languageserver/node";
+import {
+  type CompletionItem,
+  CompletionItemKind,
+} from "vscode-languageserver/node";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { CompletionContext } from "./types";
+import { type CompletionContext } from "./types";
+import { widgetRegistry } from "../registry/widgets";
 
 export interface JsxContext {
   tagName: string;
@@ -10,33 +14,161 @@ export interface JsxContext {
   attributeValue?: string;
 }
 
+// ── Module-level constants ──────────────────────────────────────────────────
+
+/** Matches the first word (tag name) at the start of a text slice. */
+const TAG_RE = /^(\w+)/;
+
+/** The JSX tags this extension provides completions for. */
+const SUPPORTED_TAGS = new Set([
+  "WidgetPlaceholder",
+  "Preload",
+  "Dynamic",
+  "Script",
+]);
+
+/** Matches object key lines inside return { ... } blocks, e.g. `  myKey:`. */
+const KEY_RE = /^\s*(\w[\w-]*)\s*:/;
+
+/** Framework-reserved keys excluded from widget ID suggestions. */
+const EXCLUDED_KEYS = new Set(["status", "PageHead", "data"]);
+
+// ── Private helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Returns the JSX tag name found in `text[from..to]` if it is one of the
+ * supported tags, or `undefined` otherwise.
+ * Extracted to reduce cognitive complexity of getJsxContext.
+ */
+function parseTagName(
+  text: string,
+  from: number,
+  to: number,
+): string | undefined {
+  const m = TAG_RE.exec(text.slice(from, to));
+  return m && SUPPORTED_TAGS.has(m[1]) ? m[1] : undefined;
+}
+
+/**
+ * Detects whether the cursor is inside an open attribute value and extracts
+ * the attribute name and partial value.
+ *
+ * Uses `lastIndexOf` + a reverse character scan — pure string operations,
+ * O(n), no regex backtracking risk.
+ *
+ * Returns `{ name, value }` if inside an open attribute value, or `undefined`.
+ */
+function parseAttrSection(
+  attrSection: string,
+): { name: string; value: string } | undefined {
+  // Find the last unmatched quote (the one opening the current value)
+  const lastDq = attrSection.lastIndexOf('"');
+  const lastSq = attrSection.lastIndexOf("'");
+  const quoteIdx = Math.max(lastDq, lastSq);
+  if (quoteIdx === -1) {
+    return undefined;
+  }
+
+  // Text before the quote, trimmed — must end with '=' to be a valid attr value
+  const beforeQuote = attrSection.slice(0, quoteIdx).trimEnd();
+  if (!beforeQuote.endsWith("=")) {
+    return undefined;
+  }
+
+  // Extract the attribute name by scanning backwards from the '='
+  const beforeEq = beforeQuote.slice(0, -1).trimEnd();
+  let nameStart = beforeEq.length;
+  while (nameStart > 0 && /[\w-]/.test(beforeEq[nameStart - 1])) {
+    nameStart--;
+  }
+  const name = beforeEq.slice(nameStart);
+  if (!name) {
+    return undefined;
+  }
+
+  return { name, value: attrSection.slice(quoteIdx + 1) };
+}
+
+/**
+ * Scans `content` for `return { ... }` blocks and adds non-framework object
+ * keys to `ids`. Extracted to reduce cognitive complexity of the traverse
+ * closure inside getWidgetIdsFromDataHandlers.
+ */
+function extractWidgetKeys(content: string, ids: Set<string>): void {
+  // Local regex with /g to avoid shared lastIndex state
+  const returnBlockRe = /return\s*\{([^}]+)\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = returnBlockRe.exec(content)) !== null) {
+    for (const line of m[1].split(",")) {
+      const keyMatch = KEY_RE.exec(line);
+      if (keyMatch && !EXCLUDED_KEYS.has(keyMatch[1])) {
+        ids.add(keyMatch[1]);
+      }
+    }
+  }
+}
+
+/**
+ * Builds the markdown documentation string for a widget entry from the registry.
+ * Extracted to reduce cognitive complexity of getWidgetPlaceholderTypeCompletions.
+ */
+function buildWidgetDocumentation(
+  widget:
+    | {
+        docComment?: string;
+        props?: Array<{
+          name: string;
+          isOptional?: boolean;
+          type: string;
+          docComment?: string;
+        }>;
+      }
+    | undefined,
+): string {
+  if (!widget) {
+    return "";
+  }
+  let doc = widget.docComment ? `${widget.docComment}\n\n` : "";
+  if (widget.props && widget.props.length > 0) {
+    doc += "**Available Props:**\n";
+    for (const prop of widget.props) {
+      const opt = prop.isOptional ? "?" : "";
+      const comment = prop.docComment ? ` — ${prop.docComment}` : "";
+      doc += `- \`${prop.name}${opt}: ${prop.type}\`${comment}\n`;
+    }
+  }
+  return doc;
+}
+
+// ── Public API ──────────────────────────────────────────────────────────────
+
 /**
  * Parses backwards from cursor offset to see if we are inside a relevant JSX opening tag.
  */
-export function getJsxContext(text: string, offset: number): JsxContext | undefined {
+export function getJsxContext(
+  text: string,
+  offset: number,
+): JsxContext | undefined {
   let tagStart = -1;
   let tagName = "";
 
   for (let i = offset - 1; i >= 0; i--) {
     const char = text[i];
     if (char === ">") {
-      return undefined; // We crossed a closing angle bracket, so we are outside the opening tag
+      return undefined; // We crossed a closing angle bracket — we are outside the opening tag
     }
     if (char === "<") {
-      // Check if it's not a closing tag start (i.e. not '</')
+      // Reject closing tags (i.e. '</')
       if (i + 1 < text.length && text[i + 1] === "/") {
         return undefined;
       }
-      const match = text.slice(i + 1, offset).match(/^([A-Za-z0-9_]+)/);
-      if (match) {
-        const name = match[1];
-        if (["WidgetPlaceholder", "Preload", "Dynamic", "Script"].includes(name)) {
-          tagStart = i;
-          tagName = name;
-          break;
-        }
+      const name = parseTagName(text, i + 1, offset);
+      if (name) {
+        tagStart = i;
+        tagName = name;
+        break;
       }
-      return undefined; // Some other HTML/JSX tag
+      return undefined; // Some other HTML/JSX tag — not one we handle
     }
   }
 
@@ -46,14 +178,14 @@ export function getJsxContext(text: string, offset: number): JsxContext | undefi
 
   const attrSection = text.slice(tagStart + tagName.length + 1, offset);
   // Check if we are inside an unclosed attribute value, e.g. type="something
-  const attrMatch = attrSection.match(/([a-zA-Z0-9_-]+)\s*=\s*["']([^"']*)$/);
+  const attrResult = parseAttrSection(attrSection);
 
-  if (attrMatch) {
+  if (attrResult) {
     return {
       tagName,
-      attributeName: attrMatch[1],
+      attributeName: attrResult.name,
       inAttributeValue: true,
-      attributeValue: attrMatch[2],
+      attributeValue: attrResult.value,
     };
   }
 
@@ -66,12 +198,14 @@ export function getJsxContext(text: string, offset: number): JsxContext | undefi
 /**
  * Scans src/widgets directory and returns file names (minus extensions).
  */
-export function getWidgetTypes(workspaceRoot: string | undefined, customWidgetDir?: string): string[] {
+export function getWidgetTypes(
+  workspaceRoot: string | undefined,
+  customWidgetDir = "src/widgets",
+): string[] {
   if (!workspaceRoot) {
     return [];
   }
-  const subDir = customWidgetDir || "src/widgets";
-  const widgetDir = path.join(workspaceRoot, subDir);
+  const widgetDir = path.join(workspaceRoot, customWidgetDir);
   if (!fs.existsSync(widgetDir)) {
     return [];
   }
@@ -88,12 +222,14 @@ export function getWidgetTypes(workspaceRoot: string | undefined, customWidgetDi
 /**
  * Scans the workspace /public directory recursively and returns all asset paths.
  */
-export function getPublicAssets(workspaceRoot: string | undefined, customPublicDir?: string): string[] {
+export function getPublicAssets(
+  workspaceRoot: string | undefined,
+  customPublicDir = "public",
+): string[] {
   if (!workspaceRoot) {
     return [];
   }
-  const subDir = customPublicDir || "public";
-  const publicDir = path.join(workspaceRoot, subDir);
+  const publicDir = path.join(workspaceRoot, customPublicDir);
   if (!fs.existsSync(publicDir)) {
     return [];
   }
@@ -104,12 +240,12 @@ export function getPublicAssets(workspaceRoot: string | undefined, customPublicD
       const list = fs.readdirSync(dir);
       for (const file of list) {
         const fullPath = path.join(dir, file);
-        const relativePath = path.join(base, file).replace(/\\/g, "/");
+        const relativePath = path.join(base, file).replaceAll("\\", "/");
         const stat = fs.statSync(fullPath);
         if (stat.isDirectory()) {
           traverse(fullPath, relativePath);
         } else {
-          results.push("/" + relativePath);
+          results.push(`/${relativePath}`);
         }
       }
     } catch {
@@ -124,7 +260,9 @@ export function getPublicAssets(workspaceRoot: string | undefined, customPublicD
 /**
  * Scans pages or handlers in src/pages directory and collects return keys as Widget IDs.
  */
-export function getWidgetIdsFromDataHandlers(workspaceRoot: string | undefined): string[] {
+export function getWidgetIdsFromDataHandlers(
+  workspaceRoot: string | undefined,
+): string[] {
   if (!workspaceRoot) {
     return [];
   }
@@ -144,24 +282,9 @@ export function getWidgetIdsFromDataHandlers(workspaceRoot: string | undefined):
         if (stat.isDirectory()) {
           traverse(fullPath);
         } else if (file.endsWith(".ts") || file.endsWith(".tsx")) {
+          // Delegate key extraction to a dedicated helper to keep CC low
           const content = fs.readFileSync(fullPath, "utf-8");
-          // Extract object keys from return { ... } inside data handler function
-          const returnMatches = content.matchAll(/return\s*\{([^}]+)\}/g);
-          for (const m of returnMatches) {
-            const body = m[1];
-            // Split by comma and find keys
-            const lines = body.split(",");
-            for (const line of lines) {
-              const keyMatch = line.match(/^\s*([a-zA-Z0-9_-]+)\s*:/);
-              if (keyMatch) {
-                const key = keyMatch[1].trim();
-                // Exclude framework keys
-                if (key !== "status" && key !== "PageHead" && key !== "data") {
-                  ids.add(key);
-                }
-              }
-            }
-          }
+          extractWidgetKeys(content, ids);
         }
       }
     } catch {
@@ -178,13 +301,14 @@ export function getWidgetIdsFromDataHandlers(workspaceRoot: string | undefined):
  */
 export function getDynamicComponentIds(
   workspaceRoot: string | undefined,
-  currentFileText: string
+  currentFileText: string,
 ): string[] {
   const ids = new Set<string>();
+  // Non-backtracking pattern: [^>]*? (lazy) + \b avoids super-linear runtime
+  const dynamicIdRe = /<Dynamic\b[^>]*?\bid=["']([^"']+)["']/g;
 
   // 1. Scan current file
-  const currentMatches = currentFileText.matchAll(/<Dynamic\s+[^>]*id=["']([^"']+)["']/g);
-  for (const m of currentMatches) {
+  for (const m of currentFileText.matchAll(dynamicIdRe)) {
     ids.add(m[1]);
   }
 
@@ -203,8 +327,9 @@ export function getDynamicComponentIds(
             } else if (file.endsWith(".tsx")) {
               const content = fs.readFileSync(fullPath, "utf-8");
               if (content.includes("<Dynamic")) {
-                const matches = content.matchAll(/<Dynamic\s+[^>]*id=["']([^"']+)["']/g);
-                for (const m of matches) {
+                for (const m of content.matchAll(
+                  /<Dynamic\b[^>]*?\bid=["']([^"']+)["']/g,
+                )) {
                   ids.add(m[1]);
                 }
               }
@@ -225,7 +350,7 @@ export function getJsxAttributeCompletions(
   context: CompletionContext,
   workspaceRoot: string | undefined,
   customWidgetDir?: string,
-  customPublicDir?: string
+  customPublicDir?: string,
 ): CompletionItem[] {
   const jsxCtx = getJsxContext(context.text, context.offset);
   if (!jsxCtx) {
@@ -240,7 +365,14 @@ export function getJsxAttributeCompletions(
   }
 
   // 2. Autocomplete attribute values
-  return getAttributeValueCompletions(tagName, attributeName, workspaceRoot, customWidgetDir, customPublicDir, context);
+  return getAttributeValueCompletions(
+    tagName,
+    attributeName,
+    workspaceRoot,
+    customWidgetDir,
+    customPublicDir,
+    context,
+  );
 }
 
 function getAttributeNameCompletions(tagName: string): CompletionItem[] {
@@ -268,11 +400,14 @@ function getAttributeValueCompletions(
   workspaceRoot: string | undefined,
   customWidgetDir: string | undefined,
   customPublicDir: string | undefined,
-  context: CompletionContext
+  context: CompletionContext,
 ): CompletionItem[] {
   if (tagName === "WidgetPlaceholder") {
     if (attributeName === "type") {
-      return getWidgetPlaceholderTypeCompletions(workspaceRoot, customWidgetDir);
+      return getWidgetPlaceholderTypeCompletions(
+        workspaceRoot,
+        customWidgetDir,
+      );
     }
     if (attributeName === "id") {
       return getWidgetPlaceholderIdCompletions(workspaceRoot);
@@ -297,41 +432,30 @@ function getAttributeValueCompletions(
 
 function getWidgetPlaceholderTypeCompletions(
   workspaceRoot: string | undefined,
-  customWidgetDir: string | undefined
+  customWidgetDir: string | undefined,
 ): CompletionItem[] {
   const widgetTypes = getWidgetTypes(workspaceRoot, customWidgetDir);
-  const { widgetRegistry } = require("../registry/widgets");
 
   return widgetTypes.map((type) => {
     const widget = widgetRegistry.get(type);
     const detail = "Custom Project Widget";
-    let documentation = "";
-
-    if (widget) {
-      if (widget.docComment) {
-        documentation += `${widget.docComment}\n\n`;
-      }
-      if (widget.props && widget.props.length > 0) {
-        documentation += `**Available Props:**\n`;
-        for (const prop of widget.props) {
-          const optionalStr = prop.isOptional ? "?" : "";
-          const propDoc = prop.docComment ? ` — ${prop.docComment}` : "";
-          documentation += `- \`${prop.name}${optionalStr}: ${prop.type}\`${propDoc}\n`;
-        }
-      }
-    }
+    const documentation = buildWidgetDocumentation(widget);
 
     return {
       label: type,
       kind: CompletionItemKind.Value,
       insertText: type,
       detail,
-      documentation: documentation ? { kind: "markdown", value: documentation } : undefined,
+      documentation: documentation
+        ? { kind: "markdown", value: documentation }
+        : undefined,
     };
   });
 }
 
-function getWidgetPlaceholderIdCompletions(workspaceRoot: string | undefined): CompletionItem[] {
+function getWidgetPlaceholderIdCompletions(
+  workspaceRoot: string | undefined,
+): CompletionItem[] {
   const widgetIds = getWidgetIdsFromDataHandlers(workspaceRoot);
   return widgetIds.map((id) => ({
     label: id,
@@ -351,7 +475,7 @@ function getPreloadAsCompletions(): CompletionItem[] {
 
 function getPreloadHrefCompletions(
   workspaceRoot: string | undefined,
-  customPublicDir: string | undefined
+  customPublicDir: string | undefined,
 ): CompletionItem[] {
   const assets = getPublicAssets(workspaceRoot, customPublicDir);
   return assets.map((asset) => ({
@@ -361,7 +485,10 @@ function getPreloadHrefCompletions(
   }));
 }
 
-function getDynamicIdCompletions(workspaceRoot: string | undefined, text: string): CompletionItem[] {
+function getDynamicIdCompletions(
+  workspaceRoot: string | undefined,
+  text: string,
+): CompletionItem[] {
   const dynamicIds = getDynamicComponentIds(workspaceRoot, text);
   return dynamicIds.map((id) => ({
     label: id,

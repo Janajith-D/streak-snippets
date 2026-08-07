@@ -1,7 +1,7 @@
-import { SourceFile } from "ts-morph";
+import type { SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
-import { AnalysisResult } from "../../shared/types";
-import { Rule, RuleDiagnostic, RuleOptions } from "./types";
+import type { AnalysisResult } from "../../shared/types";
+import type { Rule, RuleDiagnostic, RuleOptions } from "./types";
 
 export const forbiddenPatternsRule: Rule = {
   id: "streak:forbidden-patterns",
@@ -12,7 +12,7 @@ export const forbiddenPatternsRule: Rule = {
   run(sourceFile: SourceFile, _analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
-    const forbidden: string[] = (options as any)?.ruleOptions?.forbiddenPatterns ?? [];
+    const forbidden: string[] = (options?.ruleOptions?.forbiddenPatterns as string[] | undefined) ?? [];
 
     if (forbidden.length === 0) {
       return diagnostics;
@@ -40,13 +40,13 @@ export const forbiddenPatternsRule: Rule = {
           const prefix = text.substring(0, matchIndex);
           const lines = prefix.split("\n");
           const startLine = lines.length - 1;
-          const startChar = lines[lines.length - 1].length;
+          const startChar = lines.at(-1)?.length ?? 0;
 
           const matchLines = matchText.split("\n");
           const endLine = startLine + matchLines.length - 1;
           const endChar =
             matchLines.length > 1
-              ? matchLines[matchLines.length - 1].length
+              ? (matchLines.at(-1)?.length ?? 0)
               : startChar + matchText.length;
 
           diagnostics.push({

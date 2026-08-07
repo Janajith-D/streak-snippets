@@ -1,7 +1,27 @@
-import { Node, SourceFile } from "ts-morph";
+import { Node, type SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
-import { AnalysisResult } from "../../shared/types";
-import { getRangeFromNode, Rule, RuleDiagnostic, RuleOptions } from "./types";
+import type { AnalysisResult } from "../../shared/types";
+import {
+  getJsxAttrValue,
+  getRangeFromNode,
+  type Rule,
+  type RuleDiagnostic,
+  type RuleOptions,
+} from "./types";
+
+/**
+ * Returns true when the attribute value is non-empty and not one of the
+ * placeholder sentinels (`""`, `''`, `{}`).
+ * Extracted to reduce cognitive complexity of the `run` callback.
+ */
+function isValidNonEmptyId(value: string): boolean {
+  return (
+    value.trim() !== "" &&
+    value.trim() !== '""' &&
+    value.trim() !== "''" &&
+    value.trim() !== "{}"
+  );
+}
 
 export const scriptRequiredIdRule: Rule = {
   id: "streak:script-required-id",
@@ -9,7 +29,11 @@ export const scriptRequiredIdRule: Rule = {
   description: "Ensures <Script> components have a non-empty 'id' attribute.",
   defaultSeverity: DiagnosticSeverity.Warning,
 
-  run(sourceFile: SourceFile, _analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
+  run(
+    sourceFile: SourceFile,
+    _analysis: AnalysisResult,
+    options?: RuleOptions,
+  ): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
@@ -29,41 +53,29 @@ export const scriptRequiredIdRule: Rule = {
         elementNode = opening;
       }
 
-      if (tagName === "Script") {
-        let hasId = false;
+      if (tagName !== "Script") {
+        return;
+      }
 
-        for (const attr of attributes) {
-          if (Node.isJsxAttribute(attr)) {
-            const attrName = attr.getNameNode()?.getText();
-            const initializer = attr.getInitializer();
-
-            let value = "";
-            if (initializer) {
-              if (Node.isStringLiteral(initializer)) {
-                value = initializer.getLiteralValue();
-              } else {
-                value = initializer.getText();
-              }
-            }
-
-            if (attrName === "id") {
-              if (value && value.trim() !== "" && value.trim() !== '""' && value.trim() !== "''" && value.trim() !== "{}") {
-                hasId = true;
-              }
-            }
-          }
+      let hasId = false;
+      for (const attr of attributes) {
+        if (
+          Node.isJsxAttribute(attr) &&
+          attr.getNameNode()?.getText() === "id"
+        ) {
+          hasId = isValidNonEmptyId(getJsxAttrValue(attr));
         }
+      }
 
-        if (!hasId) {
-          const range = getRangeFromNode(sourceFile, elementNode);
-          diagnostics.push({
-            code: "streak:S405",
-            message: 'Script component requires a non-empty "id" attribute.',
-            range,
-            severity,
-            source: "Streak Engine",
-          });
-        }
+      if (!hasId) {
+        const range = getRangeFromNode(sourceFile, elementNode);
+        diagnostics.push({
+          code: "streak:S405",
+          message: 'Script component requires a non-empty "id" attribute.',
+          range,
+          severity,
+          source: "Streak Engine",
+        });
       }
     });
 

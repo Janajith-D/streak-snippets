@@ -1,7 +1,12 @@
-import { Node, SourceFile, SyntaxKind } from "ts-morph";
+import { Node, SyntaxKind, type SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
-import { AnalysisResult } from "../../shared/types";
-import { getRangeFromNode, Rule, RuleDiagnostic, RuleOptions } from "./types";
+import type { AnalysisResult } from "../../shared/types";
+import {
+  getRangeFromNode,
+  type Rule,
+  type RuleDiagnostic,
+  type RuleOptions,
+} from "./types";
 
 export const dataHandlerAsyncRule: Rule = {
   id: "streak:data-handler-async",
@@ -9,7 +14,11 @@ export const dataHandlerAsyncRule: Rule = {
   description: "Ensures Streak data handler functions are declared async.",
   defaultSeverity: DiagnosticSeverity.Error,
 
-  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
+  run(
+    sourceFile: SourceFile,
+    analysis: AnalysisResult,
+    options?: RuleOptions,
+  ): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
@@ -18,12 +27,20 @@ export const dataHandlerAsyncRule: Rule = {
     }
 
     const functions = sourceFile.getFunctions();
-    const arrowFuncs = sourceFile.getDescendantsOfKind(SyntaxKind.ArrowFunction);
-    const funcExprs = sourceFile.getDescendantsOfKind(SyntaxKind.FunctionExpression);
+    const arrowFuncs = sourceFile.getDescendantsOfKind(
+      SyntaxKind.ArrowFunction,
+    );
+    const funcExprs = sourceFile.getDescendantsOfKind(
+      SyntaxKind.FunctionExpression,
+    );
 
     const candidateFuncs: Node[] = [];
     for (const fn of functions) {
-      if (fn.isDefaultExport() || fn.isExported() || /Data|Handler/.test(fn.getName() ?? "")) {
+      if (
+        fn.isDefaultExport() ||
+        fn.isExported() ||
+        /Data|Handler/.test(fn.getName() ?? "")
+      ) {
         candidateFuncs.push(fn);
       }
     }
@@ -34,8 +51,11 @@ export const dataHandlerAsyncRule: Rule = {
       if (parent && Node.isVariableDeclaration(parent)) {
         parentName = parent.getName();
       }
-      const isExported = parent?.getParent()?.getParent()?.getKind() === SyntaxKind.ExportAssignment ||
-        parent?.getParent()?.getParent()?.getKind() === SyntaxKind.VariableStatement;
+      const isExported =
+        parent?.getParent()?.getParent()?.getKind() ===
+          SyntaxKind.ExportAssignment ||
+        parent?.getParent()?.getParent()?.getKind() ===
+          SyntaxKind.VariableStatement;
 
       if (isExported || /Data|Handler/.test(parentName)) {
         candidateFuncs.push(expr);
@@ -44,7 +64,9 @@ export const dataHandlerAsyncRule: Rule = {
 
     for (const fn of candidateFuncs) {
       if (
-        (Node.isFunctionDeclaration(fn) || Node.isArrowFunction(fn) || Node.isFunctionExpression(fn)) &&
+        (Node.isFunctionDeclaration(fn) ||
+          Node.isArrowFunction(fn) ||
+          Node.isFunctionExpression(fn)) &&
         !fn.isAsync()
       ) {
         const range = getRangeFromNode(sourceFile, fn);
@@ -61,4 +83,3 @@ export const dataHandlerAsyncRule: Rule = {
     return diagnostics;
   },
 };
-

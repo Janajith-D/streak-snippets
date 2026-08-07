@@ -23,8 +23,7 @@
   ],
   "activationEvents": [
     "onLanguage:typescript",
-    "onLanguage:typescriptreact",
-    "onCommand:streak.createWidget"
+    "onLanguage:typescriptreact"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -317,15 +316,19 @@
     "test": "vscode-test"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "24.x",
     "@types/vscode": "^1.107.0",
     "@vscode/test-cli": "^0.0.15",
     "@vscode/test-electron": "^3.0.0",
-    "eslint": "^10.5.0",
+    "eslint": "^10.8.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "prettier": "^3.9.6",
     "ts-loader": "^9.6.2",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.61.1",
+    "typescript-eslint": "^8.66.0",
     "webpack": "^5.107.2",
     "webpack-cli": "^7.0.3"
   },

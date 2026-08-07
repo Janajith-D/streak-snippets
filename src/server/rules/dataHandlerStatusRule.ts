@@ -1,16 +1,25 @@
-import { Node, SourceFile, SyntaxKind } from "ts-morph";
+import { Node, SyntaxKind, type SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
-import { AnalysisResult } from "../../shared/types";
-import { getRangeFromNode, Rule, RuleDiagnostic, RuleOptions } from "./types";
+import type { AnalysisResult } from "../../shared/types";
+import {
+  getRangeFromNode,
+  type Rule,
+  type RuleDiagnostic,
+  type RuleOptions,
+} from "./types";
 
 function returnsStatus(fn: Node): boolean {
-  const objectLiterals = fn.getDescendantsOfKind(SyntaxKind.ObjectLiteralExpression);
+  const objectLiterals = fn.getDescendantsOfKind(
+    SyntaxKind.ObjectLiteralExpression,
+  );
   for (const obj of objectLiterals) {
     const properties = obj.getProperties();
     for (const prop of properties) {
-      const propName = Node.isPropertyAssignment(prop) || Node.isShorthandPropertyAssignment(prop)
-        ? prop.getName()
-        : prop.getText();
+      const propName =
+        Node.isPropertyAssignment(prop) ||
+        Node.isShorthandPropertyAssignment(prop)
+          ? prop.getName()
+          : prop.getText();
       if (propName === "status") {
         return true;
       }
@@ -25,7 +34,11 @@ function getCandidateHandlers(sourceFile: SourceFile): Node[] {
   const candidateFuncs: Node[] = [];
 
   for (const fn of functions) {
-    if (fn.isDefaultExport() || fn.isExported() || /Data|Handler/.test(fn.getName() ?? "")) {
+    if (
+      fn.isDefaultExport() ||
+      fn.isExported() ||
+      /Data|Handler/.test(fn.getName() ?? "")
+    ) {
       candidateFuncs.push(fn);
     }
   }
@@ -36,8 +49,11 @@ function getCandidateHandlers(sourceFile: SourceFile): Node[] {
     if (parent && Node.isVariableDeclaration(parent)) {
       parentName = parent.getName();
     }
-    const isExported = parent?.getParent()?.getParent()?.getKind() === SyntaxKind.ExportAssignment ||
-      parent?.getParent()?.getParent()?.getKind() === SyntaxKind.VariableStatement;
+    const isExported =
+      parent?.getParent()?.getParent()?.getKind() ===
+        SyntaxKind.ExportAssignment ||
+      parent?.getParent()?.getParent()?.getKind() ===
+        SyntaxKind.VariableStatement;
 
     if (isExported || /Data|Handler/.test(parentName)) {
       candidateFuncs.push(arrowFn);
@@ -50,10 +66,15 @@ function getCandidateHandlers(sourceFile: SourceFile): Node[] {
 export const dataHandlerStatusRule: Rule = {
   id: "streak:data-handler-status",
   name: "Data Handler Status Check",
-  description: "Ensures Streak data handler functions return an object with a 'status' property (e.g. status: 200).",
+  description:
+    "Ensures Streak data handler functions return an object with a 'status' property (e.g. status: 200).",
   defaultSeverity: DiagnosticSeverity.Warning,
 
-  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
+  run(
+    sourceFile: SourceFile,
+    analysis: AnalysisResult,
+    options?: RuleOptions,
+  ): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
@@ -69,7 +90,8 @@ export const dataHandlerStatusRule: Rule = {
         const range = getRangeFromNode(sourceFile, fn);
         diagnostics.push({
           code: "streak:S201",
-          message: "Streak data handler should return an object containing a 'status' property (e.g. status: 200).",
+          message:
+            "Streak data handler should return an object containing a 'status' property (e.g. status: 200).",
           range,
           severity,
           source: "Streak Engine",
@@ -80,5 +102,3 @@ export const dataHandlerStatusRule: Rule = {
     return diagnostics;
   },
 };
-
-

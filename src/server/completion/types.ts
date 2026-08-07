@@ -1,4 +1,4 @@
-import { CompletionItem } from "vscode-languageserver/node";
+import type { CompletionItem } from "vscode-languageserver/node";
 
 /**
  * The context in which the autocompletion was triggered.
@@ -25,6 +25,6 @@ export interface CompletionProvider {
    */
   getCompletions(
     context: CompletionContext,
-    workspaceRoot: string | undefined
+    workspaceRoot: string | undefined,
   ): Promise<CompletionItem[]>;
 }
