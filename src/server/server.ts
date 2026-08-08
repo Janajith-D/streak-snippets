@@ -7,7 +7,7 @@ import {
   TextDocumentSyncKind,
   type Hover,
   Location,
-  WorkspaceEdit,
+  type WorkspaceEdit,
   Range,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -212,22 +212,13 @@ connection.onDefinition(async (params) => {
   );
 });
 
-connection.onReferences((params): Location[] => {
-  const uri = params.textDocument.uri;
-  const document = documents.get(uri);
-  if (!document) {
-    return [];
-  }
-  const offset = document.offsetAt(params.position);
-
-  let wName = "";
+function resolveWidgetNameAtOffset(uri: string, document: TextDocument, offset: number): string {
   if (uri.endsWith("streak.sitemap.json")) {
     const pages = sitemapRegistry.getPages();
     for (const page of pages) {
       for (const w of page.widgets) {
         if (offset >= w.start && offset <= w.end) {
-          wName = w.type;
-          break;
+          return w.type;
         }
       }
     }
@@ -235,50 +226,104 @@ connection.onReferences((params): Location[] => {
     const { sourceFile } = analyzeAndParseDocument(uri, document.getText());
     const node = sourceFile.getDescendantAtPos(offset);
     if (node && Node.isIdentifier(node)) {
-      wName = node.getText();
+      return node.getText();
     }
   }
+  return "";
+}
 
-  if (!wName) {
-    return [];
-  }
-
+function findWidgetReferencesInSitemap(wName: string): Location[] {
   const locations: Location[] = [];
   const sitemapPath = sitemapRegistry.getSitemapPath();
-  if (sitemapPath) {
-    let sitemapText = "";
-    try {
-      sitemapText = fs.readFileSync(sitemapPath, "utf-8");
-    } catch {
-      // ignore
-    }
-    const sitemapDoc = TextDocument.create(
-      pathToFileURL(sitemapPath).toString(),
-      "json",
-      1,
-      sitemapText,
-    );
-    const sitemapUri = pathToFileURL(sitemapPath).toString();
+  if (!sitemapPath) {
+    return locations;
+  }
+  let sitemapText = "";
+  try {
+    sitemapText = fs.readFileSync(sitemapPath, "utf-8");
+  } catch {
+    // ignore
+  }
+  const sitemapDoc = TextDocument.create(
+    pathToFileURL(sitemapPath).toString(),
+    "json",
+    1,
+    sitemapText,
+  );
+  const sitemapUri = pathToFileURL(sitemapPath).toString();
 
-    const pages = sitemapRegistry.getPages();
-    for (const page of pages) {
-      for (const w of page.widgets) {
-        if (w.type === wName) {
-          locations.push(
-            Location.create(
-              sitemapUri,
-              Range.create(
-                sitemapDoc.positionAt(w.start),
-                sitemapDoc.positionAt(w.end),
-              ),
+  const pages = sitemapRegistry.getPages();
+  for (const page of pages) {
+    for (const w of page.widgets) {
+      if (w.type === wName) {
+        locations.push(
+          Location.create(
+            sitemapUri,
+            Range.create(
+              sitemapDoc.positionAt(w.start),
+              sitemapDoc.positionAt(w.end),
             ),
-          );
-        }
+          ),
+        );
       }
     }
   }
-
   return locations;
+}
+
+function findWidgetRenameChangesInSitemap(
+  wName: string,
+  newName: string,
+): Record<string, { range: Range; newText: string }[]> {
+  const changes: Record<string, { range: Range; newText: string }[]> = {};
+  const sitemapPath = sitemapRegistry.getSitemapPath();
+  if (!sitemapPath) {
+    return changes;
+  }
+  let sitemapText = "";
+  try {
+    sitemapText = fs.readFileSync(sitemapPath, "utf-8");
+  } catch {
+    // ignore
+  }
+  const sitemapDoc = TextDocument.create(
+    pathToFileURL(sitemapPath).toString(),
+    "json",
+    1,
+    sitemapText,
+  );
+  const sitemapUri = pathToFileURL(sitemapPath).toString();
+  changes[sitemapUri] = [];
+
+  const pages = sitemapRegistry.getPages();
+  for (const page of pages) {
+    for (const w of page.widgets) {
+      if (w.type === wName) {
+        changes[sitemapUri].push({
+          range: Range.create(
+            sitemapDoc.positionAt(w.start),
+            sitemapDoc.positionAt(w.end),
+          ),
+          newText: newName,
+        });
+      }
+    }
+  }
+  return changes;
+}
+
+connection.onReferences((params): Location[] => {
+  const uri = params.textDocument.uri;
+  const document = documents.get(uri);
+  if (!document) {
+    return [];
+  }
+  const offset = document.offsetAt(params.position);
+  const wName = resolveWidgetNameAtOffset(uri, document, offset);
+  if (!wName) {
+    return [];
+  }
+  return findWidgetReferencesInSitemap(wName);
 });
 
 connection.onRenameRequest((params): WorkspaceEdit | null => {
@@ -290,63 +335,11 @@ connection.onRenameRequest((params): WorkspaceEdit | null => {
   const offset = document.offsetAt(params.position);
   const newName = params.newName;
 
-  let wName = "";
-  if (uri.endsWith("streak.sitemap.json")) {
-    const pages = sitemapRegistry.getPages();
-    for (const page of pages) {
-      for (const w of page.widgets) {
-        if (offset >= w.start && offset <= w.end) {
-          wName = w.type;
-          break;
-        }
-      }
-    }
-  } else {
-    const { sourceFile } = analyzeAndParseDocument(uri, document.getText());
-    const node = sourceFile.getDescendantAtPos(offset);
-    if (node && Node.isIdentifier(node)) {
-      wName = node.getText();
-    }
-  }
-
+  const wName = resolveWidgetNameAtOffset(uri, document, offset);
   if (!wName) {
     return null;
   }
-
-  const changes: Record<string, { range: Range; newText: string }[]> = {};
-  const sitemapPath = sitemapRegistry.getSitemapPath();
-  if (sitemapPath) {
-    let sitemapText = "";
-    try {
-      sitemapText = fs.readFileSync(sitemapPath, "utf-8");
-    } catch {
-      // ignore
-    }
-    const sitemapDoc = TextDocument.create(
-      pathToFileURL(sitemapPath).toString(),
-      "json",
-      1,
-      sitemapText,
-    );
-    const sitemapUri = pathToFileURL(sitemapPath).toString();
-    changes[sitemapUri] = [];
-
-    const pages = sitemapRegistry.getPages();
-    for (const page of pages) {
-      for (const w of page.widgets) {
-        if (w.type === wName) {
-          changes[sitemapUri].push({
-            range: Range.create(
-              sitemapDoc.positionAt(w.start),
-              sitemapDoc.positionAt(w.end),
-            ),
-            newText: newName,
-          });
-        }
-      }
-    }
-  }
-
+  const changes = findWidgetRenameChangesInSitemap(wName, newName);
   return { changes };
 });
 
@@ -401,34 +394,7 @@ function buildRuleConfiguration(streakSettings: StreakSettings | undefined): {
   return { ruleSeverities, ruleOptions };
 }
 
-async function validateDocument(document: TextDocument): Promise<void> {
-  const uri = document.uri;
-  const content = document.getText();
-
-  connection.console.log(`[Validation] Running diagnostics for: ${uri}`);
-
-  if (uri.endsWith("streak.sitemap.json")) {
-    if (workspaceRoot) {
-      const diagnostics = validateSitemap(document, workspaceRoot);
-      await connection.sendDiagnostics({ uri, diagnostics });
-
-      // Re-validate other open documents to update S904 dead widget warnings
-      for (const doc of documents.all()) {
-        if (doc.uri !== uri && doc.uri.endsWith(".tsx")) {
-          // Avoid infinite recursion by not calling validateDocument synchronously in a loop
-          setTimeout(() => {
-            validateDocument(doc).catch((_err) => {
-              // ignore validation failure
-            });
-          }, 50);
-        }
-      }
-    }
-    return;
-  }
-
-  const { analysis, sourceFile } = analyzeAndParseDocument(uri, content);
-
+async function indexWidgetFile(uri: string): Promise<void> {
   try {
     const filePath = fileURLToPath(uri);
     let customWidgetDir = "src/widgets";
@@ -457,6 +423,37 @@ async function validateDocument(document: TextDocument): Promise<void> {
   } catch {
     /* ignore */
   }
+}
+
+async function validateDocument(document: TextDocument): Promise<void> {
+  const uri = document.uri;
+  const content = document.getText();
+
+  connection.console.log(`[Validation] Running diagnostics for: ${uri}`);
+
+  if (uri.endsWith("streak.sitemap.json")) {
+    if (workspaceRoot) {
+      const diagnostics = validateSitemap(document, workspaceRoot);
+      await connection.sendDiagnostics({ uri, diagnostics });
+
+      // Re-validate other open documents to update S904 dead widget warnings
+      for (const doc of documents.all()) {
+        if (doc.uri !== uri && doc.uri.endsWith(".tsx")) {
+          // Avoid infinite recursion by not calling validateDocument synchronously in a loop
+          setTimeout(() => {
+            validateDocument(doc).catch((_err) => {
+              // ignore validation failure
+            });
+          }, 50);
+        }
+      }
+    }
+    return;
+  }
+
+  const { analysis, sourceFile } = analyzeAndParseDocument(uri, content);
+
+  await indexWidgetFile(uri);
 
   let config = { ruleSeverities: {} as Record<string, string>, ruleOptions: {} as Record<string, unknown> };
   try {

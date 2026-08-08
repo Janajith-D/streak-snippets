@@ -1569,11 +1569,12 @@ suite("Extension Test Suite", () => {
     assert.ok(pages[0].widgets[0].start > 0);
   });
 
-  test("validateSitemap flags duplicate routes, missing widgets and missing handlers", () => {
+  test("validateSitemap flags duplicate routes, missing widgets, missing handlers, and duplicate renderConfigIDs", () => {
     const json = `{
       "pages": [
         {
           "url": "/about",
+          "renderConfigID": "about-page",
           "handler": "about-handler",
           "widgets": [
             {
@@ -1583,6 +1584,9 @@ suite("Extension Test Suite", () => {
         },
         {
           "url": "/about",
+          "renderConfig": {
+            "renderId": "about-page"
+          },
           "handler": "other-handler",
           "widgets": []
         }
@@ -1599,11 +1603,12 @@ suite("Extension Test Suite", () => {
     const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
     const diags = validateSitemap(doc, "/workspace");
 
-    // S901 (duplicate route "/about"), S902 (missing widget "MissingWidget"), S903 (missing handler "about-handler" and "other-handler")
-    assert.ok(diags.length >= 4);
+    // S901 (duplicate route "/about"), S902 (missing widget "MissingWidget"), S903 (missing handler "about-handler" and "other-handler"), S905 (duplicate renderConfigID "about-page")
+    assert.ok(diags.length >= 6);
     assert.ok(diags.some((d) => d.code === "streak:S901"));
     assert.ok(diags.some((d) => d.code === "streak:S902"));
     assert.ok(diags.some((d) => d.code === "streak:S903"));
+    assert.ok(diags.some((d) => d.code === "streak:S905"));
   });
 
   test("resolveSitemapDefinition navigates to widget and handler files", () => {

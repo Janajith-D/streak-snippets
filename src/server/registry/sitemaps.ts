@@ -120,7 +120,7 @@ export class JSONLocationParser {
         this.pos++;
       }
       const valNode = this.parse();
-      if (keyNode && keyNode.type === "string" && valNode) {
+      if (keyNode?.type === "string" && valNode) {
         properties[keyNode.value as string] = { keyNode, valNode };
       }
       this.skipWhitespace();
@@ -144,12 +144,112 @@ export interface SitemapPage {
   url?: string;
   urlStart?: number;
   urlEnd?: number;
+  renderId?: string;
+  renderIdStart?: number;
+  renderIdEnd?: number;
   handler?: string;
   handlerStart?: number;
   handlerEnd?: number;
   widgets: SitemapPageWidget[];
   start: number;
   end: number;
+}
+
+function parseWidgets(widgetsNode: JSONNode | undefined): SitemapPageWidget[] {
+  const widgets: SitemapPageWidget[] = [];
+  if (widgetsNode?.type !== "array") {
+    return widgets;
+  }
+  for (const wNode of widgetsNode.value as JSONNode[]) {
+    if (wNode?.type !== "object") {
+      continue;
+    }
+    const wProps = wNode.value as Record<string, { keyNode: JSONNode; valNode: JSONNode }>;
+    const typeNode = wProps["type"]?.valNode;
+    if (typeNode?.type === "string") {
+      widgets.push({
+        type: typeNode.value as string,
+        start: typeNode.start,
+        end: typeNode.end,
+      });
+    }
+  }
+  return widgets;
+}
+
+function parseRenderId(props: Record<string, { keyNode: JSONNode; valNode: JSONNode }>): {
+  renderId?: string;
+  renderIdStart?: number;
+  renderIdEnd?: number;
+} {
+  const renderConfigIdNode = props["renderConfigID"]?.valNode;
+  if (renderConfigIdNode?.type === "string") {
+    return {
+      renderId: renderConfigIdNode.value as string,
+      renderIdStart: renderConfigIdNode.start,
+      renderIdEnd: renderConfigIdNode.end,
+    };
+  }
+
+  const renderConfigNode = props["renderConfig"]?.valNode;
+  if (renderConfigNode?.type === "object") {
+    const renderConfigProps = renderConfigNode.value as Record<string, { keyNode: JSONNode; valNode: JSONNode }>;
+    const renderIdNode = renderConfigProps["renderId"]?.valNode;
+    if (renderIdNode?.type === "string") {
+      return {
+        renderId: renderIdNode.value as string,
+        renderIdStart: renderIdNode.start,
+        renderIdEnd: renderIdNode.end,
+      };
+    }
+  }
+
+  return {};
+}
+
+function parsePageNode(pageNode: JSONNode): SitemapPage | null {
+  if (pageNode.type !== "object") {
+    return null;
+  }
+  const props = pageNode.value as Record<string, { keyNode: JSONNode; valNode: JSONNode }>;
+  const urlNode = props["url"]?.valNode;
+  const handlerNode = props["handler"]?.valNode;
+  const widgetsNode = props["widgets"]?.valNode;
+
+  const widgets = parseWidgets(widgetsNode);
+  const { renderId, renderIdStart, renderIdEnd } = parseRenderId(props);
+
+  return {
+    url: urlNode?.type === "string" ? (urlNode.value as string) : undefined,
+    urlStart: urlNode?.start,
+    urlEnd: urlNode?.end,
+    renderId,
+    renderIdStart,
+    renderIdEnd,
+    handler: handlerNode?.type === "string" ? (handlerNode.value as string) : undefined,
+    handlerStart: handlerNode?.start,
+    handlerEnd: handlerNode?.end,
+    widgets,
+    start: pageNode.start,
+    end: pageNode.end,
+  };
+}
+
+function extractRawPages(root: JSONNode | null): JSONNode[] {
+  if (!root) {
+    return [];
+  }
+  if (root.type === "array") {
+    return root.value as JSONNode[];
+  }
+  if (root.type === "object") {
+    const props = root.value as Record<string, { keyNode: JSONNode; valNode: JSONNode }>;
+    const pagesNode = props["pages"]?.valNode;
+    if (pagesNode?.type === "array") {
+      return pagesNode.value as JSONNode[];
+    }
+  }
+  return [];
 }
 
 export class SitemapRegistry {
@@ -185,54 +285,12 @@ export class SitemapRegistry {
     const pages: SitemapPage[] = [];
     try {
       const root = new JSONLocationParser(text).parse();
-      let rawPages: JSONNode[] = [];
-      if (root) {
-        if (root.type === "array") {
-          rawPages = root.value as JSONNode[];
-        } else if (root.type === "object") {
-          const props = root.value as Record<string, { keyNode: JSONNode; valNode: JSONNode }>;
-          const pagesNode = props["pages"]?.valNode;
-          if (pagesNode && pagesNode.type === "array") {
-            rawPages = pagesNode.value as JSONNode[];
-          }
-        }
-      }
+      const rawPages = extractRawPages(root);
 
       for (const pageNode of rawPages) {
-        if (pageNode && pageNode.type === "object") {
-          const props = pageNode.value as Record<string, { keyNode: JSONNode; valNode: JSONNode }>;
-          const urlNode = props["url"]?.valNode;
-          const handlerNode = props["handler"]?.valNode;
-          const widgetsNode = props["widgets"]?.valNode;
-
-          const widgets: SitemapPageWidget[] = [];
-          if (widgetsNode && widgetsNode.type === "array") {
-            for (const wNode of widgetsNode.value as JSONNode[]) {
-              if (wNode && wNode.type === "object") {
-                const wProps = wNode.value as Record<string, { keyNode: JSONNode; valNode: JSONNode }>;
-                const typeNode = wProps["type"]?.valNode;
-                if (typeNode && typeNode.type === "string") {
-                  widgets.push({
-                    type: typeNode.value as string,
-                    start: typeNode.start,
-                    end: typeNode.end,
-                  });
-                }
-              }
-            }
-          }
-
-          pages.push({
-            url: urlNode?.type === "string" ? (urlNode.value as string) : undefined,
-            urlStart: urlNode?.start,
-            urlEnd: urlNode?.end,
-            handler: handlerNode?.type === "string" ? (handlerNode.value as string) : undefined,
-            handlerStart: handlerNode?.start,
-            handlerEnd: handlerNode?.end,
-            widgets,
-            start: pageNode.start,
-            end: pageNode.end,
-          });
+        const parsed = parsePageNode(pageNode);
+        if (parsed) {
+          pages.push(parsed);
         }
       }
     } catch {

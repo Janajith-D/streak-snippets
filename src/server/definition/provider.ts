@@ -3,7 +3,7 @@ import { Location, Range } from "vscode-languageserver/node";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import { pathToFileURL } from "node:url";
-import { sitemapRegistry } from "../registry/sitemaps";
+import { sitemapRegistry, type SitemapPage } from "../registry/sitemaps";
 import { type TextDocument } from "vscode-languageserver-textdocument";
 
 // Single shared project to avoid redundant ts-morph Project creation overhead
@@ -286,6 +286,46 @@ export async function resolveDefinition(
   );
 }
 
+function findSitemapWidgetDefinition(
+  page: SitemapPage,
+  offset: number,
+  workspaceRoot: string,
+  customWidgetDir: string,
+): Location | null {
+  for (const w of page.widgets) {
+    if (offset >= w.start && offset <= w.end) {
+      return resolveWidgetTypeDefinition(w.type, workspaceRoot, customWidgetDir);
+    }
+  }
+  return null;
+}
+
+function findSitemapHandlerDefinition(
+  page: SitemapPage,
+  offset: number,
+  workspaceRoot: string,
+): Location | null {
+  if (
+    page.handler &&
+    page.handlerStart !== undefined &&
+    page.handlerEnd !== undefined &&
+    offset >= page.handlerStart &&
+    offset <= page.handlerEnd
+  ) {
+    const handlerDir = path.join(workspaceRoot, "src", "handlers");
+    for (const ext of [".ts", ".js", ".tsx", ".jsx"]) {
+      const fullPath = path.join(handlerDir, `${page.handler}${ext}`);
+      if (fs.existsSync(fullPath)) {
+        return Location.create(
+          pathToFileURL(fullPath).toString(),
+          Range.create(0, 0, 0, 0),
+        );
+      }
+    }
+  }
+  return null;
+}
+
 export function resolveSitemapDefinition(
   _document: TextDocument,
   offset: number,
@@ -294,30 +334,13 @@ export function resolveSitemapDefinition(
 ): Location | null {
   const pages = sitemapRegistry.getPages();
   for (const page of pages) {
-    // 1. Check if offset is on widget type
-    for (const w of page.widgets) {
-      if (offset >= w.start && offset <= w.end) {
-        return resolveWidgetTypeDefinition(w.type, workspaceRoot, customWidgetDir);
-      }
+    const widgetLoc = findSitemapWidgetDefinition(page, offset, workspaceRoot, customWidgetDir);
+    if (widgetLoc) {
+      return widgetLoc;
     }
-    // 2. Check if offset is on handler
-    if (
-      page.handler &&
-      page.handlerStart !== undefined &&
-      page.handlerEnd !== undefined &&
-      offset >= page.handlerStart &&
-      offset <= page.handlerEnd
-    ) {
-      const handlerDir = path.join(workspaceRoot, "src", "handlers");
-      for (const ext of [".ts", ".js", ".tsx", ".jsx"]) {
-        const fullPath = path.join(handlerDir, `${page.handler}${ext}`);
-        if (fs.existsSync(fullPath)) {
-          return Location.create(
-            pathToFileURL(fullPath).toString(),
-            Range.create(0, 0, 0, 0),
-          );
-        }
-      }
+    const handlerLoc = findSitemapHandlerDefinition(page, offset, workspaceRoot);
+    if (handlerLoc) {
+      return handlerLoc;
     }
   }
   return null;
