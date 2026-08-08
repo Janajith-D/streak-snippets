@@ -3,6 +3,8 @@ import { Location, Range } from "vscode-languageserver/node";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import { pathToFileURL } from "node:url";
+import { sitemapRegistry } from "../registry/sitemaps";
+import { type TextDocument } from "vscode-languageserver-textdocument";
 
 // Single shared project to avoid redundant ts-morph Project creation overhead
 const defProject = new Project({
@@ -282,4 +284,41 @@ export async function resolveDefinition(
     customWidgetDir,
     customPublicDir,
   );
+}
+
+export function resolveSitemapDefinition(
+  _document: TextDocument,
+  offset: number,
+  workspaceRoot: string,
+  customWidgetDir = "src/widgets",
+): Location | null {
+  const pages = sitemapRegistry.getPages();
+  for (const page of pages) {
+    // 1. Check if offset is on widget type
+    for (const w of page.widgets) {
+      if (offset >= w.start && offset <= w.end) {
+        return resolveWidgetTypeDefinition(w.type, workspaceRoot, customWidgetDir);
+      }
+    }
+    // 2. Check if offset is on handler
+    if (
+      page.handler &&
+      page.handlerStart !== undefined &&
+      page.handlerEnd !== undefined &&
+      offset >= page.handlerStart &&
+      offset <= page.handlerEnd
+    ) {
+      const handlerDir = path.join(workspaceRoot, "src", "handlers");
+      for (const ext of [".ts", ".js", ".tsx", ".jsx"]) {
+        const fullPath = path.join(handlerDir, `${page.handler}${ext}`);
+        if (fs.existsSync(fullPath)) {
+          return Location.create(
+            pathToFileURL(fullPath).toString(),
+            Range.create(0, 0, 0, 0),
+          );
+        }
+      }
+    }
+  }
+  return null;
 }

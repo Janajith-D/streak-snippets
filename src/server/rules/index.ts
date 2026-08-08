@@ -21,6 +21,7 @@ import { scriptStructureRule } from "./scriptStructureRule";
 import { allowedImportsRule } from "./allowedImportsRule";
 import { forbiddenPatternsRule } from "./forbiddenPatternsRule";
 import { widgetFilenameMatchesComponentRule } from "./widgetFilenameMatchesComponentRule";
+import { deadWidgetRule } from "./deadWidgetRule";
 
 export * from "./types";
 export * from "./widgetPlaceholderRule";
@@ -39,6 +40,7 @@ export * from "./scriptStructureRule";
 export * from "./allowedImportsRule";
 export * from "./forbiddenPatternsRule";
 export * from "./widgetFilenameMatchesComponentRule";
+export * from "./deadWidgetRule";
 
 export const allRules: Rule[] = [
   widgetPlaceholderRule,
@@ -61,4 +63,5 @@ export const allRules: Rule[] = [
   allowedImportsRule,
   forbiddenPatternsRule,
   widgetFilenameMatchesComponentRule,
+  deadWidgetRule,
 ];

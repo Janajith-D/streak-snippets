@@ -27,16 +27,19 @@ import { allowedImportsRule } from "../server/rules/allowedImportsRule";
 import { forbiddenPatternsRule } from "../server/rules/forbiddenPatternsRule";
 import { widgetFilenameMatchesComponentRule } from "../server/rules/widgetFilenameMatchesComponentRule";
 import { missingDefaultExportRule } from "../server/rules/missingDefaultExportRule";
+import { deadWidgetRule } from "../server/rules/deadWidgetRule";
+import { sitemapRegistry } from "../server/registry/sitemaps";
+import { validateSitemap } from "../server/rules/sitemapRules";
+import { resolveHover, resolveSitemapHover } from "../server/hover/provider";
+import { resolveDefinition, resolveSitemapDefinition } from "../server/definition/provider";
+import { resolveCodeActions } from "../server/codeaction/provider";
+import { widgetRegistry } from "../server/registry/widgets";
+import { scanWorkspace } from "../server/registry/scanner";
 import { getCompletions } from "../server/completion/provider";
 import { getJsxContext } from "../server/completion/jsxAttributeCompletions";
 import { getAutoImportEdit } from "../server/completion/frameworkCompletions";
 import { isInsideLoadDynamicComponent } from "../server/completion/scriptCompletions";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { resolveHover } from "../server/hover/provider";
-import { resolveDefinition } from "../server/definition/provider";
-import { resolveCodeActions } from "../server/codeaction/provider";
-import { widgetRegistry } from "../server/registry/widgets";
-import { scanWorkspace } from "../server/registry/scanner";
 
 suite("Extension Test Suite", () => {
   vscode.window.showInformationMessage("Start all tests.");
@@ -1538,5 +1541,206 @@ suite("Extension Test Suite", () => {
     assert.ok(propsHover);
     assert.ok((propsHover.contents as MarkupContent).value.includes("Widget handler data."));
   });
+
+  // ── Phase 14 Sitemap Awareness Tests ────────────────────────────────────
+
+  test("Sitemap parser correctly parses JSON structure and preserves offsets", () => {
+    const json = `{
+      "pages": [
+        {
+          "url": "/about",
+          "handler": "about-handler",
+          "widgets": [
+            {
+              "type": "HelloBanner"
+            }
+          ]
+        }
+      ]
+    }`;
+
+    sitemapRegistry.parseAndRegister("file:///test/streak.sitemap.json", json);
+    const pages = sitemapRegistry.getPages();
+    assert.strictEqual(pages.length, 1);
+    assert.strictEqual(pages[0].url, "/about");
+    assert.strictEqual(pages[0].handler, "about-handler");
+    assert.strictEqual(pages[0].widgets.length, 1);
+    assert.strictEqual(pages[0].widgets[0].type, "HelloBanner");
+    assert.ok(pages[0].widgets[0].start > 0);
+  });
+
+  test("validateSitemap flags duplicate routes, missing widgets and missing handlers", () => {
+    const json = `{
+      "pages": [
+        {
+          "url": "/about",
+          "handler": "about-handler",
+          "widgets": [
+            {
+              "type": "MissingWidget"
+            }
+          ]
+        },
+        {
+          "url": "/about",
+          "handler": "other-handler",
+          "widgets": []
+        }
+      ]
+    }`;
+
+    // Register a valid widget
+    widgetRegistry.set("HelloBanner", {
+      name: "HelloBanner",
+      filePath: "file:///test/HelloBanner.tsx",
+      props: [],
+    });
+
+    const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
+    const diags = validateSitemap(doc, "/workspace");
+
+    // S901 (duplicate route "/about"), S902 (missing widget "MissingWidget"), S903 (missing handler "about-handler" and "other-handler")
+    assert.ok(diags.length >= 4);
+    assert.ok(diags.some((d) => d.code === "streak:S901"));
+    assert.ok(diags.some((d) => d.code === "streak:S902"));
+    assert.ok(diags.some((d) => d.code === "streak:S903"));
+  });
+
+  test("resolveSitemapDefinition navigates to widget and handler files", () => {
+    const json = `{
+      "pages": [
+        {
+          "url": "/about",
+          "handler": "about-handler",
+          "widgets": [
+            {
+              "type": "HelloBanner"
+            }
+          ]
+        }
+      ]
+    }`;
+    const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
+
+    const tempRoot = path.join(__dirname, `temp_sitemap_test_${Date.now()}`).replaceAll("\\", "/");
+    const widgetsDir = path.join(tempRoot, "src", "widgets");
+    const handlersDir = path.join(tempRoot, "src", "handlers");
+
+    fs.mkdirSync(widgetsDir, { recursive: true });
+    fs.mkdirSync(handlersDir, { recursive: true });
+
+    fs.writeFileSync(path.join(widgetsDir, "HelloBanner.tsx"), "export default function HelloBanner() {}");
+    fs.writeFileSync(path.join(handlersDir, "about-handler.ts"), "export default function aboutHandler() {}");
+
+    try {
+      const sitemapPath = path.join(tempRoot, "streak.sitemap.json");
+      sitemapRegistry.parseAndRegister(sitemapPath, json);
+
+      // Find offset of "HelloBanner"
+      const typeOffset = json.indexOf("HelloBanner") + 2;
+      const defLoc = resolveSitemapDefinition(doc, typeOffset, tempRoot);
+      assert.ok(defLoc);
+      assert.ok(defLoc.uri.includes("HelloBanner.tsx"));
+
+      // Find offset of "about-handler"
+      const handlerOffset = json.indexOf("about-handler") + 2;
+      const handlerLoc = resolveSitemapDefinition(doc, handlerOffset, tempRoot);
+      assert.ok(handlerLoc);
+      assert.ok(handlerLoc.uri.includes("about-handler.ts"));
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("resolveSitemapHover displays sitemap summary and widget details", () => {
+    const json = `{
+      "pages": [
+        {
+          "url": "/about",
+          "handler": "about-handler",
+          "widgets": [
+            {
+              "type": "HelloBanner"
+            }
+          ]
+        }
+      ]
+    }`;
+    sitemapRegistry.parseAndRegister("file:///test/streak.sitemap.json", json);
+    const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
+
+    // Hover on page object boundaries
+    const hoverSummary = resolveSitemapHover(doc, json.indexOf("url") - 1, "/workspace") as Hover;
+    assert.ok(hoverSummary);
+    assert.ok((hoverSummary.contents as MarkupContent).value.includes("Route:"));
+    assert.ok((hoverSummary.contents as MarkupContent).value.includes("/about"));
+
+    // Hover on widget type
+    const hoverWidget = resolveSitemapHover(doc, json.indexOf("HelloBanner") + 2, "/workspace") as Hover;
+    assert.ok(hoverWidget);
+    assert.ok((hoverWidget.contents as MarkupContent).value.includes("Widget: HelloBanner"));
+  });
+
+  test("Sitemap autocomplete suggests widget names and streak-page snippet", () => {
+    const json = `"type": "`;
+    const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
+    const { sourceFile } = analyzeAndParseDocument("file:///test/dummy_completions.ts", "export default {}");
+
+    const items = getCompletions(
+      {
+        text: json,
+        uri: "file:///test/streak.sitemap.json",
+        offset: json.length,
+        line: 0,
+        character: json.length,
+      },
+      doc,
+      sourceFile,
+      "/workspace",
+    );
+    assert.ok(items.length >= 1);
+    assert.ok(items.some((i) => i.label === "HelloBanner"));
+
+    // Check streak-page snippet
+    const jsonSnippet = "streak";
+    const docSnippet = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, jsonSnippet);
+    const itemsSnippet = getCompletions(
+      {
+        text: jsonSnippet,
+        uri: "file:///test/streak.sitemap.json",
+        offset: jsonSnippet.length,
+        line: 0,
+        character: jsonSnippet.length,
+      },
+      docSnippet,
+      sourceFile,
+      "/workspace",
+    );
+    assert.ok(itemsSnippet.some((i) => i.label === "streak-page"));
+  });
+
+  test("streak:S904 flags dead widgets not referenced by sitemap", () => {
+    const code = `
+      const UnusedWidget = () => { return <div />; };
+      export default UnusedWidget;
+    `;
+    const { sourceFile, analysis } = analyzeAndParseDocument("file:///workspace/src/widgets/UnusedWidget.tsx", code);
+    
+    // Set sitemap pages to HelloBanner only, so UnusedWidget is dead
+    sitemapRegistry.setPages("file:///test/streak.sitemap.json", [
+      {
+        url: "/home",
+        widgets: [{ type: "HelloBanner", start: 0, end: 10 }],
+        start: 0,
+        end: 100,
+      }
+    ]);
+
+    const diags = deadWidgetRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 1);
+    assert.strictEqual(diags[0].code, "streak:S904");
+    assert.strictEqual(diags[0].message, "Widget is not referenced by any sitemap page.");
+  });
 });
+
 

@@ -28,6 +28,10 @@ This document provides detailed SonarQube-style descriptions, rationale, and com
 | [`streak:S701`](#streaks701---allowed-imports) | Imports Control | Warning | Imports must belong to the approved allowed imports whitelist. |
 | [`streak:S702`](#streaks702---forbidden-patterns) | Security / Code Smell | Error | Banned code patterns matched by forbidden regular expressions. |
 | [`streak:S801`](#streaks801---widget-filename-matches-component) | Widget Component | Error | Widget filename and declared default component name must match. |
+| [`streak:S901`](#streaks901---duplicate-route-detected) | Sitemap / Routes | Error | Sitemap page routes (`url` values) must be unique. |
+| [`streak:S902`](#streaks902---referenced-widget-does-not-exist) | Sitemap / Registry | Error | Referenced widget `type` in the sitemap must exist as a source file. |
+| [`streak:S903`](#streaks903---referenced-handler-does-not-exist) | Sitemap / Registry | Error | Referenced sitemap page `handler` must exist as a handler source file. |
+| [`streak:S904`](#streaks904---dead-widget-detected) | Workspace Registry | Warning | Custom widgets should be referenced by at least one sitemap page. |
 
 ---
 
@@ -579,4 +583,105 @@ const HelloBanner = () => {
 };
 export default HelloBanner;
 ```
+
+---
+
+### `streak:S901` — Duplicate Route Detected
+
+- **Category**: Sitemap / Routes
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+Ensures sitemap page routes (`url` values) are unique across the project. Duplicate routes conflict at runtime.
+
+#### Non-compliant Code ❌
+```json
+[
+  { "url": "/about", "handler": "about" },
+  { "url": "/about", "handler": "other" }
+]
+```
+
+#### Compliant Code ✅
+```json
+[
+  { "url": "/about", "handler": "about" },
+  { "url": "/contact", "handler": "contact" }
+]
+```
+
+---
+
+### `streak:S902` — Referenced Widget Does Not Exist
+
+- **Category**: Sitemap / Registry
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+Ensures that all widget `type` values declared inside the sitemap match an existing custom widget source file inside `src/widgets/`.
+
+#### Non-compliant Code ❌
+```json
+{
+  "type": "NonExistentBanner"
+}
+```
+
+#### Compliant Code ✅
+```json
+{
+  "type": "HelloBanner"
+}
+```
+
+---
+
+### `streak:S903` — Referenced Handler Does Not Exist
+
+- **Category**: Sitemap / Registry
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+Ensures that all page `handler` properties declared inside the sitemap match an existing handler source file inside `src/handlers/`.
+
+#### Non-compliant Code ❌
+```json
+{
+  "handler": "missing-handler"
+}
+```
+
+#### Compliant Code ✅
+```json
+{
+  "handler": "about-handler"
+}
+```
+
+---
+
+### `streak:S904` — Dead Widget Detected
+
+- **Category**: Workspace Registry
+- **Severity**: `Warning`
+- **Source**: `Streak Engine`
+
+#### Description
+Flags custom widgets inside `src/widgets/` that are not referenced by any page route inside `streak.sitemap.json`.
+
+#### Non-compliant Code ❌
+`LegacyWidget.tsx` (never declared in sitemap page routes)
+```tsx
+export default function LegacyWidget() { ... }
+```
+
+#### Compliant Code ✅
+`HelloBanner.tsx` (referenced inside the sitemap widgets configuration list)
+```tsx
+export default function HelloBanner() { ... }
+```
+
 

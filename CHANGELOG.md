@@ -5,6 +5,18 @@ All notable changes to the "streak-snippets" extension will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-08-08
+
+### Added
+- **Sitemap Awareness & Relation Graph (Phase 14)**:
+  - Added JSON location parser for indexing `streak.sitemap.json` elements.
+  - Implemented S901 (Duplicate routes), S902 (Missing widgets), and S903 (Missing handlers) sitemap diagnostics.
+  - Implemented S904 (Dead widgets warning) targeting unused widget components.
+  - Added Go to definition for sitemap handlers and widgets.
+  - Integrated Find References and Rename edits linking widget files and the sitemap.
+  - Added hover tooltips for sitemap pages and widget handler statistics.
+  - Added `streak-page` snippet and autocomplete for widget types inside the sitemap.
+
 ## [1.2.0] - 2026-08-08
 
 ### Added
