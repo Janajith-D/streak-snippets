@@ -11,7 +11,10 @@ export const missingDefaultExportRule: Rule = {
 
   run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
-    const severity = options?.severity ?? this.defaultSeverity;
+    const severity = analysis.isWidget ? DiagnosticSeverity.Error : (options?.severity ?? this.defaultSeverity);
+    const message = analysis.isWidget
+      ? "Widgets must use a default export."
+      : "File is missing a default export (export default ...).";
 
     const hasDefaultExport = analysis.exports.some((e) => e.isDefault);
 
@@ -19,7 +22,7 @@ export const missingDefaultExportRule: Rule = {
       // Create diagnostic for the first line of the file
       diagnostics.push({
         code: "streak:S301",
-        message: "File is missing a default export (export default ...).",
+        message,
         range: {
           start: { line: 0, character: 0 },
           end: { line: 0, character: 20 },

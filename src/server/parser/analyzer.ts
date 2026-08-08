@@ -165,6 +165,9 @@ export function analyzeAndParseDocument(
     errors.push(err instanceof Error ? err.message : String(err));
   }
 
+  const normalizedPath = uri.replaceAll("\\", "/");
+  const isWidget = normalizedPath.includes("/src/widgets/") && normalizedPath.endsWith(".tsx");
+
   const analysis: AnalysisResult = {
     uri,
     imports,
@@ -172,6 +175,7 @@ export function analyzeAndParseDocument(
     components,
     jsxElements,
     errors,
+    isWidget,
   };
 
   return { analysis, sourceFile };

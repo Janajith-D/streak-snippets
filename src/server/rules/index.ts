@@ -20,6 +20,7 @@ import { componentNestingRule } from "./componentNestingRule";
 import { scriptStructureRule } from "./scriptStructureRule";
 import { allowedImportsRule } from "./allowedImportsRule";
 import { forbiddenPatternsRule } from "./forbiddenPatternsRule";
+import { widgetFilenameMatchesComponentRule } from "./widgetFilenameMatchesComponentRule";
 
 export * from "./types";
 export * from "./widgetPlaceholderRule";
@@ -37,6 +38,7 @@ export * from "./componentNestingRule";
 export * from "./scriptStructureRule";
 export * from "./allowedImportsRule";
 export * from "./forbiddenPatternsRule";
+export * from "./widgetFilenameMatchesComponentRule";
 
 export const allRules: Rule[] = [
   widgetPlaceholderRule,
@@ -58,4 +60,5 @@ export const allRules: Rule[] = [
   scriptStructureRule,
   allowedImportsRule,
   forbiddenPatternsRule,
+  widgetFilenameMatchesComponentRule,
 ];

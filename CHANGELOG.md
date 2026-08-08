@@ -5,6 +5,15 @@ All notable changes to the "streak-snippets" extension will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-08-08
+
+### Added
+- **Widget Intelligence Extension (Phase 13)**:
+  - Enabled widget detection criteria (`src/widgets/*.tsx`) inside AST analysis.
+  - Implemented S801 rule enforcing match between widget filename and component name.
+  - Extended hover support on `props.data` inside widgets with markdown documentation.
+  - Custom S302 (stateless widgets) and S303 (optional chaining for props.data) diagnostic messages/severities inside widgets.
+
 ## [1.1.1] - 2026-08-08
 
 ### Changed

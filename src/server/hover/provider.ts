@@ -293,6 +293,64 @@ function resolveGDomMethodHover(node: Node): Hover | null {
   );
 }
 
+/**
+ * Case 4 — Hovering over props.data.
+ */
+function resolvePropsDataHover(node: Node): Hover | null {
+  if (!Node.isIdentifier(node)) {
+    return null;
+  }
+  const text = node.getText();
+  if (text !== "props" && text !== "data") {
+    return null;
+  }
+
+  const parent = node.getParent();
+  if (!parent) {
+    return null;
+  }
+
+  let isPropsData = false;
+
+  // Case 1: Hovering over 'data' in 'props.data' or 'props.data.foo'
+  if (text === "data" && Node.isPropertyAccessExpression(parent)) {
+    const exprText = parent.getExpression().getText().replace(/\?$/, "");
+    if (exprText === "props") {
+      isPropsData = true;
+    }
+  }
+
+  // Case 2: Hovering over 'props' in 'props.data'
+  if (text === "props" && Node.isPropertyAccessExpression(parent)) {
+    const nameText = parent.getName();
+    if (nameText === "data") {
+      isPropsData = true;
+    }
+  }
+
+  if (isPropsData) {
+    return mkHover(
+      [
+        "Widget handler data.",
+        "",
+        "Streak passes:",
+        "",
+        "```",
+        "{",
+        "  data: undefined",
+        "}",
+        "```",
+        "",
+        "when no data is returned.",
+        "",
+        "Use optional chaining and fallback values.",
+      ].join("\n"),
+    );
+  }
+
+  return null;
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function resolveHover(node: Node): Hover | null {
@@ -300,6 +358,7 @@ export function resolveHover(node: Node): Hover | null {
     resolveWidgetTypeHover(node) ??
     resolveTagNameHover(node) ??
     resolveAttributeHover(node) ??
-    resolveGDomMethodHover(node)
+    resolveGDomMethodHover(node) ??
+    resolvePropsDataHover(node)
   );
 }
