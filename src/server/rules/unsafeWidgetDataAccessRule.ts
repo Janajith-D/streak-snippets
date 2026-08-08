@@ -21,7 +21,7 @@ export const unsafeWidgetDataAccessRule: Rule = {
     options?: RuleOptions,
   ): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
-    const severity = options?.severity ?? this.defaultSeverity;
+    const severity = analysis.isWidget ? DiagnosticSeverity.Warning : (options?.severity ?? this.defaultSeverity);
 
     if (!analysis.uri.endsWith(".tsx")) {
       return diagnostics;
@@ -39,9 +39,13 @@ export const unsafeWidgetDataAccessRule: Rule = {
 
         if (!isOptionalChain) {
           const range = getRangeFromNode(sourceFile, pa);
+          const message = analysis.isWidget
+            ? "Use optional chaining when accessing widget data."
+            : `Unsafe access '${pa.getText()}'. Widget data must be accessed safely because 'props.data' may be undefined (use optional chaining e.g. 'props.data?.${pa.getName()}').`;
+
           diagnostics.push({
             code: "streak:S303",
-            message: `Unsafe access '${pa.getText()}'. Widget data must be accessed safely because 'props.data' may be undefined (use optional chaining e.g. 'props.data?.${pa.getName()}').`,
+            message,
             range,
             severity,
             source: "Streak Engine",

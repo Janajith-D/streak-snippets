@@ -4,6 +4,24 @@ import type { AnalysisResult } from "../../shared/types";
 import type { Rule, RuleDiagnostic, RuleOptions } from "./types";
 import { widgetRegistry } from "../registry/widgets";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
+
+function getPathFromUri(uri: string): string {
+  if (uri.startsWith("file://")) {
+    try {
+      return fileURLToPath(uri);
+    } catch {
+      // fallback
+    }
+  }
+  let clean = uri;
+  if (clean.startsWith("file:///")) {
+    clean = clean.slice(8);
+  } else if (clean.startsWith("file://")) {
+    clean = clean.slice(7);
+  }
+  return clean;
+}
 
 /**
  * Extracts the component name from a default export symbol, if one exists.
@@ -93,12 +111,13 @@ export const duplicatedWidgetRule: Rule = {
       return diagnostics;
     }
 
+    const currentPath = getPathFromUri(uri).replaceAll("\\", "/").toLowerCase();
+
     const allWidgets = widgetRegistry.getAll();
     const duplicates = allWidgets.filter(
       (w) =>
         w.name === componentName &&
-        w.filePath.replaceAll("\\", "/").toLowerCase() !==
-          normalizedUri.toLowerCase(),
+        getPathFromUri(w.filePath).replaceAll("\\", "/").toLowerCase() !== currentPath,
     );
 
     if (duplicates.length > 0) {

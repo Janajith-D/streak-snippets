@@ -25,6 +25,8 @@ import { componentNestingRule } from "../server/rules/componentNestingRule";
 import { scriptStructureRule } from "../server/rules/scriptStructureRule";
 import { allowedImportsRule } from "../server/rules/allowedImportsRule";
 import { forbiddenPatternsRule } from "../server/rules/forbiddenPatternsRule";
+import { widgetFilenameMatchesComponentRule } from "../server/rules/widgetFilenameMatchesComponentRule";
+import { missingDefaultExportRule } from "../server/rules/missingDefaultExportRule";
 import { getCompletions } from "../server/completion/provider";
 import { getJsxContext } from "../server/completion/jsxAttributeCompletions";
 import { getAutoImportEdit } from "../server/completion/frameworkCompletions";
@@ -1429,4 +1431,112 @@ suite("Extension Test Suite", () => {
       });
     }
   });
+
+  // ── Phase 13 Widget Intelligence Tests ───────────────────────────────────
+
+  test("Widget detection identifies files under src/widgets/*.tsx", () => {
+    const code = `export default function MyWidget() { return <div />; }`;
+
+    const widgetRes = analyzeAndParseDocument("file:///workspace/src/widgets/MyWidget.tsx", code);
+    assert.strictEqual(widgetRes.analysis.isWidget, true);
+
+    const nonWidgetRes = analyzeAndParseDocument("file:///workspace/src/components/MyWidget.tsx", code);
+    assert.strictEqual(nonWidgetRes.analysis.isWidget, false);
+
+    const nonWidgetTsRes = analyzeAndParseDocument("file:///workspace/src/widgets/MyWidget.ts", code);
+    assert.strictEqual(nonWidgetTsRes.analysis.isWidget, false);
+  });
+
+  test("streak:S801 rule validates widget filename matches component name", () => {
+    // Valid: filename matches component name
+    const codeValid = `
+      const MyBanner = () => { return <div />; };
+      export default MyBanner;
+    `;
+    const resValid = analyzeAndParseDocument("file:///workspace/src/widgets/MyBanner.tsx", codeValid);
+    const diagsValid = widgetFilenameMatchesComponentRule.run(resValid.sourceFile, resValid.analysis);
+    assert.strictEqual(diagsValid.length, 0);
+
+    // Invalid: filename does not match component name
+    const codeInvalid = `
+      const HeroBanner = () => { return <div />; };
+      export default HeroBanner;
+    `;
+    const resInvalid = analyzeAndParseDocument("file:///workspace/src/widgets/MyBanner.tsx", codeInvalid);
+    const diagsInvalid = widgetFilenameMatchesComponentRule.run(resInvalid.sourceFile, resInvalid.analysis);
+    assert.strictEqual(diagsInvalid.length, 1);
+    assert.strictEqual(diagsInvalid[0].code, "streak:S801");
+    assert.strictEqual(diagsInvalid[0].message, "Widget filename and component name must match.");
+  });
+
+  test("streak:S301 rule uses custom error for widgets lacking default export", () => {
+    const code = `export const hello = "world";`;
+    const res = analyzeAndParseDocument("file:///workspace/src/widgets/MyBanner.tsx", code);
+    const diags = missingDefaultExportRule.run(res.sourceFile, res.analysis);
+    assert.strictEqual(diags.length, 1);
+    assert.strictEqual(diags[0].code, "streak:S301");
+    assert.strictEqual(diags[0].severity, 1); // DiagnosticSeverity.Error
+    assert.strictEqual(diags[0].message, "Widgets must use a default export.");
+  });
+
+  test("streak:S302 rule uses custom error for stateful widgets using hooks", () => {
+    const code = `
+      import { useState } from "react";
+      const MyBanner = () => {
+        const [state, setState] = useState(0);
+        return <div>{state}</div>;
+      };
+      export default MyBanner;
+    `;
+    const res = analyzeAndParseDocument("file:///workspace/src/widgets/MyBanner.tsx", code);
+    const diags = reactHooksNotAllowedRule.run(res.sourceFile, res.analysis);
+    assert.strictEqual(diags.length, 1);
+    assert.strictEqual(diags[0].code, "streak:S302");
+    assert.strictEqual(diags[0].severity, 1); // DiagnosticSeverity.Error
+    assert.strictEqual(diags[0].message, "Widgets must remain stateless. Use Script components for client-side behavior.");
+  });
+
+  test("streak:S303 rule uses custom warning for direct props.data access in widgets", () => {
+    const code = `
+      const MyBanner = (props: any) => {
+        return <div>{props.data.title}</div>;
+      };
+      export default MyBanner;
+    `;
+    const res = analyzeAndParseDocument("file:///workspace/src/widgets/MyBanner.tsx", code);
+    const diags = unsafeWidgetDataAccessRule.run(res.sourceFile, res.analysis);
+    assert.strictEqual(diags.length, 1);
+    assert.strictEqual(diags[0].code, "streak:S303");
+    assert.strictEqual(diags[0].severity, 2); // DiagnosticSeverity.Warning
+    assert.strictEqual(diags[0].message, "Use optional chaining when accessing widget data.");
+  });
+
+  test("resolveHover displays custom markdown documentation for props.data", () => {
+    const code = `
+      const MyBanner = (props: any) => {
+        const x = props.data;
+        return <div>{x}</div>;
+      };
+      export default MyBanner;
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///workspace/src/widgets/MyBanner.tsx", code);
+
+    // Hover over "data" in "props.data"
+    const dataOffset = code.indexOf("props.data") + "props.".length;
+    const dataNode = sourceFile.getDescendantAtPos(dataOffset);
+    assert.ok(dataNode);
+    const dataHover = resolveHover(dataNode) as Hover;
+    assert.ok(dataHover);
+    assert.ok((dataHover.contents as MarkupContent).value.includes("Widget handler data."));
+    assert.ok((dataHover.contents as MarkupContent).value.includes("data: undefined"));
+
+    // Hover over "props" in "props.data"
+    const propsOffset = code.indexOf("props.data") + 1;
+    const propsNode = sourceFile.getDescendantAtPos(propsOffset);
+    assert.ok(propsNode);
+    const propsHover = resolveHover(propsNode) as Hover;
+    assert.ok(propsHover);
+    assert.ok((propsHover.contents as MarkupContent).value.includes("Widget handler data."));
+  });
 });
+

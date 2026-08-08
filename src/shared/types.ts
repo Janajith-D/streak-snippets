@@ -17,4 +17,5 @@ export interface AnalysisResult {
   components: string[];
   jsxElements: string[];
   errors: string[];
+  isWidget?: boolean;
 }

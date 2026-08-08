@@ -34,7 +34,7 @@ export const reactHooksNotAllowedRule: Rule = {
     options?: RuleOptions,
   ): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
-    const severity = options?.severity ?? this.defaultSeverity;
+    const severity = analysis.isWidget ? DiagnosticSeverity.Error : (options?.severity ?? this.defaultSeverity);
 
     if (!analysis.uri.endsWith(".tsx")) {
       return diagnostics;
@@ -54,9 +54,13 @@ export const reactHooksNotAllowedRule: Rule = {
 
       if (DISALLOWED_HOOKS.has(hookName)) {
         const range = getRangeFromNode(sourceFile, call);
+        const message = analysis.isWidget
+          ? "Widgets must remain stateless. Use Script components for client-side behavior."
+          : `React runtime hook '${hookName}' is not allowed in static Streak widgets.`;
+
         diagnostics.push({
           code: "streak:S302",
-          message: `React runtime hook '${hookName}' is not allowed in static Streak widgets.`,
+          message,
           range,
           severity,
           source: "Streak Engine",

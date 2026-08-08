@@ -27,6 +27,7 @@ This document provides detailed SonarQube-style descriptions, rationale, and com
 | [`streak:S603`](#streaks603---script-structure) | Script Component | Error | `<Script>` tags must contain exactly one child wrapping the client callback. |
 | [`streak:S701`](#streaks701---allowed-imports) | Imports Control | Warning | Imports must belong to the approved allowed imports whitelist. |
 | [`streak:S702`](#streaks702---forbidden-patterns) | Security / Code Smell | Error | Banned code patterns matched by forbidden regular expressions. |
+| [`streak:S801`](#streaks801---widget-filename-matches-component) | Widget Component | Error | Widget filename and declared default component name must match. |
 
 ---
 
@@ -549,3 +550,33 @@ const data = eval("x + y");
 ```tsx
 const data = x + y;
 ```
+
+---
+
+### `streak:S801` — Widget Filename Matches Component
+
+- **Category**: Widget Component
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+Ensures widget component name matches its filename to guarantee correct automatic mapping and registration.
+
+#### Non-compliant Code ❌
+`HelloBanner.tsx`
+```tsx
+const HeroBanner = () => {
+  return <div>Hello</div>;
+};
+export default HeroBanner;
+```
+
+#### Compliant Code ✅
+`HelloBanner.tsx`
+```tsx
+const HelloBanner = () => {
+  return <div>Hello</div>;
+};
+export default HelloBanner;
+```
+
