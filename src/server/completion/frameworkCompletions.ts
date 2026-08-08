@@ -21,7 +21,7 @@ const BU_COMPONENTS: ComponentConfig[] = [
   {
     name: "WidgetPlaceholder",
     snippet:
-      '<WidgetPlaceholder id="${1:widget-id}" type="${2:widget-type}" />',
+      'WidgetPlaceholder id="${1:widget-id}" type="${2:widget-type}" />',
     detail: "Streak WidgetPlaceholder Component",
     documentation:
       "Specifies a placeholder where a widget will be injected dynamically.",
@@ -29,7 +29,7 @@ const BU_COMPONENTS: ComponentConfig[] = [
   {
     name: "Script",
     snippet: [
-      "<Script",
+      "Script",
       '  id="${1:my-script}"',
       "  options={{",
       '    ${2:color}: "${3:#818cf8}",',
@@ -47,14 +47,14 @@ const BU_COMPONENTS: ComponentConfig[] = [
   },
   {
     name: "Preload",
-    snippet: '<Preload href="${1:/style.css}" as="${2:style}" />',
+    snippet: 'Preload href="${1:/style.css}" as="${2:style}" />',
     detail: "Streak Asset Preload Component",
     documentation:
       "Preloads static resources (e.g., styles, scripts, fonts, images) during build-time.",
   },
   {
     name: "Dynamic",
-    snippet: ['<Dynamic id="${1:dynamic-id}">', "  $2", "</Dynamic>"].join(
+    snippet: ['Dynamic id="${1:dynamic-id}">', "  $2", "</Dynamic>"].join(
       "\n",
     ),
     detail: "Streak Dynamic Injected Component",
@@ -301,7 +301,7 @@ export function getFrameworkCompletions(
         kind: CompletionItemKind.Snippet,
         insertTextFormat: InsertTextFormat.Snippet,
         insertText: comp.snippet,
-        detail: comp.detail,
+        detail: `${comp.detail} (Snippet)`,
         documentation: comp.documentation,
         additionalTextEdits: autoImports,
       };
