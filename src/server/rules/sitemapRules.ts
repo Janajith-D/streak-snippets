@@ -146,6 +146,34 @@ function validatePageHandler(page: SitemapPage, document: TextDocument, workspac
   }
 }
 
+function validatePageLayout(page: SitemapPage, document: TextDocument, workspaceRoot: string, diagnostics: Diagnostic[]) {
+  if (page.layout && page.layoutStart !== undefined && page.layoutEnd !== undefined) {
+    const layoutName = page.layout;
+    const layoutDir = path.join(workspaceRoot, "src", "layouts");
+    let found = false;
+    for (const ext of [".ts", ".js", ".tsx", ".jsx"]) {
+      if (fs.existsSync(path.join(layoutDir, `${layoutName}${ext}`))) {
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      const range = {
+        start: document.positionAt(page.layoutStart),
+        end: document.positionAt(page.layoutEnd),
+      };
+      diagnostics.push({
+        code: "streak:S906",
+        message: `Layout "${layoutName}" does not exist.`,
+        range,
+        severity: DiagnosticSeverity.Error,
+        source: "Streak Engine",
+      });
+    }
+  }
+}
+
 export function validateSitemap(
   document: TextDocument,
   workspaceRoot: string,
@@ -164,6 +192,7 @@ export function validateSitemap(
     collectRenderId(page, seenRenderIds);
     validatePageWidgets(page, document, diagnostics);
     validatePageHandler(page, document, workspaceRoot, diagnostics);
+    validatePageLayout(page, document, workspaceRoot, diagnostics);
   }
 
   reportDuplicateUrls(seenUrls, document, diagnostics);

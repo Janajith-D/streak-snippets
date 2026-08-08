@@ -146,7 +146,7 @@ connection.onHover((params): Hover | null => {
   }
   const offset = document.offsetAt(params.position);
 
-  if (uri.endsWith("streak.sitemap.json")) {
+  if (uri.endsWith("sitemap.json")) {
     if (!workspaceRoot) {
       return null;
     }
@@ -171,7 +171,7 @@ connection.onDefinition(async (params) => {
   }
   const offset = document.offsetAt(params.position);
 
-  if (uri.endsWith("streak.sitemap.json")) {
+  if (uri.endsWith("sitemap.json")) {
     if (!workspaceRoot) {
       return null;
     }
@@ -213,7 +213,7 @@ connection.onDefinition(async (params) => {
 });
 
 function resolveWidgetNameAtOffset(uri: string, document: TextDocument, offset: number): string {
-  if (uri.endsWith("streak.sitemap.json")) {
+  if (uri.endsWith("sitemap.json")) {
     const pages = sitemapRegistry.getPages();
     for (const page of pages) {
       for (const w of page.widgets) {
@@ -431,7 +431,7 @@ async function validateDocument(document: TextDocument): Promise<void> {
 
   connection.console.log(`[Validation] Running diagnostics for: ${uri}`);
 
-  if (uri.endsWith("streak.sitemap.json")) {
+  if (uri.endsWith("sitemap.json")) {
     if (workspaceRoot) {
       const diagnostics = validateSitemap(document, workspaceRoot);
       await connection.sendDiagnostics({ uri, diagnostics });

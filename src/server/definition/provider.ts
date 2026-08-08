@@ -326,6 +326,32 @@ function findSitemapHandlerDefinition(
   return null;
 }
 
+function findSitemapLayoutDefinition(
+  page: SitemapPage,
+  offset: number,
+  workspaceRoot: string,
+): Location | null {
+  if (
+    page.layout &&
+    page.layoutStart !== undefined &&
+    page.layoutEnd !== undefined &&
+    offset >= page.layoutStart &&
+    offset <= page.layoutEnd
+  ) {
+    const layoutDir = path.join(workspaceRoot, "src", "layouts");
+    for (const ext of [".ts", ".js", ".tsx", ".jsx"]) {
+      const fullPath = path.join(layoutDir, `${page.layout}${ext}`);
+      if (fs.existsSync(fullPath)) {
+        return Location.create(
+          pathToFileURL(fullPath).toString(),
+          Range.create(0, 0, 0, 0),
+        );
+      }
+    }
+  }
+  return null;
+}
+
 export function resolveSitemapDefinition(
   _document: TextDocument,
   offset: number,
@@ -341,6 +367,10 @@ export function resolveSitemapDefinition(
     const handlerLoc = findSitemapHandlerDefinition(page, offset, workspaceRoot);
     if (handlerLoc) {
       return handlerLoc;
+    }
+    const layoutLoc = findSitemapLayoutDefinition(page, offset, workspaceRoot);
+    if (layoutLoc) {
+      return layoutLoc;
     }
   }
   return null;

@@ -65,7 +65,7 @@ export function getCompletions(
   customWidgetDir?: string,
   customPublicDir?: string,
 ): CompletionItem[] {
-  if (context.uri.endsWith("streak.sitemap.json")) {
+  if (context.uri.endsWith("sitemap.json")) {
     return getSitemapCompletions(context);
   }
 

@@ -1544,17 +1544,21 @@ suite("Extension Test Suite", () => {
 
   // ── Phase 14 Sitemap Awareness Tests ────────────────────────────────────
 
-  test("Sitemap parser correctly parses JSON structure and preserves offsets", () => {
+  test("Sitemap parser parses JSON sitemaps with layouts and nested renderConfig formats", () => {
     const json = `{
       "pages": [
         {
           "url": "/about",
-          "handler": "about-handler",
-          "widgets": [
-            {
-              "type": "HelloBanner"
-            }
-          ]
+          "renderConfig": {
+            "renderId": "homeRenderId",
+            "dataHandler": "about-handler",
+            "rootLayout": "MainLayout",
+            "widgets": [
+              {
+                "type": "HelloBanner"
+              }
+            ]
+          }
         }
       ]
     }`;
@@ -1564,18 +1568,20 @@ suite("Extension Test Suite", () => {
     assert.strictEqual(pages.length, 1);
     assert.strictEqual(pages[0].url, "/about");
     assert.strictEqual(pages[0].handler, "about-handler");
+    assert.strictEqual(pages[0].layout, "MainLayout");
     assert.strictEqual(pages[0].widgets.length, 1);
     assert.strictEqual(pages[0].widgets[0].type, "HelloBanner");
     assert.ok(pages[0].widgets[0].start > 0);
   });
 
-  test("validateSitemap flags duplicate routes, missing widgets, missing handlers, and duplicate renderConfigIDs", () => {
+  test("validateSitemap flags duplicate routes, missing widgets, missing handlers, duplicate renderConfigIDs, and missing layouts", () => {
     const json = `{
       "pages": [
         {
           "url": "/about",
           "renderConfigID": "about-page",
           "handler": "about-handler",
+          "layout": "MissingLayout",
           "widgets": [
             {
               "type": "MissingWidget"
@@ -1603,25 +1609,30 @@ suite("Extension Test Suite", () => {
     const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
     const diags = validateSitemap(doc, "/workspace");
 
-    // S901 (duplicate route "/about"), S902 (missing widget "MissingWidget"), S903 (missing handler "about-handler" and "other-handler"), S905 (duplicate renderConfigID "about-page")
-    assert.ok(diags.length >= 6);
+    // S901 (duplicate route "/about"), S902 (missing widget "MissingWidget"), S903 (missing handler "about-handler" and "other-handler"), S905 (duplicate renderConfigID "about-page"), S906 (missing layout "MissingLayout")
+    assert.ok(diags.length >= 7);
     assert.ok(diags.some((d) => d.code === "streak:S901"));
     assert.ok(diags.some((d) => d.code === "streak:S902"));
     assert.ok(diags.some((d) => d.code === "streak:S903"));
     assert.ok(diags.some((d) => d.code === "streak:S905"));
+    assert.ok(diags.some((d) => d.code === "streak:S906"));
   });
 
-  test("resolveSitemapDefinition navigates to widget and handler files", () => {
+  test("resolveSitemapDefinition navigates to widget, handler, and layout files", () => {
     const json = `{
       "pages": [
         {
           "url": "/about",
-          "handler": "about-handler",
-          "widgets": [
-            {
-              "type": "HelloBanner"
-            }
-          ]
+          "renderConfig": {
+            "renderId": "about-page",
+            "dataHandler": "about-handler",
+            "rootLayout": "MainLayout",
+            "widgets": [
+              {
+                "type": "HelloBanner"
+              }
+            ]
+          }
         }
       ]
     }`;
@@ -1630,12 +1641,15 @@ suite("Extension Test Suite", () => {
     const tempRoot = path.join(__dirname, `temp_sitemap_test_${Date.now()}`).replaceAll("\\", "/");
     const widgetsDir = path.join(tempRoot, "src", "widgets");
     const handlersDir = path.join(tempRoot, "src", "handlers");
+    const layoutsDir = path.join(tempRoot, "src", "layouts");
 
     fs.mkdirSync(widgetsDir, { recursive: true });
     fs.mkdirSync(handlersDir, { recursive: true });
+    fs.mkdirSync(layoutsDir, { recursive: true });
 
     fs.writeFileSync(path.join(widgetsDir, "HelloBanner.tsx"), "export default function HelloBanner() {}");
     fs.writeFileSync(path.join(handlersDir, "about-handler.ts"), "export default function aboutHandler() {}");
+    fs.writeFileSync(path.join(layoutsDir, "MainLayout.tsx"), "export default function MainLayout() {}");
 
     try {
       const sitemapPath = path.join(tempRoot, "streak.sitemap.json");
@@ -1652,6 +1666,12 @@ suite("Extension Test Suite", () => {
       const handlerLoc = resolveSitemapDefinition(doc, handlerOffset, tempRoot);
       assert.ok(handlerLoc);
       assert.ok(handlerLoc.uri.includes("about-handler.ts"));
+
+      // Find offset of "MainLayout"
+      const layoutOffset = json.indexOf("MainLayout") + 2;
+      const layoutLoc = resolveSitemapDefinition(doc, layoutOffset, tempRoot);
+      assert.ok(layoutLoc);
+      assert.ok(layoutLoc.uri.includes("MainLayout.tsx"));
     } finally {
       fs.rmSync(tempRoot, { recursive: true, force: true });
     }

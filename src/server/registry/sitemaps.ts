@@ -150,6 +150,9 @@ export interface SitemapPage {
   handler?: string;
   handlerStart?: number;
   handlerEnd?: number;
+  layout?: string;
+  layoutStart?: number;
+  layoutEnd?: number;
   widgets: SitemapPageWidget[];
   start: number;
   end: number;
@@ -177,34 +180,42 @@ function parseWidgets(widgetsNode: JSONNode | undefined): SitemapPageWidget[] {
   return widgets;
 }
 
-function parseRenderId(props: Record<string, { keyNode: JSONNode; valNode: JSONNode }>): {
+interface ParsedRenderConfig {
   renderId?: string;
   renderIdStart?: number;
   renderIdEnd?: number;
-} {
-  const renderConfigIdNode = props["renderConfigID"]?.valNode;
-  if (renderConfigIdNode?.type === "string") {
-    return {
-      renderId: renderConfigIdNode.value as string,
-      renderIdStart: renderConfigIdNode.start,
-      renderIdEnd: renderConfigIdNode.end,
-    };
-  }
+  handler?: string;
+  handlerStart?: number;
+  handlerEnd?: number;
+  layout?: string;
+  layoutStart?: number;
+  layoutEnd?: number;
+  widgets?: SitemapPageWidget[];
+}
 
+function parseRenderConfig(props: Record<string, { keyNode: JSONNode; valNode: JSONNode }>): ParsedRenderConfig {
   const renderConfigNode = props["renderConfig"]?.valNode;
-  if (renderConfigNode?.type === "object") {
-    const renderConfigProps = renderConfigNode.value as Record<string, { keyNode: JSONNode; valNode: JSONNode }>;
-    const renderIdNode = renderConfigProps["renderId"]?.valNode;
-    if (renderIdNode?.type === "string") {
-      return {
-        renderId: renderIdNode.value as string,
-        renderIdStart: renderIdNode.start,
-        renderIdEnd: renderIdNode.end,
-      };
-    }
+  if (renderConfigNode?.type !== "object") {
+    return {};
   }
+  const subProps = renderConfigNode.value as Record<string, { keyNode: JSONNode; valNode: JSONNode }>;
+  const renderIdNode = subProps["renderId"]?.valNode;
+  const handlerNode = subProps["dataHandler"]?.valNode;
+  const layoutNode = subProps["rootLayout"]?.valNode;
+  const widgetsNode = subProps["widgets"]?.valNode;
 
-  return {};
+  return {
+    renderId: renderIdNode?.type === "string" ? (renderIdNode.value as string) : undefined,
+    renderIdStart: renderIdNode?.start,
+    renderIdEnd: renderIdNode?.end,
+    handler: handlerNode?.type === "string" ? (handlerNode.value as string) : undefined,
+    handlerStart: handlerNode?.start,
+    handlerEnd: handlerNode?.end,
+    layout: layoutNode?.type === "string" ? (layoutNode.value as string) : undefined,
+    layoutStart: layoutNode?.start,
+    layoutEnd: layoutNode?.end,
+    widgets: parseWidgets(widgetsNode),
+  };
 }
 
 function parsePageNode(pageNode: JSONNode): SitemapPage | null {
@@ -213,11 +224,31 @@ function parsePageNode(pageNode: JSONNode): SitemapPage | null {
   }
   const props = pageNode.value as Record<string, { keyNode: JSONNode; valNode: JSONNode }>;
   const urlNode = props["url"]?.valNode;
-  const handlerNode = props["handler"]?.valNode;
-  const widgetsNode = props["widgets"]?.valNode;
+  
+  // Try top-level properties first
+  const topHandlerNode = props["handler"]?.valNode;
+  const topLayoutNode = props["layout"]?.valNode;
+  const topWidgetsNode = props["widgets"]?.valNode;
+  const renderConfigIdNode = props["renderConfigID"]?.valNode;
 
-  const widgets = parseWidgets(widgetsNode);
-  const { renderId, renderIdStart, renderIdEnd } = parseRenderId(props);
+  const topWidgets = parseWidgets(topWidgetsNode);
+
+  // Try nested renderConfig properties
+  const config = parseRenderConfig(props);
+
+  const renderId = renderConfigIdNode?.type === "string" ? (renderConfigIdNode.value as string) : config.renderId;
+  const renderIdStart = renderConfigIdNode ? renderConfigIdNode.start : config.renderIdStart;
+  const renderIdEnd = renderConfigIdNode ? renderConfigIdNode.end : config.renderIdEnd;
+
+  const handler = topHandlerNode?.type === "string" ? (topHandlerNode.value as string) : config.handler;
+  const handlerStart = topHandlerNode ? topHandlerNode.start : config.handlerStart;
+  const handlerEnd = topHandlerNode ? topHandlerNode.end : config.handlerEnd;
+
+  const layout = topLayoutNode?.type === "string" ? (topLayoutNode.value as string) : config.layout;
+  const layoutStart = topLayoutNode ? topLayoutNode.start : config.layoutStart;
+  const layoutEnd = topLayoutNode ? topLayoutNode.end : config.layoutEnd;
+
+  const widgets = topWidgets.length > 0 ? topWidgets : (config.widgets || []);
 
   return {
     url: urlNode?.type === "string" ? (urlNode.value as string) : undefined,
@@ -226,9 +257,12 @@ function parsePageNode(pageNode: JSONNode): SitemapPage | null {
     renderId,
     renderIdStart,
     renderIdEnd,
-    handler: handlerNode?.type === "string" ? (handlerNode.value as string) : undefined,
-    handlerStart: handlerNode?.start,
-    handlerEnd: handlerNode?.end,
+    handler,
+    handlerStart,
+    handlerEnd,
+    layout,
+    layoutStart,
+    layoutEnd,
     widgets,
     start: pageNode.start,
     end: pageNode.end,

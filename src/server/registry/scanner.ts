@@ -275,7 +275,11 @@ export async function scanWorkspace(
     }
   }
 
-  const sitemapPath = path.join(workspaceRoot, "streak.sitemap.json");
+  let sitemapPath = path.join(workspaceRoot, "streak.sitemap.json");
+  if (!fs.existsSync(sitemapPath)) {
+    sitemapPath = path.join(workspaceRoot, "sitemap.json");
+  }
+
   if (fs.existsSync(sitemapPath)) {
     try {
       const text = fs.readFileSync(sitemapPath, "utf-8");
