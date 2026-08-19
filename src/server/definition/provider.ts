@@ -3,6 +3,8 @@ import { Location, Range } from "vscode-languageserver/node";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import { pathToFileURL } from "node:url";
+import { sitemapRegistry, type SitemapPage } from "../registry/sitemaps";
+import { type TextDocument } from "vscode-languageserver-textdocument";
 
 // Single shared project to avoid redundant ts-morph Project creation overhead
 const defProject = new Project({
@@ -282,4 +284,100 @@ export async function resolveDefinition(
     customWidgetDir,
     customPublicDir,
   );
+}
+
+function findSitemapWidgetDefinition(
+  page: SitemapPage,
+  offset: number,
+  workspaceRoot: string,
+  customWidgetDir: string,
+): Location | null {
+  for (const w of page.widgets) {
+    if (offset >= w.start && offset <= w.end) {
+      return resolveWidgetTypeDefinition(w.type, workspaceRoot, customWidgetDir);
+    }
+  }
+  return null;
+}
+
+function findSitemapHandlerDefinition(
+  page: SitemapPage,
+  offset: number,
+  workspaceRoot: string,
+): Location | null {
+  if (
+    page.handler &&
+    page.handlerStart !== undefined &&
+    page.handlerEnd !== undefined &&
+    offset >= page.handlerStart &&
+    offset <= page.handlerEnd
+  ) {
+    const candidateDirs = [
+      path.join(workspaceRoot, "src", "handler"),
+      path.join(workspaceRoot, "src", "handlers"),
+    ];
+    for (const dir of candidateDirs) {
+      const fullPath = path.join(dir, `${page.handler}.ts`);
+      if (fs.existsSync(fullPath)) {
+        return Location.create(
+          pathToFileURL(fullPath).toString(),
+          Range.create(0, 0, 0, 0),
+        );
+      }
+    }
+  }
+  return null;
+}
+
+function findSitemapLayoutDefinition(
+  page: SitemapPage,
+  offset: number,
+  workspaceRoot: string,
+): Location | null {
+  if (
+    page.layout &&
+    page.layoutStart !== undefined &&
+    page.layoutEnd !== undefined &&
+    offset >= page.layoutStart &&
+    offset <= page.layoutEnd
+  ) {
+    const candidateDirs = [
+      path.join(workspaceRoot, "src", "layout"),
+      path.join(workspaceRoot, "src", "layouts"),
+    ];
+    for (const dir of candidateDirs) {
+      const fullPath = path.join(dir, `${page.layout}.tsx`);
+      if (fs.existsSync(fullPath)) {
+        return Location.create(
+          pathToFileURL(fullPath).toString(),
+          Range.create(0, 0, 0, 0),
+        );
+      }
+    }
+  }
+  return null;
+}
+
+export function resolveSitemapDefinition(
+  _document: TextDocument,
+  offset: number,
+  workspaceRoot: string,
+  customWidgetDir = "src/widgets",
+): Location | null {
+  const pages = sitemapRegistry.getPages();
+  for (const page of pages) {
+    const widgetLoc = findSitemapWidgetDefinition(page, offset, workspaceRoot, customWidgetDir);
+    if (widgetLoc) {
+      return widgetLoc;
+    }
+    const handlerLoc = findSitemapHandlerDefinition(page, offset, workspaceRoot);
+    if (handlerLoc) {
+      return handlerLoc;
+    }
+    const layoutLoc = findSitemapLayoutDefinition(page, offset, workspaceRoot);
+    if (layoutLoc) {
+      return layoutLoc;
+    }
+  }
+  return null;
 }

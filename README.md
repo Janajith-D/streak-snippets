@@ -17,12 +17,15 @@ Quick import shortcuts — type the prefix and press `Tab`:
 | `imPre` | `import { Preload } from "streak-forge/components";` |
 | `imDy` | `import { Dynamic } from "streak-forge/components";` |
 
-### `.tsx` — JSX Scaffold Snippets
+### `.tsx` — JSX & Component Scaffold Snippets
 
-| Prefix | Expands To |
+| Prefix | Description / Expands To |
 |---|---|
 | `sfWp` | `<WidgetPlaceholder id=".." type=".." />` |
 | `sfPre` | `<Preload href="/styles/tailwind.css" as="style" media="" />` |
+| `sfS` | Client-side `<Script>` component with isolated `(gDom, options)` callback |
+| `sfWid` | Basic widget function component scaffolding with props interface (`src/widgets/`) |
+| `sfWidE` | Typed widget component scaffolding with sample structure (`src/widgets/`) |
 
 ### `.ts` — Scaffold Snippets
 
@@ -30,31 +33,26 @@ Quick import shortcuts — type the prefix and press `Tab`:
 |---|---|
 | `sfDH` | Data handler function with status, widget data objects, and default export |
 
+### `streak.sitemap.json` — Sitemap Snippets
+
+| Prefix | Description / Expands To |
+|---|---|
+| `sf-widget` | Sitemap widget configuration entry (`{ "id": "...", "type": "..." }`) |
+| `sf-sitemap` | Complete sitemap page route template with `renderConfig`, handler, layout, and widgets |
+
 ---
 
 ### Real-Time Validation & Diagnostics (LSP Engine)
 
-The extension includes a Language Server Protocol (LSP) analysis engine that parses `.ts` and `.tsx` files in real time and reports SonarQube-style diagnostics in the **Problems** panel:
+The extension includes a Language Server Protocol (LSP) analysis engine that parses framework files (`.ts`, `.tsx`, and `streak.sitemap.json`) in real time, reporting diagnostics directly in the **Problems** panel:
 
-| Rule Key | Category | Severity | Description |
-|---|---|---|---|
-| `streak:S101` | Widget Component | Error | `<WidgetPlaceholder>` missing `id` attribute |
-| `streak:S102` | Widget Component | Error | `<WidgetPlaceholder>` missing `type` attribute |
-| `streak:S201` | Data Handler | Warning | Data handler missing `status` return property |
-| `streak:S202` | Data Handler | Error | Data handler function must be `async` |
-| `streak:S203` | Data Handler | Warning | Data handler `status` must be a valid HTTP status code |
-| `streak:S301` | Framework Syntax | Warning | Missing `export default` declaration |
-| `streak:S302` | Widget Component | Error | React runtime hooks (`useState`, `useEffect`) not allowed in static widgets |
-| `streak:S303` | Widget Component | Error | Unsafe `props.data` property access |
-| `streak:S304` | Widget Component | Warning | Widget props interface should define `data` as optional (`data?: T`) |
-| `streak:S401` | Script Component | Error | Closure variable capture in `<Script>` callbacks |
-| `streak:S402` | Script Component | Error | Invalid `<Script>` callback signature |
-| `streak:S403` | Script Component | Error | Module imports/`require` inside `<Script>` callbacks |
-| `streak:S404` | Script Component | Error | Async `<Script>` callback functions |
-| `streak:S405` | Script Component | Warning | Script component requires a non-empty `id` attribute |
-| `streak:S501` | Dynamic Component | Error | Missing or empty `id` attribute on `<Dynamic>` |
+- **Widget Components (`streak:S101`–`S102`, `S302`–`S304`, `S801`)**: Enforces required attributes, stateless widgets, safe `props.data` access, and component naming alignment.
+- **Data Handlers (`streak:S201`–`S203`)**: Enforces `async` exports, `status` properties, and valid HTTP response codes.
+- **Script & Dynamic Components (`streak:S401`–`S405`, `S501`, `S602`–`S603`)**: Validates closure scope isolation, client signatures, and dynamic IDs.
+- **Imports & Security (`streak:S701`–`S702`)**: Whitelist enforcement and forbidden code patterns.
+- **Sitemap & Navigation (`streak:S901`–`S906`)**: Validates unique routes/renderIds, widget references, `.ts` data handlers, and `.tsx` root layouts.
 
-> For detailed descriptions, rationale, and ❌/✅ code examples for every rule, refer to the [Rule Catalog (`docs/RULES.md`)](docs/RULES.md).
+> 📖 For full descriptions, rationale, and ❌/✅ code examples for all 20 rules, see the comprehensive [**Rule Catalog (`docs/RULES.md`)**](docs/RULES.md).
 
 ---
 

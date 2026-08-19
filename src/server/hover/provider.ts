@@ -1,7 +1,11 @@
-import { Node } from "ts-morph";
+import { Node, Project, ScriptTarget, SyntaxKind, type SourceFile } from "ts-morph";
 import { type Hover } from "vscode-languageserver/node";
 import { GDOM_METHODS } from "../completion/runtimeApi";
 import { type WidgetMetadata, widgetRegistry } from "../registry/widgets";
+import { sitemapRegistry, type SitemapPage } from "../registry/sitemaps";
+import { type TextDocument } from "vscode-languageserver-textdocument";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 // ── Private helpers ───────────────────────────────────────────────────────────
 
@@ -361,4 +365,229 @@ export function resolveHover(node: Node): Hover | null {
     resolveGDomMethodHover(node) ??
     resolvePropsDataHover(node)
   );
+}
+
+const handlerProj = new Project({
+  compilerOptions: {
+    target: ScriptTarget.ES2022,
+    allowJs: true,
+  },
+});
+
+function getScriptsCount(widgetPath: string): number {
+  try {
+    if (fs.existsSync(widgetPath)) {
+      const content = fs.readFileSync(widgetPath, "utf-8");
+      const matches = content.match(/<Script\b/g);
+      return matches ? matches.length : 0;
+    }
+  } catch {
+    // ignore
+  }
+  return 0;
+}
+
+function getFallbackWidgetDataFields(widgetName: string): string[] {
+  const widget = widgetRegistry.get(widgetName);
+  if (!widget) {
+    return [];
+  }
+  const dataProp = widget.props.find((p) => p.name === "data");
+  if (!dataProp) {
+    return [];
+  }
+  const fields = dataProp.type.match(/\b\w+\b/g) || [];
+  const stopWords = new Set([
+    "string",
+    "number",
+    "boolean",
+    "undefined",
+    "null",
+    "any",
+    "unknown",
+    "object",
+  ]);
+  return Array.from(new Set(fields.filter((f) => !stopWords.has(f))));
+}
+
+function findHandlerPath(handlerName: string, workspaceRoot: string): string {
+  const handlerDir = path.join(workspaceRoot, "src", "handlers");
+  for (const ext of [".ts", ".js", ".tsx", ".jsx"]) {
+    const full = path.join(handlerDir, `${handlerName}${ext}`);
+    if (fs.existsSync(full)) {
+      return full;
+    }
+  }
+  return "";
+}
+
+function findFuncNodeFromDefaultExport(
+  decl: Node,
+  sourceFile: SourceFile,
+): Node | undefined {
+  if (!Node.isExportAssignment(decl)) {
+    return decl;
+  }
+  const expr = decl.getExpression();
+  if (expr && Node.isIdentifier(expr)) {
+    const varDecl = sourceFile.getVariableDeclaration(expr.getText());
+    const init = varDecl?.getInitializer();
+    if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
+      return init;
+    }
+  }
+  return undefined;
+}
+
+function extractPropertiesFromReturnStatements(funcNode: Node, widgetName: string): string[] {
+  const fields: string[] = [];
+  if (
+    !Node.isFunctionDeclaration(funcNode) &&
+    !Node.isArrowFunction(funcNode) &&
+    !Node.isFunctionExpression(funcNode)
+  ) {
+    return fields;
+  }
+
+  const returnStatements = funcNode.getDescendantsOfKind(SyntaxKind.ReturnStatement);
+  for (const ret of returnStatements) {
+    const expr = ret.getExpression();
+    if (expr && Node.isObjectLiteralExpression(expr)) {
+      const prop = expr.getProperty(widgetName);
+      if (prop && Node.isPropertyAssignment(prop)) {
+        const val = prop.getInitializer();
+        if (val && Node.isObjectLiteralExpression(val)) {
+          for (const p of val.getProperties()) {
+            if (Node.isPropertyAssignment(p) || Node.isShorthandPropertyAssignment(p)) {
+              fields.push(p.getName());
+            }
+          }
+        }
+      }
+    }
+  }
+  return fields;
+}
+
+function extractFieldsFromHandlerFile(handlerPath: string, widgetName: string): string[] {
+  try {
+    const content = fs.readFileSync(handlerPath, "utf-8");
+    const tempName = `temp_handler_${Date.now()}.ts`;
+    const sourceFile = handlerProj.createSourceFile(tempName, content);
+
+    let fields: string[] = [];
+    const defaultExport = sourceFile.getDefaultExportSymbol();
+    if (defaultExport) {
+      const decl = defaultExport.getDeclarations()[0];
+      if (decl) {
+        const funcNode = findFuncNodeFromDefaultExport(decl, sourceFile);
+        if (funcNode) {
+          fields = extractPropertiesFromReturnStatements(funcNode, widgetName);
+        }
+      }
+    }
+
+    sourceFile.delete();
+    return fields;
+  } catch {
+    return [];
+  }
+}
+
+function getHandlerDataFields(
+  handlerName: string,
+  widgetName: string,
+  workspaceRoot: string,
+): string[] {
+  const handlerPath = findHandlerPath(handlerName, workspaceRoot);
+  if (!handlerPath) {
+    return getFallbackWidgetDataFields(widgetName);
+  }
+  return extractFieldsFromHandlerFile(handlerPath, widgetName);
+}
+
+function resolveSitemapWidgetHover(
+  page: SitemapPage,
+  offset: number,
+  workspaceRoot: string,
+  pages: SitemapPage[],
+): Hover | null {
+  for (const w of page.widgets) {
+    if (offset >= w.start && offset <= w.end) {
+      const widget = widgetRegistry.get(w.type);
+      const widgetRelPath = widget
+        ? path.relative(workspaceRoot, widget.filePath).replaceAll("\\", "/")
+        : `src/widgets/${w.type}.tsx`;
+
+      const usageCount = pages.filter((p) =>
+        p.widgets.some((pw: { type: string }) => pw.type === w.type),
+      ).length;
+      const scriptsCount = widget ? getScriptsCount(widget.filePath) : 0;
+      const handlerName = page.handler || "";
+      const handlerData = getHandlerDataFields(handlerName, w.type, workspaceRoot);
+
+      const hoverLines = [
+        `Widget: ${w.type}`,
+        "",
+        `File:`,
+        `${widgetRelPath}`,
+        "",
+        `Default Export:`,
+        `${w.type}`,
+        "",
+        `Used By:`,
+        `${usageCount} pages`,
+        "",
+        `Scripts:`,
+        `${scriptsCount}`,
+        "",
+        `Handler Data:`,
+        handlerData.length > 0 ? handlerData.join("\n") : "None",
+      ];
+
+      return mkHover(hoverLines.join("\n"));
+    }
+  }
+  return null;
+}
+
+function resolveSitemapPageHover(page: SitemapPage, offset: number): Hover | null {
+  if (offset >= page.start && offset <= page.end) {
+    const hoverLines = [
+      `Route:`,
+      `${page.url || "None"}`,
+      "",
+      `Widgets:`,
+      page.widgets.length > 0
+        ? page.widgets.map((w: { type: string }) => w.type).join("\n")
+        : "None",
+      "",
+      `Handler:`,
+      `${page.handler || "None"}`,
+      "",
+      `Total Widgets:`,
+      `${page.widgets.length}`,
+    ];
+    return mkHover(hoverLines.join("\n"));
+  }
+  return null;
+}
+
+export function resolveSitemapHover(
+  _document: TextDocument,
+  offset: number,
+  workspaceRoot: string,
+): Hover | null {
+  const pages = sitemapRegistry.getPages();
+  for (const page of pages) {
+    const widgetHover = resolveSitemapWidgetHover(page, offset, workspaceRoot, pages);
+    if (widgetHover) {
+      return widgetHover;
+    }
+    const pageHover = resolveSitemapPageHover(page, offset);
+    if (pageHover) {
+      return pageHover;
+    }
+  }
+  return null;
 }

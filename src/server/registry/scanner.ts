@@ -2,6 +2,7 @@ import { Node, Project, ScriptTarget, SyntaxKind } from "ts-morph";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import { type WidgetProp, widgetRegistry } from "./widgets";
+import { sitemapRegistry } from "./sitemaps";
 
 // Single shared compiler project instance to avoid redundant instantiation overhead
 const scanProject = new Project({
@@ -263,6 +264,7 @@ export async function scanWorkspace(
   const dirs = [resolvedWidgetDir, fallbackWidgetDir];
 
   widgetRegistry.clear();
+  sitemapRegistry.clear();
 
   for (const dir of dirs) {
     if (fs.existsSync(dir)) {
@@ -270,6 +272,20 @@ export async function scanWorkspace(
       for (const file of files) {
         await scanFile(file);
       }
+    }
+  }
+
+  let sitemapPath = path.join(workspaceRoot, "streak.sitemap.json");
+  if (!fs.existsSync(sitemapPath)) {
+    sitemapPath = path.join(workspaceRoot, "sitemap.json");
+  }
+
+  if (fs.existsSync(sitemapPath)) {
+    try {
+      const text = fs.readFileSync(sitemapPath, "utf-8");
+      sitemapRegistry.parseAndRegister(sitemapPath, text);
+    } catch {
+      // ignore
     }
   }
 }

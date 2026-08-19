@@ -1,4 +1,4 @@
-import { type Hover, type MarkupContent, type Diagnostic } from "vscode-languageserver/node";
+import { type Hover, type MarkupContent, type Diagnostic, DiagnosticSeverity } from "vscode-languageserver/node";
 import * as assert from "assert";
 import * as path from "node:path";
 import * as fs from "node:fs";
@@ -27,16 +27,19 @@ import { allowedImportsRule } from "../server/rules/allowedImportsRule";
 import { forbiddenPatternsRule } from "../server/rules/forbiddenPatternsRule";
 import { widgetFilenameMatchesComponentRule } from "../server/rules/widgetFilenameMatchesComponentRule";
 import { missingDefaultExportRule } from "../server/rules/missingDefaultExportRule";
+import { deadWidgetRule } from "../server/rules/deadWidgetRule";
+import { sitemapRegistry } from "../server/registry/sitemaps";
+import { validateSitemap } from "../server/rules/sitemapRules";
+import { resolveHover, resolveSitemapHover } from "../server/hover/provider";
+import { resolveDefinition, resolveSitemapDefinition } from "../server/definition/provider";
+import { resolveCodeActions } from "../server/codeaction/provider";
+import { widgetRegistry } from "../server/registry/widgets";
+import { scanWorkspace } from "../server/registry/scanner";
 import { getCompletions } from "../server/completion/provider";
 import { getJsxContext } from "../server/completion/jsxAttributeCompletions";
 import { getAutoImportEdit } from "../server/completion/frameworkCompletions";
 import { isInsideLoadDynamicComponent } from "../server/completion/scriptCompletions";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { resolveHover } from "../server/hover/provider";
-import { resolveDefinition } from "../server/definition/provider";
-import { resolveCodeActions } from "../server/codeaction/provider";
-import { widgetRegistry } from "../server/registry/widgets";
-import { scanWorkspace } from "../server/registry/scanner";
 
 suite("Extension Test Suite", () => {
   vscode.window.showInformationMessage("Start all tests.");
@@ -1307,7 +1310,7 @@ suite("Extension Test Suite", () => {
       code,
     );
 
-    // Test with default whitelist (allows "streak-forge/components", "react")
+    // Test with default whitelist (allows only "streak-forge/components")
     const diagsDefault = allowedImportsRule.run(
       sourceFile,
       {
@@ -1320,12 +1323,13 @@ suite("Extension Test Suite", () => {
       },
       {
         enabled: true,
-        ruleOptions: { allowedImports: ["streak-forge/components", "react"] },
       },
     );
-    assert.strictEqual(diagsDefault.length, 1);
+    assert.strictEqual(diagsDefault.length, 2);
     assert.strictEqual(diagsDefault[0].code, "streak:S701");
-    assert.ok(diagsDefault[0].message.includes("lodash"));
+    assert.ok(diagsDefault[0].message.includes("react"));
+    assert.strictEqual(diagsDefault[1].code, "streak:S701");
+    assert.ok(diagsDefault[1].message.includes("lodash"));
 
     // Test with lodash allowed
     const diagsCustom = allowedImportsRule.run(
@@ -1538,5 +1542,243 @@ suite("Extension Test Suite", () => {
     assert.ok(propsHover);
     assert.ok((propsHover.contents as MarkupContent).value.includes("Widget handler data."));
   });
+
+  // ── Phase 14 Sitemap Awareness Tests ────────────────────────────────────
+
+  test("Sitemap parser parses JSON sitemaps with layouts and nested renderConfig formats", () => {
+    const json = `{
+      "pages": [
+        {
+          "url": "/about",
+          "renderConfig": {
+            "renderId": "homeRenderId",
+            "dataHandler": "about-handler",
+            "rootLayout": "MainLayout",
+            "widgets": [
+              {
+                "type": "HelloBanner"
+              }
+            ]
+          }
+        }
+      ]
+    }`;
+
+    sitemapRegistry.parseAndRegister("file:///test/streak.sitemap.json", json);
+    const pages = sitemapRegistry.getPages();
+    assert.strictEqual(pages.length, 1);
+    assert.strictEqual(pages[0].url, "/about");
+    assert.strictEqual(pages[0].handler, "about-handler");
+    assert.strictEqual(pages[0].layout, "MainLayout");
+    assert.strictEqual(pages[0].widgets.length, 1);
+    assert.strictEqual(pages[0].widgets[0].type, "HelloBanner");
+    assert.ok(pages[0].widgets[0].start > 0);
+  });
+
+  test("validateSitemap flags duplicate routes, missing widgets, missing handlers, duplicate renderConfigIDs, missing layouts, and invalid loadingStrategy", () => {
+    const json = `[
+      {
+        "url": "/",
+        "renderConfig": {
+          "renderId": "homeRenderId",
+          "dataHandler": "HomeDataHandler",
+          "rootLayout": "MainLayout",
+          "widgets": [
+            { "id": "PageHead", "type": "MissingWidget", "loadingStrategy": "invalidStrategy" }
+          ]
+        }
+      },
+      {
+        "url": "/",
+        "renderConfig": {
+          "renderId": "homeRenderId",
+          "dataHandler": "MissingDataHandler",
+          "rootLayout": "MissingLayout",
+          "widgets": []
+        }
+      }
+    ]`;
+
+    const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
+    const diags = validateSitemap(doc, "/workspace");
+
+    // S901 (duplicate route "/"), S905 (duplicate renderId "homeRenderId"), S902 (missing widget warning), S903 (missing handler warning), S906 (missing layout warning), S907 (invalid loadingStrategy warning)
+    assert.ok(diags.length >= 7);
+    assert.ok(diags.some((d) => d.code === "streak:S901" && d.severity === DiagnosticSeverity.Error));
+    assert.ok(diags.some((d) => d.code === "streak:S905" && d.severity === DiagnosticSeverity.Error));
+    assert.ok(diags.some((d) => d.code === "streak:S902" && d.severity === DiagnosticSeverity.Warning));
+    assert.ok(diags.some((d) => d.code === "streak:S903" && d.severity === DiagnosticSeverity.Warning));
+    assert.ok(diags.some((d) => d.code === "streak:S906" && d.severity === DiagnosticSeverity.Warning));
+    assert.ok(diags.some((d) => d.code === "streak:S907" && d.severity === DiagnosticSeverity.Warning));
+  });
+
+  test("resolveSitemapDefinition navigates to widget, handler (.ts in src/handler), and layout (.tsx in src/layout) files", () => {
+    const json = `[
+      {
+        "url": "/",
+        "renderConfig": {
+          "renderId": "homeRenderId",
+          "dataHandler": "HomeDataHandler",
+          "rootLayout": "MainLayout",
+          "widgets": [
+            { "id": "banner1", "type": "HelloBanner" }
+          ]
+        }
+      }
+    ]`;
+    const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
+
+    const tempRoot = path.join(__dirname, `temp_sitemap_test_${Date.now()}`).replaceAll("\\", "/");
+    const widgetsDir = path.join(tempRoot, "src", "widgets");
+    const handlerDir = path.join(tempRoot, "src", "handler");
+    const layoutDir = path.join(tempRoot, "src", "layout");
+
+    fs.mkdirSync(widgetsDir, { recursive: true });
+    fs.mkdirSync(handlerDir, { recursive: true });
+    fs.mkdirSync(layoutDir, { recursive: true });
+
+    fs.writeFileSync(path.join(widgetsDir, "HelloBanner.tsx"), "export default function HelloBanner() {}");
+    fs.writeFileSync(path.join(handlerDir, "HomeDataHandler.ts"), "export default async function HomeDataHandler() { return { status: 200 }; }");
+    fs.writeFileSync(path.join(layoutDir, "MainLayout.tsx"), "export default function MainLayout() { return <div />; }");
+
+    try {
+      const sitemapPath = path.join(tempRoot, "streak.sitemap.json");
+      sitemapRegistry.parseAndRegister(sitemapPath, json);
+
+      // Find offset of "HelloBanner"
+      const typeOffset = json.indexOf("HelloBanner") + 2;
+      const defLoc = resolveSitemapDefinition(doc, typeOffset, tempRoot);
+      assert.ok(defLoc);
+      assert.ok(defLoc.uri.includes("HelloBanner.tsx"));
+
+      // Find offset of "HomeDataHandler"
+      const handlerOffset = json.indexOf("HomeDataHandler") + 2;
+      const handlerLoc = resolveSitemapDefinition(doc, handlerOffset, tempRoot);
+      assert.ok(handlerLoc);
+      assert.ok(handlerLoc.uri.includes("HomeDataHandler.ts"));
+
+      // Find offset of "MainLayout"
+      const layoutOffset = json.indexOf("MainLayout") + 2;
+      const layoutLoc = resolveSitemapDefinition(doc, layoutOffset, tempRoot);
+      assert.ok(layoutLoc);
+      assert.ok(layoutLoc.uri.includes("MainLayout.tsx"));
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("resolveSitemapHover displays sitemap summary and widget details", () => {
+    const json = `{
+      "pages": [
+        {
+          "url": "/about",
+          "handler": "about-handler",
+          "widgets": [
+            {
+              "type": "HelloBanner"
+            }
+          ]
+        }
+      ]
+    }`;
+    sitemapRegistry.parseAndRegister("file:///test/streak.sitemap.json", json);
+    const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
+
+    // Hover on page object boundaries
+    const hoverSummary = resolveSitemapHover(doc, json.indexOf("url") - 1, "/workspace") as Hover;
+    assert.ok(hoverSummary);
+    assert.ok((hoverSummary.contents as MarkupContent).value.includes("Route:"));
+    assert.ok((hoverSummary.contents as MarkupContent).value.includes("/about"));
+
+    // Hover on widget type
+    const hoverWidget = resolveSitemapHover(doc, json.indexOf("HelloBanner") + 2, "/workspace") as Hover;
+    assert.ok(hoverWidget);
+    assert.ok((hoverWidget.contents as MarkupContent).value.includes("Widget: HelloBanner"));
+  });
+
+  test("Sitemap autocomplete suggests widget names and sf-widget / sf-sitemap snippets", () => {
+    widgetRegistry.set("HelloBanner", {
+      name: "HelloBanner",
+      filePath: "file:///test/HelloBanner.tsx",
+      props: [],
+    });
+
+    const json = `"type": "`;
+    const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
+    const { sourceFile } = analyzeAndParseDocument("file:///test/dummy_completions.ts", "export default {}");
+
+    const items = getCompletions(
+      {
+        text: json,
+        uri: "file:///test/streak.sitemap.json",
+        offset: json.length,
+        line: 0,
+        character: json.length,
+      },
+      doc,
+      sourceFile,
+      "/workspace",
+    );
+    assert.ok(items.length >= 1);
+    assert.ok(items.some((i) => i.label === "HelloBanner"));
+
+    // Check sf-widget snippet
+    const jsonWidgetSnippet = "sf-w";
+    const docWidgetSnippet = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, jsonWidgetSnippet);
+    const itemsWidget = getCompletions(
+      {
+        text: jsonWidgetSnippet,
+        uri: "file:///test/streak.sitemap.json",
+        offset: jsonWidgetSnippet.length,
+        line: 0,
+        character: jsonWidgetSnippet.length,
+      },
+      docWidgetSnippet,
+      sourceFile,
+      "/workspace",
+    );
+    assert.ok(itemsWidget.some((i) => i.label === "sf-widget" && i.detail === "Streak Widget entry"));
+
+    // Check sf-sitemap snippet
+    const jsonSitemapSnippet = "sf-s";
+    const docSitemapSnippet = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, jsonSitemapSnippet);
+    const itemsSitemap = getCompletions(
+      {
+        text: jsonSitemapSnippet,
+        uri: "file:///test/streak.sitemap.json",
+        offset: jsonSitemapSnippet.length,
+        line: 0,
+        character: jsonSitemapSnippet.length,
+      },
+      docSitemapSnippet,
+      sourceFile,
+      "/workspace",
+    );
+    assert.ok(itemsSitemap.some((i) => i.label === "sf-sitemap" && i.detail === "Streak Sitemap"));
+  });
+
+  test("streak:S904 flags dead widgets not referenced by sitemap", () => {
+    const code = `
+      const UnusedWidget = () => { return <div />; };
+      export default UnusedWidget;
+    `;
+    const { sourceFile, analysis } = analyzeAndParseDocument("file:///workspace/src/widgets/UnusedWidget.tsx", code);
+    
+    // Set sitemap pages to HelloBanner only, so UnusedWidget is dead
+    sitemapRegistry.setPages("file:///test/streak.sitemap.json", [
+      {
+        url: "/home",
+        widgets: [{ type: "HelloBanner", start: 0, end: 10 }],
+        start: 0,
+        end: 100,
+      }
+    ]);
+
+    const diags = deadWidgetRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 1);
+    assert.strictEqual(diags[0].code, "streak:S904");
+    assert.strictEqual(diags[0].message, "Widget is not referenced by any sitemap page.");
+  });
 });
+
 

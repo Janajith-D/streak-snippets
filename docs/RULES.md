@@ -28,6 +28,13 @@ This document provides detailed SonarQube-style descriptions, rationale, and com
 | [`streak:S701`](#streaks701---allowed-imports) | Imports Control | Warning | Imports must belong to the approved allowed imports whitelist. |
 | [`streak:S702`](#streaks702---forbidden-patterns) | Security / Code Smell | Error | Banned code patterns matched by forbidden regular expressions. |
 | [`streak:S801`](#streaks801---widget-filename-matches-component) | Widget Component | Error | Widget filename and declared default component name must match. |
+| [`streak:S901`](#streaks901---duplicate-route-detected) | Sitemap / Routes | Error | Sitemap page routes (`url` values) must be unique. |
+| [`streak:S902`](#streaks902---referenced-widget-does-not-exist) | Sitemap / Registry | Warning | Referenced widget `type` in the sitemap must exist as a `.tsx` source file in `src/widgets/`. |
+| [`streak:S903`](#streaks903---referenced-handler-does-not-exist) | Sitemap / Registry | Warning | Referenced sitemap page `dataHandler` must exist as a `.ts` source file in `src/handler/` or `src/handlers/`. |
+| [`streak:S904`](#streaks904---dead-widget-detected) | Workspace Registry | Warning | Custom widgets should be referenced by at least one sitemap page. |
+| [`streak:S905`](#streaks905---duplicate-renderid-detected) | Sitemap / Registry | Error | Sitemap renderConfig `renderId` values must be unique. |
+| [`streak:S906`](#streaks906---referenced-layout-does-not-exist) | Sitemap / Registry | Warning | Referenced sitemap page `rootLayout` must exist as a `.tsx` source file in `src/layout/` or `src/layouts/`. |
+| [`streak:S907`](#streaks907---invalid-loading-strategy) | Sitemap / Widget | Warning | Widget `loadingStrategy` must be `"lazy"` if specified. |
 
 ---
 
@@ -517,7 +524,7 @@ Ensures component nesting constraints are respected. Standard Streak components 
 - **Source**: `Streak Engine`
 
 #### Description
-Restricts file imports to a whitelisted set of approved modules (e.g. `streak-forge/components`, `react`). Unapproved module imports are flagged as warnings.
+Restricts file imports to a whitelisted set of approved modules (default: `streak-forge/components`). Unapproved module imports are flagged as warnings.
 
 #### Non-compliant Code ❌
 ```tsx
@@ -526,7 +533,6 @@ import { someFunc } from "lodash";
 
 #### Compliant Code ✅
 ```tsx
-import { useState } from "react";
 import { WidgetPlaceholder } from "streak-forge/components";
 ```
 
@@ -579,4 +585,188 @@ const HelloBanner = () => {
 };
 export default HelloBanner;
 ```
+
+---
+
+### `streak:S901` — Duplicate Route Detected
+
+- **Category**: Sitemap / Routes
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+Ensures sitemap page routes (`url` values) are unique across the project. Duplicate routes conflict at runtime.
+
+#### Non-compliant Code ❌
+```json
+[
+  { "url": "/about", "handler": "about" },
+  { "url": "/about", "handler": "other" }
+]
+```
+
+#### Compliant Code ✅
+```json
+[
+  { "url": "/about", "handler": "about" },
+  { "url": "/contact", "handler": "contact" }
+]
+```
+
+---
+
+### `streak:S902` — Referenced Widget Does Not Exist
+
+- **Category**: Sitemap / Registry
+- **Severity**: `Warning`
+- **Source**: `Streak Engine`
+
+#### Description
+Ensures that all widget `type` values declared inside the sitemap match an existing custom widget `.tsx` source file inside `src/widgets/`.
+
+#### Non-compliant Code ❌
+```json
+{
+  "type": "NonExistentBanner"
+}
+```
+
+#### Compliant Code ✅
+```json
+{
+  "type": "HelloBanner"
+}
+```
+
+---
+
+### `streak:S903` — Referenced Handler Does Not Exist
+
+- **Category**: Sitemap / Registry
+- **Severity**: `Warning`
+- **Source**: `Streak Engine`
+
+#### Description
+Ensures that all page `dataHandler` (or `handler`) properties declared inside the sitemap match an existing `.ts` data handler source file inside `src/handler/` or `src/handlers/`.
+
+#### Non-compliant Code ❌
+```json
+{
+  "dataHandler": "missing-handler"
+}
+```
+
+#### Compliant Code ✅
+```json
+{
+  "dataHandler": "HomeDataHandler"
+}
+```
+
+---
+
+### `streak:S904` — Dead Widget Detected
+
+- **Category**: Workspace Registry
+- **Severity**: `Warning`
+- **Source**: `Streak Engine`
+
+#### Description
+Flags custom widgets inside `src/widgets/` that are not referenced by any page route inside `streak.sitemap.json`.
+
+#### Non-compliant Code ❌
+`LegacyWidget.tsx` (never declared in sitemap page routes)
+```tsx
+export default function LegacyWidget() { ... }
+```
+
+#### Compliant Code ✅
+`HelloBanner.tsx` (referenced inside the sitemap widgets configuration list)
+```tsx
+export default function HelloBanner() { ... }
+```
+
+---
+
+### `streak:S905` — Duplicate renderId Detected
+
+- **Category**: Sitemap / Registry
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+Ensures sitemap page `renderId` values (inside `renderConfig` or top-level) are unique across all page configurations.
+
+#### Non-compliant Code ❌
+```json
+[
+  { "url": "/home", "renderConfig": { "renderId": "homeRenderId" } },
+  { "url": "/dashboard", "renderConfig": { "renderId": "homeRenderId" } }
+]
+```
+
+#### Compliant Code ✅
+```json
+[
+  { "url": "/home", "renderConfig": { "renderId": "homeRenderId" } },
+  { "url": "/dashboard", "renderConfig": { "renderId": "dashboardRenderId" } }
+]
+```
+
+---
+
+### `streak:S906` — Referenced Layout Does Not Exist
+
+- **Category**: Sitemap / Registry
+- **Severity**: `Warning`
+- **Source**: `Streak Engine`
+
+#### Description
+Ensures that all page `rootLayout` (or `layout`) properties declared inside the sitemap match an existing `.tsx` layout source file inside `src/layout/` or `src/layouts/`.
+
+#### Non-compliant Code ❌
+```json
+{
+  "rootLayout": "MissingLayout"
+}
+```
+
+#### Compliant Code ✅
+```json
+{
+  "rootLayout": "MainLayout"
+}
+```
+
+---
+
+### `streak:S907` — Invalid Loading Strategy
+
+- **Category**: Sitemap / Widget
+- **Severity**: `Warning`
+- **Source**: `Streak Engine`
+
+#### Description
+Ensures that any optional `loadingStrategy` attribute declared on sitemap widget entries contains only the approved `"lazy"` value.
+
+#### Non-compliant Code ❌
+```json
+{
+  "id": "HelloBanner",
+  "type": "HelloBanner",
+  "loadingStrategy": "eager"
+}
+```
+
+#### Compliant Code ✅
+```json
+{
+  "id": "HelloBanner",
+  "type": "HelloBanner",
+  "loadingStrategy": "lazy"
+}
+```
+
+
+
 

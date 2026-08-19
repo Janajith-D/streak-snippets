@@ -25,8 +25,6 @@ export const allowedImportsRule: Rule = {
     const allowed: string[] = (options?.ruleOptions?.allowedImports as
       string[] | undefined) ?? [
       "streak-forge/components",
-      "react",
-      "react-dom",
     ];
 
     const imports = sourceFile.getImportDeclarations();
