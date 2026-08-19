@@ -274,9 +274,7 @@
             "type": "string"
           },
           "default": [
-            "streak-forge/components",
-            "react",
-            "react-dom"
+            "streak-forge/components"
           ],
           "description": "List of approved module import specifiers inside project source files."
         },
@@ -353,6 +351,17 @@
           ],
           "default": "warning",
           "description": "Severity for missing root layout declared in sitemap rule (streak:S906)"
+        },
+        "streak.rules.invalidLoadingStrategy.severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
+          "default": "warning",
+          "description": "Severity for invalid widget loadingStrategy rule (streak:S907)"
         },
         "streak.snippets.widgetDirectory": {
           "type": "string",

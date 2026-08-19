@@ -383,6 +383,7 @@ function buildRuleConfiguration(streakSettings: StreakSettings | undefined): {
       deadWidget: "streak:dead-widget",
       duplicateRenderId: "streak:duplicate-render-id",
       missingLayout: "streak:missing-layout",
+      invalidLoadingStrategy: "streak:invalid-loading-strategy",
     };
 
     for (const [settingsKey, ruleId] of Object.entries(settingsMap)) {

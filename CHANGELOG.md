@@ -15,11 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Implemented `streak:S902` (Missing widgets) error diagnostic with fuzzy "Did you mean?" suggestions.
   - Implemented `streak:S903` (Missing data handler warning) checking `src/handler/` and `src/handlers/` strictly for `.ts` files.
   - Implemented `streak:S906` (Missing root layout warning) checking `src/layout/` and `src/layouts/` strictly for `.tsx` files.
+  - Implemented `streak:S907` (Invalid widget loadingStrategy warning) validating that `loadingStrategy` is `"lazy"` if specified.
   - Implemented `streak:S904` (Dead widgets warning) targeting unused widget components.
+  - Updated `streak:S701` allowed imports default whitelist strictly to `streak-forge/components`.
   - Added Go to Definition for sitemap `dataHandler`, `rootLayout`, and widget `type` values.
   - Integrated Find References and Rename edits linking widget files and the sitemap.
   - Added hover tooltips for sitemap pages and widget handler statistics.
-  - Added `streak-page` snippet and autocomplete for widget types inside the sitemap.
+  - Added `sf-widget` (`Streak Widget entry`) and `sf-sitemap` (`Streak Sitemap`) snippets and autocomplete for widget types inside sitemaps.
 
 ## [1.2.0] - 2026-08-08
 

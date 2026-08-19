@@ -27,26 +27,51 @@ function getSitemapCompletions(
     return completions;
   }
 
-  // 2. Feature 10 — Sitemap Completion (streak-page snippet)
-  const word = textBefore.split(/\W/).at(-1) ?? "";
-  if ("streak-page".startsWith(word) || word === "streak-page") {
+  // 2. Feature: Widget entry snippet (sf-widget)
+  const word = textBefore.split(/[\s,{}[\]"]/).at(-1) ?? "";
+  if ("sf-widget".startsWith(word) || word === "sf-widget") {
     completions.push({
-      label: "streak-page",
+      label: "sf-widget",
       kind: CompletionItemKind.Snippet,
       insertTextFormat: InsertTextFormat.Snippet,
       insertText: [
         "{",
-        '  "url": "/${1:path}",',
-        '  "handler": "${2:handler}",',
-        '  "widgets": [',
-        "    {",
-        '      "type": "${3:WidgetName}"',
-        "    }",
-        "  ]",
+        '  "id": "${1:WidgetId}",',
+        '  "type": "${2:WidgetType}"',
         "}"
       ].join("\n"),
-      detail: "Streak Page Entry (streak-page)",
-      documentation: "Insert a sitemap page route definition template.",
+      detail: "Streak Widget entry",
+      documentation: "Insert a sitemap widget configuration entry.",
+    });
+  }
+
+  // 3. Feature: Sitemap template snippet (sf-sitemap)
+  if ("sf-sitemap".startsWith(word) || word === "sf-sitemap") {
+    completions.push({
+      label: "sf-sitemap",
+      kind: CompletionItemKind.Snippet,
+      insertTextFormat: InsertTextFormat.Snippet,
+      insertText: [
+        "[",
+        "  {",
+        '    "url": "/${1:}",',
+        '    "renderConfig": {',
+        '      "renderId": "${2:homeRenderId}",',
+        '      "metadata": {},',
+        '      "dataHandler": "${3:HomeDataHandler}",',
+        '      "rootLayout": "${4:MainLayout}",',
+        '      "widgets": [',
+        '        { "id": "PageHead",     "type": "PageHead" },',
+        '        { "id": "HelloBanner",  "type": "HelloBanner" },',
+        '        { "id": "HelloMessage", "type": "HelloMessage", "loadingStrategy": "lazy" }',
+        "      ],",
+        '      "version": "1.0.0"',
+        "    }",
+        "  }",
+        "]"
+      ].join("\n"),
+      detail: "Streak Sitemap",
+      documentation: "Insert a full sitemap sample configuration.",
     });
   }
 

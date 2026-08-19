@@ -34,6 +34,7 @@ This document provides detailed SonarQube-style descriptions, rationale, and com
 | [`streak:S904`](#streaks904---dead-widget-detected) | Workspace Registry | Warning | Custom widgets should be referenced by at least one sitemap page. |
 | [`streak:S905`](#streaks905---duplicate-renderid-detected) | Sitemap / Registry | Error | Sitemap renderConfig `renderId` values must be unique. |
 | [`streak:S906`](#streaks906---referenced-layout-does-not-exist) | Sitemap / Registry | Warning | Referenced sitemap page `rootLayout` must exist as a `.tsx` source file in `src/layout/` or `src/layouts/`. |
+| [`streak:S907`](#streaks907---invalid-loading-strategy) | Sitemap / Widget | Warning | Widget `loadingStrategy` must be `"lazy"` if specified. |
 
 ---
 
@@ -523,7 +524,7 @@ Ensures component nesting constraints are respected. Standard Streak components 
 - **Source**: `Streak Engine`
 
 #### Description
-Restricts file imports to a whitelisted set of approved modules (e.g. `streak-forge/components`, `react`). Unapproved module imports are flagged as warnings.
+Restricts file imports to a whitelisted set of approved modules (default: `streak-forge/components`). Unapproved module imports are flagged as warnings.
 
 #### Non-compliant Code ❌
 ```tsx
@@ -532,7 +533,6 @@ import { someFunc } from "lodash";
 
 #### Compliant Code ✅
 ```tsx
-import { useState } from "react";
 import { WidgetPlaceholder } from "streak-forge/components";
 ```
 
@@ -737,6 +737,36 @@ Ensures that all page `rootLayout` (or `layout`) properties declared inside the 
   "rootLayout": "MainLayout"
 }
 ```
+
+---
+
+### `streak:S907` — Invalid Loading Strategy
+
+- **Category**: Sitemap / Widget
+- **Severity**: `Warning`
+- **Source**: `Streak Engine`
+
+#### Description
+Ensures that any optional `loadingStrategy` attribute declared on sitemap widget entries contains only the approved `"lazy"` value.
+
+#### Non-compliant Code ❌
+```json
+{
+  "id": "HelloBanner",
+  "type": "HelloBanner",
+  "loadingStrategy": "eager"
+}
+```
+
+#### Compliant Code ✅
+```json
+{
+  "id": "HelloBanner",
+  "type": "HelloBanner",
+  "loadingStrategy": "lazy"
+}
+```
+
 
 
 

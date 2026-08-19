@@ -135,9 +135,13 @@ export class JSONLocationParser {
 // ── Sitemap Registry ──────────────────────────────────────────────────────────
 
 export interface SitemapPageWidget {
+  id?: string;
   type: string;
   start: number;
   end: number;
+  loadingStrategy?: string;
+  loadingStrategyStart?: number;
+  loadingStrategyEnd?: number;
 }
 
 export interface SitemapPage {
@@ -168,12 +172,28 @@ function parseWidgets(widgetsNode: JSONNode | undefined): SitemapPageWidget[] {
       continue;
     }
     const wProps = wNode.value as Record<string, { keyNode: JSONNode; valNode: JSONNode }>;
+    const idNode = wProps["id"]?.valNode;
     const typeNode = wProps["type"]?.valNode;
+    const loadingStrategyNode = wProps["loadingStrategy"]?.valNode;
+    let loadingStrategy: string | undefined;
+    if (loadingStrategyNode) {
+      if (typeof loadingStrategyNode.value === "string") {
+        loadingStrategy = loadingStrategyNode.value;
+      } else if (typeof loadingStrategyNode.value === "number" || typeof loadingStrategyNode.value === "boolean") {
+        loadingStrategy = String(loadingStrategyNode.value);
+      } else {
+        loadingStrategy = loadingStrategyNode.type;
+      }
+    }
     if (typeNode?.type === "string") {
       widgets.push({
+        id: idNode?.type === "string" ? (idNode.value as string) : undefined,
         type: typeNode.value as string,
         start: typeNode.start,
         end: typeNode.end,
+        loadingStrategy,
+        loadingStrategyStart: loadingStrategyNode?.start,
+        loadingStrategyEnd: loadingStrategyNode?.end,
       });
     }
   }

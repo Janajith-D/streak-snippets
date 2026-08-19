@@ -1310,7 +1310,7 @@ suite("Extension Test Suite", () => {
       code,
     );
 
-    // Test with default whitelist (allows "streak-forge/components", "react")
+    // Test with default whitelist (allows only "streak-forge/components")
     const diagsDefault = allowedImportsRule.run(
       sourceFile,
       {
@@ -1323,12 +1323,13 @@ suite("Extension Test Suite", () => {
       },
       {
         enabled: true,
-        ruleOptions: { allowedImports: ["streak-forge/components", "react"] },
       },
     );
-    assert.strictEqual(diagsDefault.length, 1);
+    assert.strictEqual(diagsDefault.length, 2);
     assert.strictEqual(diagsDefault[0].code, "streak:S701");
-    assert.ok(diagsDefault[0].message.includes("lodash"));
+    assert.ok(diagsDefault[0].message.includes("react"));
+    assert.strictEqual(diagsDefault[1].code, "streak:S701");
+    assert.ok(diagsDefault[1].message.includes("lodash"));
 
     // Test with lodash allowed
     const diagsCustom = allowedImportsRule.run(
@@ -1574,7 +1575,7 @@ suite("Extension Test Suite", () => {
     assert.ok(pages[0].widgets[0].start > 0);
   });
 
-  test("validateSitemap flags duplicate routes, missing widgets, missing handlers, duplicate renderConfigIDs, and missing layouts", () => {
+  test("validateSitemap flags duplicate routes, missing widgets, missing handlers, duplicate renderConfigIDs, missing layouts, and invalid loadingStrategy", () => {
     const json = `[
       {
         "url": "/",
@@ -1583,7 +1584,7 @@ suite("Extension Test Suite", () => {
           "dataHandler": "HomeDataHandler",
           "rootLayout": "MainLayout",
           "widgets": [
-            { "id": "PageHead", "type": "MissingWidget" }
+            { "id": "PageHead", "type": "MissingWidget", "loadingStrategy": "invalidStrategy" }
           ]
         }
       },
@@ -1601,13 +1602,14 @@ suite("Extension Test Suite", () => {
     const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
     const diags = validateSitemap(doc, "/workspace");
 
-    // S901 (duplicate route "/"), S905 (duplicate renderId "homeRenderId"), S902 (missing widget), S903 (missing handler warning), S906 (missing layout warning)
-    assert.ok(diags.length >= 6);
+    // S901 (duplicate route "/"), S905 (duplicate renderId "homeRenderId"), S902 (missing widget), S903 (missing handler warning), S906 (missing layout warning), S907 (invalid loadingStrategy warning)
+    assert.ok(diags.length >= 7);
     assert.ok(diags.some((d) => d.code === "streak:S901" && d.severity === DiagnosticSeverity.Error));
     assert.ok(diags.some((d) => d.code === "streak:S905" && d.severity === DiagnosticSeverity.Error));
     assert.ok(diags.some((d) => d.code === "streak:S902" && d.severity === DiagnosticSeverity.Error));
     assert.ok(diags.some((d) => d.code === "streak:S903" && d.severity === DiagnosticSeverity.Warning));
     assert.ok(diags.some((d) => d.code === "streak:S906" && d.severity === DiagnosticSeverity.Warning));
+    assert.ok(diags.some((d) => d.code === "streak:S907" && d.severity === DiagnosticSeverity.Warning));
   });
 
   test("resolveSitemapDefinition navigates to widget, handler (.ts in src/handler), and layout (.tsx in src/layout) files", () => {
@@ -1694,7 +1696,7 @@ suite("Extension Test Suite", () => {
     assert.ok((hoverWidget.contents as MarkupContent).value.includes("Widget: HelloBanner"));
   });
 
-  test("Sitemap autocomplete suggests widget names and streak-page snippet", () => {
+  test("Sitemap autocomplete suggests widget names and sf-widget / sf-sitemap snippets", () => {
     widgetRegistry.set("HelloBanner", {
       name: "HelloBanner",
       filePath: "file:///test/HelloBanner.tsx",
@@ -1720,22 +1722,39 @@ suite("Extension Test Suite", () => {
     assert.ok(items.length >= 1);
     assert.ok(items.some((i) => i.label === "HelloBanner"));
 
-    // Check streak-page snippet
-    const jsonSnippet = "streak";
-    const docSnippet = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, jsonSnippet);
-    const itemsSnippet = getCompletions(
+    // Check sf-widget snippet
+    const jsonWidgetSnippet = "sf-w";
+    const docWidgetSnippet = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, jsonWidgetSnippet);
+    const itemsWidget = getCompletions(
       {
-        text: jsonSnippet,
+        text: jsonWidgetSnippet,
         uri: "file:///test/streak.sitemap.json",
-        offset: jsonSnippet.length,
+        offset: jsonWidgetSnippet.length,
         line: 0,
-        character: jsonSnippet.length,
+        character: jsonWidgetSnippet.length,
       },
-      docSnippet,
+      docWidgetSnippet,
       sourceFile,
       "/workspace",
     );
-    assert.ok(itemsSnippet.some((i) => i.label === "streak-page"));
+    assert.ok(itemsWidget.some((i) => i.label === "sf-widget" && i.detail === "Streak Widget entry"));
+
+    // Check sf-sitemap snippet
+    const jsonSitemapSnippet = "sf-s";
+    const docSitemapSnippet = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, jsonSitemapSnippet);
+    const itemsSitemap = getCompletions(
+      {
+        text: jsonSitemapSnippet,
+        uri: "file:///test/streak.sitemap.json",
+        offset: jsonSitemapSnippet.length,
+        line: 0,
+        character: jsonSitemapSnippet.length,
+      },
+      docSitemapSnippet,
+      sourceFile,
+      "/workspace",
+    );
+    assert.ok(itemsSitemap.some((i) => i.label === "sf-sitemap" && i.detail === "Streak Sitemap"));
   });
 
   test("streak:S904 flags dead widgets not referenced by sitemap", () => {

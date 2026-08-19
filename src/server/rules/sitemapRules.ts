@@ -248,6 +248,33 @@ function validatePageLayout(
   }
 }
 
+function validateWidgetLoadingStrategy(
+  page: SitemapPage,
+  document: TextDocument,
+  diagnostics: Diagnostic[],
+  ruleSeverities?: Record<string, string>,
+) {
+  const severity = getSeverity("streak:invalid-loading-strategy", ruleSeverities, DiagnosticSeverity.Warning);
+  if (severity === null) {
+    return;
+  }
+  for (const w of page.widgets) {
+    if (w.loadingStrategy !== undefined && w.loadingStrategy !== "lazy") {
+      const range = {
+        start: document.positionAt(w.loadingStrategyStart ?? w.start),
+        end: document.positionAt(w.loadingStrategyEnd ?? w.end),
+      };
+      diagnostics.push({
+        code: "streak:S907",
+        message: `Invalid loadingStrategy "${w.loadingStrategy}". Allowed value is "lazy".`,
+        range,
+        severity,
+        source: "Streak Engine",
+      });
+    }
+  }
+}
+
 export function validateSitemap(
   document: TextDocument,
   workspaceRoot: string,
@@ -266,6 +293,7 @@ export function validateSitemap(
     collectUrl(page, seenUrls);
     collectRenderId(page, seenRenderIds);
     validatePageWidgets(page, document, diagnostics, ruleSeverities);
+    validateWidgetLoadingStrategy(page, document, diagnostics, ruleSeverities);
     validatePageHandler(page, document, workspaceRoot, diagnostics, ruleSeverities);
     validatePageLayout(page, document, workspaceRoot, diagnostics, ruleSeverities);
   }
