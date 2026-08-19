@@ -1602,11 +1602,11 @@ suite("Extension Test Suite", () => {
     const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
     const diags = validateSitemap(doc, "/workspace");
 
-    // S901 (duplicate route "/"), S905 (duplicate renderId "homeRenderId"), S902 (missing widget), S903 (missing handler warning), S906 (missing layout warning), S907 (invalid loadingStrategy warning)
+    // S901 (duplicate route "/"), S905 (duplicate renderId "homeRenderId"), S902 (missing widget warning), S903 (missing handler warning), S906 (missing layout warning), S907 (invalid loadingStrategy warning)
     assert.ok(diags.length >= 7);
     assert.ok(diags.some((d) => d.code === "streak:S901" && d.severity === DiagnosticSeverity.Error));
     assert.ok(diags.some((d) => d.code === "streak:S905" && d.severity === DiagnosticSeverity.Error));
-    assert.ok(diags.some((d) => d.code === "streak:S902" && d.severity === DiagnosticSeverity.Error));
+    assert.ok(diags.some((d) => d.code === "streak:S902" && d.severity === DiagnosticSeverity.Warning));
     assert.ok(diags.some((d) => d.code === "streak:S903" && d.severity === DiagnosticSeverity.Warning));
     assert.ok(diags.some((d) => d.code === "streak:S906" && d.severity === DiagnosticSeverity.Warning));
     assert.ok(diags.some((d) => d.code === "streak:S907" && d.severity === DiagnosticSeverity.Warning));

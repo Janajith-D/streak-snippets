@@ -305,7 +305,7 @@
             "info",
             "off"
           ],
-          "default": "error",
+          "default": "warning",
           "description": "Severity for missing widget declared in sitemap rule (streak:S902)"
         },
         "streak.rules.missingHandler.severity": {

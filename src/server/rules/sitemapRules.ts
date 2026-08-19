@@ -137,7 +137,7 @@ function validatePageWidgets(
   diagnostics: Diagnostic[],
   ruleSeverities?: Record<string, string>,
 ) {
-  const severity = getSeverity("streak:missing-widget", ruleSeverities, DiagnosticSeverity.Error);
+  const severity = getSeverity("streak:missing-widget", ruleSeverities, DiagnosticSeverity.Warning);
   if (severity === null) {
     return;
   }
@@ -153,7 +153,7 @@ function validatePageWidgets(
 
       diagnostics.push({
         code: "streak:S902",
-        message: `Widget "${w.type}" does not exist.${suggestionText}`,
+        message: `Widget "${w.type}" does not exist in src/widgets as a .tsx file.${suggestionText}`,
         range,
         severity,
         source: "Streak Engine",

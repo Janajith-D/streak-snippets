@@ -17,18 +17,28 @@ Quick import shortcuts — type the prefix and press `Tab`:
 | `imPre` | `import { Preload } from "streak-forge/components";` |
 | `imDy` | `import { Dynamic } from "streak-forge/components";` |
 
-### `.tsx` — JSX Scaffold Snippets
+### `.tsx` — JSX & Component Scaffold Snippets
 
-| Prefix | Expands To |
+| Prefix | Description / Expands To |
 |---|---|
 | `sfWp` | `<WidgetPlaceholder id=".." type=".." />` |
 | `sfPre` | `<Preload href="/styles/tailwind.css" as="style" media="" />` |
+| `sfS` | Client-side `<Script>` component with isolated `(gDom, options)` callback |
+| `sfWid` | Basic widget function component scaffolding with props interface (`src/widgets/`) |
+| `sfWidE` | Typed widget component scaffolding with sample structure (`src/widgets/`) |
 
 ### `.ts` — Scaffold Snippets
 
 | Prefix | Description |
 |---|---|
 | `sfDH` | Data handler function with status, widget data objects, and default export |
+
+### `streak.sitemap.json` — Sitemap Snippets
+
+| Prefix | Description / Expands To |
+|---|---|
+| `sf-widget` | Sitemap widget configuration entry (`{ "id": "...", "type": "..." }`) |
+| `sf-sitemap` | Complete sitemap page route template with `renderConfig`, handler, layout, and widgets |
 
 ---
 

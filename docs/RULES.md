@@ -29,7 +29,7 @@ This document provides detailed SonarQube-style descriptions, rationale, and com
 | [`streak:S702`](#streaks702---forbidden-patterns) | Security / Code Smell | Error | Banned code patterns matched by forbidden regular expressions. |
 | [`streak:S801`](#streaks801---widget-filename-matches-component) | Widget Component | Error | Widget filename and declared default component name must match. |
 | [`streak:S901`](#streaks901---duplicate-route-detected) | Sitemap / Routes | Error | Sitemap page routes (`url` values) must be unique. |
-| [`streak:S902`](#streaks902---referenced-widget-does-not-exist) | Sitemap / Registry | Error | Referenced widget `type` in the sitemap must exist as a source file. |
+| [`streak:S902`](#streaks902---referenced-widget-does-not-exist) | Sitemap / Registry | Warning | Referenced widget `type` in the sitemap must exist as a `.tsx` source file in `src/widgets/`. |
 | [`streak:S903`](#streaks903---referenced-handler-does-not-exist) | Sitemap / Registry | Warning | Referenced sitemap page `dataHandler` must exist as a `.ts` source file in `src/handler/` or `src/handlers/`. |
 | [`streak:S904`](#streaks904---dead-widget-detected) | Workspace Registry | Warning | Custom widgets should be referenced by at least one sitemap page. |
 | [`streak:S905`](#streaks905---duplicate-renderid-detected) | Sitemap / Registry | Error | Sitemap renderConfig `renderId` values must be unique. |
@@ -618,11 +618,11 @@ Ensures sitemap page routes (`url` values) are unique across the project. Duplic
 ### `streak:S902` — Referenced Widget Does Not Exist
 
 - **Category**: Sitemap / Registry
-- **Severity**: `Error`
+- **Severity**: `Warning`
 - **Source**: `Streak Engine`
 
 #### Description
-Ensures that all widget `type` values declared inside the sitemap match an existing custom widget source file inside `src/widgets/`.
+Ensures that all widget `type` values declared inside the sitemap match an existing custom widget `.tsx` source file inside `src/widgets/`.
 
 #### Non-compliant Code ❌
 ```json
