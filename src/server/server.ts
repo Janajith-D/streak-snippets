@@ -384,6 +384,7 @@ function buildRuleConfiguration(streakSettings: StreakSettings | undefined): {
       duplicateRenderId: "streak:duplicate-render-id",
       missingLayout: "streak:missing-layout",
       invalidLoadingStrategy: "streak:invalid-loading-strategy",
+      passiveEventListener: "streak:passive-event-listener",
     };
 
     for (const [settingsKey, ruleId] of Object.entries(settingsMap)) {

@@ -4,6 +4,7 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import { pathToFileURL } from "node:url";
 import { sitemapRegistry, type SitemapPage } from "../registry/sitemaps";
+import { fileExistsStrictCase } from "../rules/sitemapRules";
 import { type TextDocument } from "vscode-languageserver-textdocument";
 
 // Single shared project to avoid redundant ts-morph Project creation overhead
@@ -317,8 +318,8 @@ function findSitemapHandlerDefinition(
       path.join(workspaceRoot, "src", "handlers"),
     ];
     for (const dir of candidateDirs) {
-      const fullPath = path.join(dir, `${page.handler}.ts`);
-      if (fs.existsSync(fullPath)) {
+      if (fileExistsStrictCase(dir, `${page.handler}.ts`)) {
+        const fullPath = path.join(dir, `${page.handler}.ts`);
         return Location.create(
           pathToFileURL(fullPath).toString(),
           Range.create(0, 0, 0, 0),
@@ -346,8 +347,8 @@ function findSitemapLayoutDefinition(
       path.join(workspaceRoot, "src", "layouts"),
     ];
     for (const dir of candidateDirs) {
-      const fullPath = path.join(dir, `${page.layout}.tsx`);
-      if (fs.existsSync(fullPath)) {
+      if (fileExistsStrictCase(dir, `${page.layout}.tsx`)) {
+        const fullPath = path.join(dir, `${page.layout}.tsx`);
         return Location.create(
           pathToFileURL(fullPath).toString(),
           Range.create(0, 0, 0, 0),

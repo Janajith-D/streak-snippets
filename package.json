@@ -363,6 +363,17 @@
           "default": "warning",
           "description": "Severity for invalid widget loadingStrategy rule (streak:S907)"
         },
+        "streak.rules.passiveEventListener.severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
+          "default": "warning",
+          "description": "Severity for missing passive option on event listeners rule (streak:S406)"
+        },
         "streak.snippets.widgetDirectory": {
           "type": "string",
           "default": "src/widgets",

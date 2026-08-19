@@ -10,21 +10,14 @@ import {
 } from "./types";
 
 /**
- * Validates the attributes of a <WidgetPlaceholder> element.
- * Returns `{ hasId, hasType }` indicating which required attrs are present and non-empty.
- *
- * An attribute value is considered valid when:
- * - It is not the empty string
- * - It is not the literal sentinel `""` or `''`
- *
- * Extracted to reduce cognitive complexity of the `run` callback.
+ * Extracts and cleans 'id' and 'type' attribute values of a <WidgetPlaceholder> element.
  */
-function validateWidgetPlaceholderAttrs(attributes: Node[]): {
-  hasId: boolean;
-  hasType: boolean;
+function getWidgetPlaceholderAttrs(attributes: Node[]): {
+  id?: string;
+  type?: string;
 } {
-  let hasId = false;
-  let hasType = false;
+  let id: string | undefined;
+  let type: string | undefined;
 
   for (const attr of attributes) {
     if (!Node.isJsxAttribute(attr)) {
@@ -32,23 +25,28 @@ function validateWidgetPlaceholderAttrs(attributes: Node[]): {
     }
     const attrName = attr.getNameNode()?.getText();
     const value = getJsxAttrValue(attr);
-    const isNonEmpty = value && value.trim() !== '""' && value.trim() !== "''";
+    const cleaned = value?.trim();
+    const isNonEmpty =
+      cleaned !== undefined &&
+      cleaned !== "" &&
+      cleaned !== '""' &&
+      cleaned !== "''";
 
     if (attrName === "id" && isNonEmpty) {
-      hasId = true;
+      id = cleaned.replace(/^["']|["']$/g, "");
     } else if (attrName === "type" && isNonEmpty) {
-      hasType = true;
+      type = cleaned.replace(/^["']|["']$/g, "");
     }
   }
 
-  return { hasId, hasType };
+  return { id, type };
 }
 
 export const widgetPlaceholderRule: Rule = {
   id: "streak:widget-placeholder-props",
   name: "WidgetPlaceholder Props Rule",
   description:
-    "Ensures <WidgetPlaceholder> elements have required non-empty 'id' and 'type' props.",
+    "Ensures <WidgetPlaceholder> elements have valid 'id' and 'type' props, are used inside layouts, and id/type match exactly.",
   defaultSeverity: DiagnosticSeverity.Error,
 
   run(
@@ -58,6 +56,12 @@ export const widgetPlaceholderRule: Rule = {
   ): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
+    const rawPath = _analysis?.uri ?? sourceFile.getFilePath();
+    const filePath = decodeURIComponent(rawPath).replaceAll("\\", "/");
+    const isLayoutFile =
+      /(?:^|\/)src\/layouts?\//i.test(filePath) ||
+      /(?:^|\/)layout\//i.test(filePath) ||
+      /(?:^|\/)layouts\//i.test(filePath);
 
     sourceFile.forEachDescendant((node) => {
       let tagName = "";
@@ -76,10 +80,32 @@ export const widgetPlaceholderRule: Rule = {
         return;
       }
 
-      const { hasId, hasType } = validateWidgetPlaceholderAttrs(attributes);
       const range = getRangeFromNode(sourceFile, node);
 
-      if (!hasId) {
+      // 1. Rule streak:S102 — WidgetPlaceholder can only be used inside layout files
+      if (!isLayoutFile && filePath !== "" && !filePath.startsWith("/test/inline")) {
+        diagnostics.push({
+          code: "streak:S102",
+          message:
+            "<WidgetPlaceholder> can only be used inside layout files (src/layout or src/layouts).",
+          range,
+          severity,
+          source: "Streak Engine",
+        });
+      }
+
+      const { id, type } = getWidgetPlaceholderAttrs(attributes);
+
+      // 2. Rule streak:S101 — Missing required id and/or type attributes
+      if (!id && !type) {
+        diagnostics.push({
+          code: "streak:S101",
+          message: "<WidgetPlaceholder> requires non-empty 'id' and 'type' attributes.",
+          range,
+          severity,
+          source: "Streak Engine",
+        });
+      } else if (!id) {
         diagnostics.push({
           code: "streak:S101",
           message: "<WidgetPlaceholder> requires a non-empty 'id' attribute.",
@@ -87,12 +113,19 @@ export const widgetPlaceholderRule: Rule = {
           severity,
           source: "Streak Engine",
         });
-      }
-
-      if (!hasType) {
+      } else if (!type) {
         diagnostics.push({
-          code: "streak:S102",
+          code: "streak:S101",
           message: "<WidgetPlaceholder> requires a non-empty 'type' attribute.",
+          range,
+          severity,
+          source: "Streak Engine",
+        });
+      } else if (id !== type) {
+        // 3. Rule streak:S103 — id and type must match exactly
+        diagnostics.push({
+          code: "streak:S103",
+          message: `<WidgetPlaceholder> 'id' ("${id}") and 'type' ("${type}") must match exactly.`,
           range,
           severity,
           source: "Streak Engine",

@@ -180,29 +180,53 @@ function buildDefaultExportAction(
   };
 }
 
-/** Dispatches a single diagnostic to the appropriate code action builder. */
-function buildCodeAction(
+/** Dispatches a single diagnostic to the appropriate code action builders. */
+function buildCodeActionsForDiag(
   diag: Diagnostic,
   document: TextDocument,
   sourceFile: SourceFile,
   uri: string,
-): CodeAction | null {
+): CodeAction[] {
+  const actions: CodeAction[] = [];
   switch (diag.code) {
     case "streak:S405":
-      return buildScriptIdAction(diag, uri);
-    case "streak:S101":
-      return buildWidgetIdAction(diag, uri);
-    case "streak:S102":
-      return buildWidgetTypeAction(diag, uri);
+      actions.push(buildScriptIdAction(diag, uri));
+      break;
+    case "streak:S101": {
+      const rawMsg =
+        typeof diag.message === "string"
+          ? diag.message
+          : (diag.message as { value: string }).value ?? "";
+      const msg = rawMsg.toLowerCase();
+      if (msg.includes("id") || msg.includes("attributes")) {
+        actions.push(buildWidgetIdAction(diag, uri));
+      }
+      if (msg.includes("type") || msg.includes("attributes")) {
+        actions.push(buildWidgetTypeAction(diag, uri));
+      }
+      break;
+    }
     case "streak:S501":
-      return buildDynamicIdAction(diag, uri);
-    case "streak:S202":
-      return buildAsyncHandlerAction(diag, document, sourceFile, uri);
-    case "streak:S301":
-      return buildDefaultExportAction(diag, document, uri);
+      actions.push(buildDynamicIdAction(diag, uri));
+      break;
+    case "streak:S202": {
+      const a = buildAsyncHandlerAction(diag, document, sourceFile, uri);
+      if (a) {
+        actions.push(a);
+      }
+      break;
+    }
+    case "streak:S301": {
+      const a = buildDefaultExportAction(diag, document, uri);
+      if (a) {
+        actions.push(a);
+      }
+      break;
+    }
     default:
-      return null;
+      break;
   }
+  return actions;
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -216,10 +240,8 @@ export function resolveCodeActions(
   const codeActions: CodeAction[] = [];
 
   for (const diag of diagnostics) {
-    const action = buildCodeAction(diag, document, sourceFile, uri);
-    if (action) {
-      codeActions.push(action);
-    }
+    const actions = buildCodeActionsForDiag(diag, document, sourceFile, uri);
+    codeActions.push(...actions);
   }
 
   return codeActions;

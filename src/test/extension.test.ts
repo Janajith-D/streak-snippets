@@ -28,6 +28,7 @@ import { forbiddenPatternsRule } from "../server/rules/forbiddenPatternsRule";
 import { widgetFilenameMatchesComponentRule } from "../server/rules/widgetFilenameMatchesComponentRule";
 import { missingDefaultExportRule } from "../server/rules/missingDefaultExportRule";
 import { deadWidgetRule } from "../server/rules/deadWidgetRule";
+import { passiveEventListenerRule } from "../server/rules/passiveEventListenerRule";
 import { sitemapRegistry } from "../server/registry/sitemaps";
 import { validateSitemap } from "../server/rules/sitemapRules";
 import { resolveHover, resolveSitemapHover } from "../server/hover/provider";
@@ -77,7 +78,7 @@ suite("Extension Test Suite", () => {
 
   // ── Validation Rules Tests ─────────────────────────────────────────
 
-  test("WidgetPlaceholder rule flags missing id and type attributes with streak:S101 and streak:S102", () => {
+  test("WidgetPlaceholder rule flags missing id and type attributes with streak:S101", () => {
     const code = `
       import { WidgetPlaceholder } from "streak-forge/components";
       
@@ -86,13 +87,29 @@ suite("Extension Test Suite", () => {
       }
     `;
     const { analysis, sourceFile } = analyzeAndParseDocument(
-      "file:///test/Comp.tsx",
+      "file:///workspace/src/layout/MainLayout.tsx",
       code,
     );
     const diags = widgetPlaceholderRule.run(sourceFile, analysis);
-    assert.strictEqual(diags.length, 2);
-    assert.ok(diags.some((d) => d.code === "streak:S101"));
+    assert.strictEqual(diags.length, 1);
+    assert.strictEqual(diags[0].code, "streak:S101");
+  });
+
+  test("WidgetPlaceholder rule flags non-layout usage (S102) and mismatched id/type (S103)", () => {
+    const code = `
+      import { WidgetPlaceholder } from "streak-forge/components";
+      
+      export default function Component() {
+        return <WidgetPlaceholder id="Header" type="DifferentHeader" />;
+      }
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument(
+      "file:///workspace/src/widgets/MyWidget.tsx",
+      code,
+    );
+    const diags = widgetPlaceholderRule.run(sourceFile, analysis);
     assert.ok(diags.some((d) => d.code === "streak:S102"));
+    assert.ok(diags.some((d) => d.code === "streak:S103"));
   });
 
   test("streak:S202 flags non-async data handler functions", () => {
@@ -941,17 +958,17 @@ suite("Extension Test Suite", () => {
       "Add id attribute to <WidgetPlaceholder>",
     );
 
-    // 3. WidgetPlaceholder missing type (S102)
-    const diagS102 = {
-      code: "streak:S102",
-      message: "Missing Type",
+    // 3. WidgetPlaceholder missing type (S101 with 'type')
+    const diagS101Type = {
+      code: "streak:S101",
+      message: "requires a non-empty 'type' attribute",
       range: { start: wpPos, end: wpPos },
     } as unknown as Diagnostic;
 
-    const actionsS102 = resolveCodeActions([diagS102], doc, sourceFile);
-    assert.strictEqual(actionsS102.length, 1);
+    const actionsS101Type = resolveCodeActions([diagS101Type], doc, sourceFile);
+    assert.strictEqual(actionsS101Type.length, 1);
     assert.strictEqual(
-      actionsS102[0].title,
+      actionsS101Type[0].title,
       "Add type attribute to <WidgetPlaceholder>",
     );
 
@@ -1778,6 +1795,58 @@ suite("Extension Test Suite", () => {
     assert.strictEqual(diags.length, 1);
     assert.strictEqual(diags[0].code, "streak:S904");
     assert.strictEqual(diags[0].message, "Widget is not referenced by any sitemap page.");
+  });
+
+  test("streak:S406 flags scroll/mousemove listeners without passive: true", () => {
+    const code = `
+      window.addEventListener("scroll", () => {});
+      window.addEventListener("mousemove", () => {}, false);
+      window.addEventListener("touchmove", () => {}, { passive: true });
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument(
+      "file:///test/events.tsx",
+      code,
+    );
+    const diags = passiveEventListenerRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 2);
+    assert.strictEqual(diags[0].code, "streak:S406");
+    assert.ok(diags[0].message.includes("scroll"));
+    assert.strictEqual(diags[1].code, "streak:S406");
+    assert.ok(diags[1].message.includes("mousemove"));
+  });
+
+  test("validateSitemap enforces strict case sensitivity on handlers and layouts", () => {
+    const json = `[
+      {
+        "url": "/case-test",
+        "renderConfig": {
+          "renderId": "caseRenderId",
+          "dataHandler": "homedatahandler",
+          "rootLayout": "mainlayout",
+          "widgets": []
+        }
+      }
+    ]`;
+    const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
+
+    const tempRoot = path.join(__dirname, `temp_case_test_${Date.now()}`).replaceAll("\\", "/");
+    const handlerDir = path.join(tempRoot, "src", "handler");
+    const layoutDir = path.join(tempRoot, "src", "layout");
+    fs.mkdirSync(handlerDir, { recursive: true });
+    fs.mkdirSync(layoutDir, { recursive: true });
+
+    // Exact casing on disk is HomeDataHandler.ts and MainLayout.tsx
+    fs.writeFileSync(path.join(handlerDir, "HomeDataHandler.ts"), "export default async function HomeDataHandler() { return { status: 200 }; }");
+    fs.writeFileSync(path.join(layoutDir, "MainLayout.tsx"), "export default function MainLayout() { return <div />; }");
+
+    try {
+      const diags = validateSitemap(doc, tempRoot);
+      // Because sitemap specifies "homedatahandler" and "mainlayout", strict case sensitivity flags warnings
+      assert.ok(diags.some((d) => d.code === "streak:S903"));
+      assert.ok(diags.some((d) => d.code === "streak:S906"));
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 });
 

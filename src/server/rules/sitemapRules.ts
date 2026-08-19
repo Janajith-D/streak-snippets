@@ -166,6 +166,18 @@ function validatePageWidgets(
   }
 }
 
+export function fileExistsStrictCase(dir: string, fileNameWithExt: string): boolean {
+  if (!fs.existsSync(dir)) {
+    return false;
+  }
+  try {
+    const files = fs.readdirSync(dir);
+    return files.includes(fileNameWithExt);
+  } catch {
+    return false;
+  }
+}
+
 function validatePageHandler(
   page: SitemapPage,
   document: TextDocument,
@@ -185,7 +197,7 @@ function validatePageHandler(
     ];
     let found = false;
     for (const dir of candidateDirs) {
-      if (fs.existsSync(path.join(dir, `${handlerName}.ts`))) {
+      if (fileExistsStrictCase(dir, `${handlerName}.ts`)) {
         found = true;
         break;
       }
@@ -226,7 +238,7 @@ function validatePageLayout(
     ];
     let found = false;
     for (const dir of candidateDirs) {
-      if (fs.existsSync(path.join(dir, `${layoutName}.tsx`))) {
+      if (fileExistsStrictCase(dir, `${layoutName}.tsx`)) {
         found = true;
         break;
       }

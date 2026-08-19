@@ -22,6 +22,7 @@ import { allowedImportsRule } from "./allowedImportsRule";
 import { forbiddenPatternsRule } from "./forbiddenPatternsRule";
 import { widgetFilenameMatchesComponentRule } from "./widgetFilenameMatchesComponentRule";
 import { deadWidgetRule } from "./deadWidgetRule";
+import { passiveEventListenerRule } from "./passiveEventListenerRule";
 
 export * from "./types";
 export * from "./widgetPlaceholderRule";
@@ -41,6 +42,7 @@ export * from "./allowedImportsRule";
 export * from "./forbiddenPatternsRule";
 export * from "./widgetFilenameMatchesComponentRule";
 export * from "./deadWidgetRule";
+export * from "./passiveEventListenerRule";
 
 export const allRules: Rule[] = [
   widgetPlaceholderRule,
@@ -64,4 +66,5 @@ export const allRules: Rule[] = [
   forbiddenPatternsRule,
   widgetFilenameMatchesComponentRule,
   deadWidgetRule,
+  passiveEventListenerRule,
 ];
