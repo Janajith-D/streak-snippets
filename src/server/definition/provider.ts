@@ -312,9 +312,12 @@ function findSitemapHandlerDefinition(
     offset >= page.handlerStart &&
     offset <= page.handlerEnd
   ) {
-    const handlerDir = path.join(workspaceRoot, "src", "handlers");
-    for (const ext of [".ts", ".js", ".tsx", ".jsx"]) {
-      const fullPath = path.join(handlerDir, `${page.handler}${ext}`);
+    const candidateDirs = [
+      path.join(workspaceRoot, "src", "handler"),
+      path.join(workspaceRoot, "src", "handlers"),
+    ];
+    for (const dir of candidateDirs) {
+      const fullPath = path.join(dir, `${page.handler}.ts`);
       if (fs.existsSync(fullPath)) {
         return Location.create(
           pathToFileURL(fullPath).toString(),
@@ -338,9 +341,12 @@ function findSitemapLayoutDefinition(
     offset >= page.layoutStart &&
     offset <= page.layoutEnd
   ) {
-    const layoutDir = path.join(workspaceRoot, "src", "layouts");
-    for (const ext of [".ts", ".js", ".tsx", ".jsx"]) {
-      const fullPath = path.join(layoutDir, `${page.layout}${ext}`);
+    const candidateDirs = [
+      path.join(workspaceRoot, "src", "layout"),
+      path.join(workspaceRoot, "src", "layouts"),
+    ];
+    for (const dir of candidateDirs) {
+      const fullPath = path.join(dir, `${page.layout}.tsx`);
       if (fs.existsSync(fullPath)) {
         return Location.create(
           pathToFileURL(fullPath).toString(),

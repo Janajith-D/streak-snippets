@@ -1,4 +1,4 @@
-import { type Hover, type MarkupContent, type Diagnostic } from "vscode-languageserver/node";
+import { type Hover, type MarkupContent, type Diagnostic, DiagnosticSeverity } from "vscode-languageserver/node";
 import * as assert from "assert";
 import * as path from "node:path";
 import * as fs from "node:fs";
@@ -1575,81 +1575,69 @@ suite("Extension Test Suite", () => {
   });
 
   test("validateSitemap flags duplicate routes, missing widgets, missing handlers, duplicate renderConfigIDs, and missing layouts", () => {
-    const json = `{
-      "pages": [
-        {
-          "url": "/about",
-          "renderConfigID": "about-page",
-          "handler": "about-handler",
-          "layout": "MissingLayout",
+    const json = `[
+      {
+        "url": "/",
+        "renderConfig": {
+          "renderId": "homeRenderId",
+          "dataHandler": "HomeDataHandler",
+          "rootLayout": "MainLayout",
           "widgets": [
-            {
-              "type": "MissingWidget"
-            }
+            { "id": "PageHead", "type": "MissingWidget" }
           ]
-        },
-        {
-          "url": "/about",
-          "renderConfig": {
-            "renderId": "about-page"
-          },
-          "handler": "other-handler",
+        }
+      },
+      {
+        "url": "/",
+        "renderConfig": {
+          "renderId": "homeRenderId",
+          "dataHandler": "MissingDataHandler",
+          "rootLayout": "MissingLayout",
           "widgets": []
         }
-      ]
-    }`;
-
-    // Register a valid widget
-    widgetRegistry.set("HelloBanner", {
-      name: "HelloBanner",
-      filePath: "file:///test/HelloBanner.tsx",
-      props: [],
-    });
+      }
+    ]`;
 
     const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
     const diags = validateSitemap(doc, "/workspace");
 
-    // S901 (duplicate route "/about"), S902 (missing widget "MissingWidget"), S903 (missing handler "about-handler" and "other-handler"), S905 (duplicate renderConfigID "about-page"), S906 (missing layout "MissingLayout")
-    assert.ok(diags.length >= 7);
-    assert.ok(diags.some((d) => d.code === "streak:S901"));
-    assert.ok(diags.some((d) => d.code === "streak:S902"));
-    assert.ok(diags.some((d) => d.code === "streak:S903"));
-    assert.ok(diags.some((d) => d.code === "streak:S905"));
-    assert.ok(diags.some((d) => d.code === "streak:S906"));
+    // S901 (duplicate route "/"), S905 (duplicate renderId "homeRenderId"), S902 (missing widget), S903 (missing handler warning), S906 (missing layout warning)
+    assert.ok(diags.length >= 6);
+    assert.ok(diags.some((d) => d.code === "streak:S901" && d.severity === DiagnosticSeverity.Error));
+    assert.ok(diags.some((d) => d.code === "streak:S905" && d.severity === DiagnosticSeverity.Error));
+    assert.ok(diags.some((d) => d.code === "streak:S902" && d.severity === DiagnosticSeverity.Error));
+    assert.ok(diags.some((d) => d.code === "streak:S903" && d.severity === DiagnosticSeverity.Warning));
+    assert.ok(diags.some((d) => d.code === "streak:S906" && d.severity === DiagnosticSeverity.Warning));
   });
 
-  test("resolveSitemapDefinition navigates to widget, handler, and layout files", () => {
-    const json = `{
-      "pages": [
-        {
-          "url": "/about",
-          "renderConfig": {
-            "renderId": "about-page",
-            "dataHandler": "about-handler",
-            "rootLayout": "MainLayout",
-            "widgets": [
-              {
-                "type": "HelloBanner"
-              }
-            ]
-          }
+  test("resolveSitemapDefinition navigates to widget, handler (.ts in src/handler), and layout (.tsx in src/layout) files", () => {
+    const json = `[
+      {
+        "url": "/",
+        "renderConfig": {
+          "renderId": "homeRenderId",
+          "dataHandler": "HomeDataHandler",
+          "rootLayout": "MainLayout",
+          "widgets": [
+            { "id": "HelloBanner", "type": "HelloBanner" }
+          ]
         }
-      ]
-    }`;
+      }
+    ]`;
     const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
 
     const tempRoot = path.join(__dirname, `temp_sitemap_test_${Date.now()}`).replaceAll("\\", "/");
     const widgetsDir = path.join(tempRoot, "src", "widgets");
-    const handlersDir = path.join(tempRoot, "src", "handlers");
-    const layoutsDir = path.join(tempRoot, "src", "layouts");
+    const handlerDir = path.join(tempRoot, "src", "handler");
+    const layoutDir = path.join(tempRoot, "src", "layout");
 
     fs.mkdirSync(widgetsDir, { recursive: true });
-    fs.mkdirSync(handlersDir, { recursive: true });
-    fs.mkdirSync(layoutsDir, { recursive: true });
+    fs.mkdirSync(handlerDir, { recursive: true });
+    fs.mkdirSync(layoutDir, { recursive: true });
 
     fs.writeFileSync(path.join(widgetsDir, "HelloBanner.tsx"), "export default function HelloBanner() {}");
-    fs.writeFileSync(path.join(handlersDir, "about-handler.ts"), "export default function aboutHandler() {}");
-    fs.writeFileSync(path.join(layoutsDir, "MainLayout.tsx"), "export default function MainLayout() {}");
+    fs.writeFileSync(path.join(handlerDir, "HomeDataHandler.ts"), "export default async function HomeDataHandler() { return { status: 200 }; }");
+    fs.writeFileSync(path.join(layoutDir, "MainLayout.tsx"), "export default function MainLayout() { return <div />; }");
 
     try {
       const sitemapPath = path.join(tempRoot, "streak.sitemap.json");
@@ -1661,11 +1649,11 @@ suite("Extension Test Suite", () => {
       assert.ok(defLoc);
       assert.ok(defLoc.uri.includes("HelloBanner.tsx"));
 
-      // Find offset of "about-handler"
-      const handlerOffset = json.indexOf("about-handler") + 2;
+      // Find offset of "HomeDataHandler"
+      const handlerOffset = json.indexOf("HomeDataHandler") + 2;
       const handlerLoc = resolveSitemapDefinition(doc, handlerOffset, tempRoot);
       assert.ok(handlerLoc);
-      assert.ok(handlerLoc.uri.includes("about-handler.ts"));
+      assert.ok(handlerLoc.uri.includes("HomeDataHandler.ts"));
 
       // Find offset of "MainLayout"
       const layoutOffset = json.indexOf("MainLayout") + 2;

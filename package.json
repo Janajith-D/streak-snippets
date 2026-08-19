@@ -23,7 +23,9 @@
   ],
   "activationEvents": [
     "onLanguage:typescript",
-    "onLanguage:typescriptreact"
+    "onLanguage:typescriptreact",
+    "onLanguage:json",
+    "workspaceContains:**/streak.sitemap.json"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -285,6 +287,72 @@
           },
           "default": [],
           "description": "Disallowed code patterns as regular expression strings."
+        },
+        "streak.rules.duplicateRoute.severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
+          "default": "error",
+          "description": "Severity for duplicate sitemap route rule (streak:S901)"
+        },
+        "streak.rules.missingWidget.severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
+          "default": "error",
+          "description": "Severity for missing widget declared in sitemap rule (streak:S902)"
+        },
+        "streak.rules.missingHandler.severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
+          "default": "warning",
+          "description": "Severity for missing data handler declared in sitemap rule (streak:S903)"
+        },
+        "streak.rules.deadWidget.severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
+          "default": "warning",
+          "description": "Severity for unused widget not in sitemap rule (streak:S904)"
+        },
+        "streak.rules.duplicateRenderId.severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
+          "default": "error",
+          "description": "Severity for duplicate renderConfig renderId rule (streak:S905)"
+        },
+        "streak.rules.missingLayout.severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
+          "default": "warning",
+          "description": "Severity for missing root layout declared in sitemap rule (streak:S906)"
         },
         "streak.snippets.widgetDirectory": {
           "type": "string",

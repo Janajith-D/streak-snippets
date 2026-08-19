@@ -30,8 +30,10 @@ This document provides detailed SonarQube-style descriptions, rationale, and com
 | [`streak:S801`](#streaks801---widget-filename-matches-component) | Widget Component | Error | Widget filename and declared default component name must match. |
 | [`streak:S901`](#streaks901---duplicate-route-detected) | Sitemap / Routes | Error | Sitemap page routes (`url` values) must be unique. |
 | [`streak:S902`](#streaks902---referenced-widget-does-not-exist) | Sitemap / Registry | Error | Referenced widget `type` in the sitemap must exist as a source file. |
-| [`streak:S903`](#streaks903---referenced-handler-does-not-exist) | Sitemap / Registry | Error | Referenced sitemap page `handler` must exist as a handler source file. |
+| [`streak:S903`](#streaks903---referenced-handler-does-not-exist) | Sitemap / Registry | Warning | Referenced sitemap page `dataHandler` must exist as a `.ts` source file in `src/handler/` or `src/handlers/`. |
 | [`streak:S904`](#streaks904---dead-widget-detected) | Workspace Registry | Warning | Custom widgets should be referenced by at least one sitemap page. |
+| [`streak:S905`](#streaks905---duplicate-renderid-detected) | Sitemap / Registry | Error | Sitemap renderConfig `renderId` values must be unique. |
+| [`streak:S906`](#streaks906---referenced-layout-does-not-exist) | Sitemap / Registry | Warning | Referenced sitemap page `rootLayout` must exist as a `.tsx` source file in `src/layout/` or `src/layouts/`. |
 
 ---
 
@@ -641,23 +643,23 @@ Ensures that all widget `type` values declared inside the sitemap match an exist
 ### `streak:S903` — Referenced Handler Does Not Exist
 
 - **Category**: Sitemap / Registry
-- **Severity**: `Error`
+- **Severity**: `Warning`
 - **Source**: `Streak Engine`
 
 #### Description
-Ensures that all page `handler` properties declared inside the sitemap match an existing handler source file inside `src/handlers/`.
+Ensures that all page `dataHandler` (or `handler`) properties declared inside the sitemap match an existing `.ts` data handler source file inside `src/handler/` or `src/handlers/`.
 
 #### Non-compliant Code ❌
 ```json
 {
-  "handler": "missing-handler"
+  "dataHandler": "missing-handler"
 }
 ```
 
 #### Compliant Code ✅
 ```json
 {
-  "handler": "about-handler"
+  "dataHandler": "HomeDataHandler"
 }
 ```
 
@@ -683,5 +685,58 @@ export default function LegacyWidget() { ... }
 ```tsx
 export default function HelloBanner() { ... }
 ```
+
+---
+
+### `streak:S905` — Duplicate renderId Detected
+
+- **Category**: Sitemap / Registry
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+Ensures sitemap page `renderId` values (inside `renderConfig` or top-level) are unique across all page configurations.
+
+#### Non-compliant Code ❌
+```json
+[
+  { "url": "/home", "renderConfig": { "renderId": "homeRenderId" } },
+  { "url": "/dashboard", "renderConfig": { "renderId": "homeRenderId" } }
+]
+```
+
+#### Compliant Code ✅
+```json
+[
+  { "url": "/home", "renderConfig": { "renderId": "homeRenderId" } },
+  { "url": "/dashboard", "renderConfig": { "renderId": "dashboardRenderId" } }
+]
+```
+
+---
+
+### `streak:S906` — Referenced Layout Does Not Exist
+
+- **Category**: Sitemap / Registry
+- **Severity**: `Warning`
+- **Source**: `Streak Engine`
+
+#### Description
+Ensures that all page `rootLayout` (or `layout`) properties declared inside the sitemap match an existing `.tsx` layout source file inside `src/layout/` or `src/layouts/`.
+
+#### Non-compliant Code ❌
+```json
+{
+  "rootLayout": "MissingLayout"
+}
+```
+
+#### Compliant Code ✅
+```json
+{
+  "rootLayout": "MainLayout"
+}
+```
+
 
 

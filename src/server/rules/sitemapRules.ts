@@ -54,7 +54,37 @@ function collectRenderId(page: SitemapPage, seenRenderIds: Map<string, { start: 
   }
 }
 
-function reportDuplicateUrls(seenUrls: Map<string, { start: number; end: number }[]>, document: TextDocument, diagnostics: Diagnostic[]) {
+function getSeverity(
+  ruleId: string,
+  ruleSeverities: Record<string, string> | undefined,
+  defaultSeverity: DiagnosticSeverity,
+): DiagnosticSeverity | null {
+  const sevStr = ruleSeverities?.[ruleId]?.toLowerCase();
+  if (sevStr === "off") {
+    return null;
+  }
+  if (sevStr === "error") {
+    return DiagnosticSeverity.Error;
+  }
+  if (sevStr === "warning") {
+    return DiagnosticSeverity.Warning;
+  }
+  if (sevStr === "info" || sevStr === "information") {
+    return DiagnosticSeverity.Information;
+  }
+  return defaultSeverity;
+}
+
+function reportDuplicateUrls(
+  seenUrls: Map<string, { start: number; end: number }[]>,
+  document: TextDocument,
+  diagnostics: Diagnostic[],
+  ruleSeverities?: Record<string, string>,
+) {
+  const severity = getSeverity("streak:duplicate-route", ruleSeverities, DiagnosticSeverity.Error);
+  if (severity === null) {
+    return;
+  }
   for (const [url, occurrences] of seenUrls.entries()) {
     if (occurrences.length > 1) {
       for (const occ of occurrences) {
@@ -65,7 +95,7 @@ function reportDuplicateUrls(seenUrls: Map<string, { start: number; end: number 
             start: document.positionAt(occ.start),
             end: document.positionAt(occ.end),
           },
-          severity: DiagnosticSeverity.Error,
+          severity,
           source: "Streak Engine",
         });
       }
@@ -73,18 +103,27 @@ function reportDuplicateUrls(seenUrls: Map<string, { start: number; end: number 
   }
 }
 
-function reportDuplicateRenderIds(seenRenderIds: Map<string, { start: number; end: number }[]>, document: TextDocument, diagnostics: Diagnostic[]) {
+function reportDuplicateRenderIds(
+  seenRenderIds: Map<string, { start: number; end: number }[]>,
+  document: TextDocument,
+  diagnostics: Diagnostic[],
+  ruleSeverities?: Record<string, string>,
+) {
+  const severity = getSeverity("streak:duplicate-render-id", ruleSeverities, DiagnosticSeverity.Error);
+  if (severity === null) {
+    return;
+  }
   for (const [renderId, occurrences] of seenRenderIds.entries()) {
     if (occurrences.length > 1) {
       for (const occ of occurrences) {
         diagnostics.push({
           code: "streak:S905",
-          message: `Duplicate renderConfigID detected: "${renderId}".`,
+          message: `Duplicate renderId detected: "${renderId}".`,
           range: {
             start: document.positionAt(occ.start),
             end: document.positionAt(occ.end),
           },
-          severity: DiagnosticSeverity.Error,
+          severity,
           source: "Streak Engine",
         });
       }
@@ -92,7 +131,16 @@ function reportDuplicateRenderIds(seenRenderIds: Map<string, { start: number; en
   }
 }
 
-function validatePageWidgets(page: SitemapPage, document: TextDocument, diagnostics: Diagnostic[]) {
+function validatePageWidgets(
+  page: SitemapPage,
+  document: TextDocument,
+  diagnostics: Diagnostic[],
+  ruleSeverities?: Record<string, string>,
+) {
+  const severity = getSeverity("streak:missing-widget", ruleSeverities, DiagnosticSeverity.Error);
+  if (severity === null) {
+    return;
+  }
   for (const w of page.widgets) {
     if (!widgetRegistry.get(w.type)) {
       const range = {
@@ -107,7 +155,7 @@ function validatePageWidgets(page: SitemapPage, document: TextDocument, diagnost
         code: "streak:S902",
         message: `Widget "${w.type}" does not exist.${suggestionText}`,
         range,
-        severity: DiagnosticSeverity.Error,
+        severity,
         source: "Streak Engine",
         data: {
           invalidWidget: w.type,
@@ -118,13 +166,26 @@ function validatePageWidgets(page: SitemapPage, document: TextDocument, diagnost
   }
 }
 
-function validatePageHandler(page: SitemapPage, document: TextDocument, workspaceRoot: string, diagnostics: Diagnostic[]) {
+function validatePageHandler(
+  page: SitemapPage,
+  document: TextDocument,
+  workspaceRoot: string,
+  diagnostics: Diagnostic[],
+  ruleSeverities?: Record<string, string>,
+) {
+  const severity = getSeverity("streak:missing-handler", ruleSeverities, DiagnosticSeverity.Warning);
+  if (severity === null) {
+    return;
+  }
   if (page.handler && page.handlerStart !== undefined && page.handlerEnd !== undefined) {
     const handlerName = page.handler;
-    const handlerDir = path.join(workspaceRoot, "src", "handlers");
+    const candidateDirs = [
+      path.join(workspaceRoot, "src", "handler"),
+      path.join(workspaceRoot, "src", "handlers"),
+    ];
     let found = false;
-    for (const ext of [".ts", ".js", ".tsx", ".jsx"]) {
-      if (fs.existsSync(path.join(handlerDir, `${handlerName}${ext}`))) {
+    for (const dir of candidateDirs) {
+      if (fs.existsSync(path.join(dir, `${handlerName}.ts`))) {
         found = true;
         break;
       }
@@ -137,22 +198,35 @@ function validatePageHandler(page: SitemapPage, document: TextDocument, workspac
       };
       diagnostics.push({
         code: "streak:S903",
-        message: `Handler "${handlerName}" does not exist.`,
+        message: `Data handler "${handlerName}" does not exist in src/handler or src/handlers.`,
         range,
-        severity: DiagnosticSeverity.Error,
+        severity,
         source: "Streak Engine",
       });
     }
   }
 }
 
-function validatePageLayout(page: SitemapPage, document: TextDocument, workspaceRoot: string, diagnostics: Diagnostic[]) {
+function validatePageLayout(
+  page: SitemapPage,
+  document: TextDocument,
+  workspaceRoot: string,
+  diagnostics: Diagnostic[],
+  ruleSeverities?: Record<string, string>,
+) {
+  const severity = getSeverity("streak:missing-layout", ruleSeverities, DiagnosticSeverity.Warning);
+  if (severity === null) {
+    return;
+  }
   if (page.layout && page.layoutStart !== undefined && page.layoutEnd !== undefined) {
     const layoutName = page.layout;
-    const layoutDir = path.join(workspaceRoot, "src", "layouts");
+    const candidateDirs = [
+      path.join(workspaceRoot, "src", "layout"),
+      path.join(workspaceRoot, "src", "layouts"),
+    ];
     let found = false;
-    for (const ext of [".ts", ".js", ".tsx", ".jsx"]) {
-      if (fs.existsSync(path.join(layoutDir, `${layoutName}${ext}`))) {
+    for (const dir of candidateDirs) {
+      if (fs.existsSync(path.join(dir, `${layoutName}.tsx`))) {
         found = true;
         break;
       }
@@ -165,9 +239,9 @@ function validatePageLayout(page: SitemapPage, document: TextDocument, workspace
       };
       diagnostics.push({
         code: "streak:S906",
-        message: `Layout "${layoutName}" does not exist.`,
+        message: `Layout "${layoutName}" does not exist in src/layout or src/layouts.`,
         range,
-        severity: DiagnosticSeverity.Error,
+        severity,
         source: "Streak Engine",
       });
     }
@@ -177,6 +251,7 @@ function validatePageLayout(page: SitemapPage, document: TextDocument, workspace
 export function validateSitemap(
   document: TextDocument,
   workspaceRoot: string,
+  ruleSeverities?: Record<string, string>,
 ): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
   const text = document.getText();
@@ -190,13 +265,13 @@ export function validateSitemap(
   for (const page of pages) {
     collectUrl(page, seenUrls);
     collectRenderId(page, seenRenderIds);
-    validatePageWidgets(page, document, diagnostics);
-    validatePageHandler(page, document, workspaceRoot, diagnostics);
-    validatePageLayout(page, document, workspaceRoot, diagnostics);
+    validatePageWidgets(page, document, diagnostics, ruleSeverities);
+    validatePageHandler(page, document, workspaceRoot, diagnostics, ruleSeverities);
+    validatePageLayout(page, document, workspaceRoot, diagnostics, ruleSeverities);
   }
 
-  reportDuplicateUrls(seenUrls, document, diagnostics);
-  reportDuplicateRenderIds(seenRenderIds, document, diagnostics);
+  reportDuplicateUrls(seenUrls, document, diagnostics, ruleSeverities);
+  reportDuplicateRenderIds(seenRenderIds, document, diagnostics, ruleSeverities);
 
   return diagnostics;
 }

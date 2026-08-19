@@ -199,9 +199,9 @@ function parseRenderConfig(props: Record<string, { keyNode: JSONNode; valNode: J
     return {};
   }
   const subProps = renderConfigNode.value as Record<string, { keyNode: JSONNode; valNode: JSONNode }>;
-  const renderIdNode = subProps["renderId"]?.valNode;
-  const handlerNode = subProps["dataHandler"]?.valNode;
-  const layoutNode = subProps["rootLayout"]?.valNode;
+  const renderIdNode = subProps["renderId"]?.valNode || subProps["renderConfigID"]?.valNode || subProps["renderConfigId"]?.valNode;
+  const handlerNode = subProps["dataHandler"]?.valNode || subProps["handler"]?.valNode;
+  const layoutNode = subProps["rootLayout"]?.valNode || subProps["layout"]?.valNode;
   const widgetsNode = subProps["widgets"]?.valNode;
 
   return {
@@ -226,10 +226,10 @@ function parsePageNode(pageNode: JSONNode): SitemapPage | null {
   const urlNode = props["url"]?.valNode;
   
   // Try top-level properties first
-  const topHandlerNode = props["handler"]?.valNode;
-  const topLayoutNode = props["layout"]?.valNode;
+  const topHandlerNode = props["dataHandler"]?.valNode || props["handler"]?.valNode;
+  const topLayoutNode = props["rootLayout"]?.valNode || props["layout"]?.valNode;
   const topWidgetsNode = props["widgets"]?.valNode;
-  const renderConfigIdNode = props["renderConfigID"]?.valNode;
+  const renderConfigIdNode = props["renderId"]?.valNode || props["renderConfigID"]?.valNode || props["renderConfigId"]?.valNode;
 
   const topWidgets = parseWidgets(topWidgetsNode);
 

@@ -34,9 +34,12 @@ function startLanguageServer(context: vscode.ExtensionContext) {
     documentSelector: [
       { scheme: "file", language: "typescript" },
       { scheme: "file", language: "typescriptreact" },
+      { scheme: "file", language: "json", pattern: "**/streak.sitemap.json" },
+      { scheme: "file", language: "json", pattern: "**/*.sitemap.json" },
+      { scheme: "file", language: "json" },
     ],
     synchronize: {
-      fileEvents: vscode.workspace.createFileSystemWatcher("**/*.{ts,tsx}"),
+      fileEvents: vscode.workspace.createFileSystemWatcher("**/*.{ts,tsx,json}"),
     },
   };
 

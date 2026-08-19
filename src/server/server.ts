@@ -150,6 +150,7 @@ connection.onHover((params): Hover | null => {
     if (!workspaceRoot) {
       return null;
     }
+    sitemapRegistry.parseAndRegister(document.uri, document.getText());
     return resolveSitemapHover(document, offset, workspaceRoot);
   }
 
@@ -175,6 +176,7 @@ connection.onDefinition(async (params) => {
     if (!workspaceRoot) {
       return null;
     }
+    sitemapRegistry.parseAndRegister(document.uri, document.getText());
     let customWidgetDir: string | undefined;
     try {
       const streakSettings =
@@ -375,6 +377,12 @@ function buildRuleConfiguration(streakSettings: StreakSettings | undefined): {
       scriptStructure: "streak:script-structure",
       allowedImports: "streak:allowed-imports",
       forbiddenPatterns: "streak:forbidden-patterns",
+      duplicateRoute: "streak:duplicate-route",
+      missingWidget: "streak:missing-widget",
+      missingHandler: "streak:missing-handler",
+      deadWidget: "streak:dead-widget",
+      duplicateRenderId: "streak:duplicate-render-id",
+      missingLayout: "streak:missing-layout",
     };
 
     for (const [settingsKey, ruleId] of Object.entries(settingsMap)) {
@@ -431,9 +439,18 @@ async function validateDocument(document: TextDocument): Promise<void> {
 
   connection.console.log(`[Validation] Running diagnostics for: ${uri}`);
 
+  let config = { ruleSeverities: {} as Record<string, string>, ruleOptions: {} as Record<string, unknown> };
+  try {
+    const streakSettings =
+      (await connection.workspace.getConfiguration("streak")) as StreakSettings;
+    config = buildRuleConfiguration(streakSettings);
+  } catch (err) {
+    connection.console.log(`Failed to fetch configurations: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
   if (uri.endsWith("sitemap.json")) {
     if (workspaceRoot) {
-      const diagnostics = validateSitemap(document, workspaceRoot);
+      const diagnostics = validateSitemap(document, workspaceRoot, config.ruleSeverities);
       await connection.sendDiagnostics({ uri, diagnostics });
 
       // Re-validate other open documents to update S904 dead widget warnings
@@ -454,15 +471,6 @@ async function validateDocument(document: TextDocument): Promise<void> {
   const { analysis, sourceFile } = analyzeAndParseDocument(uri, content);
 
   await indexWidgetFile(uri);
-
-  let config = { ruleSeverities: {} as Record<string, string>, ruleOptions: {} as Record<string, unknown> };
-  try {
-    const streakSettings =
-      (await connection.workspace.getConfiguration("streak")) as StreakSettings;
-    config = buildRuleConfiguration(streakSettings);
-  } catch (err) {
-    connection.console.log(`Failed to fetch configurations: ${err instanceof Error ? err.message : String(err)}`);
-  }
 
   const diagnostics = runRules(sourceFile, analysis, {
     enabled: true,
