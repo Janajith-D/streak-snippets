@@ -1619,7 +1619,7 @@ suite("Extension Test Suite", () => {
           "dataHandler": "HomeDataHandler",
           "rootLayout": "MainLayout",
           "widgets": [
-            { "id": "HelloBanner", "type": "HelloBanner" }
+            { "id": "banner1", "type": "HelloBanner" }
           ]
         }
       }
@@ -1695,6 +1695,12 @@ suite("Extension Test Suite", () => {
   });
 
   test("Sitemap autocomplete suggests widget names and streak-page snippet", () => {
+    widgetRegistry.set("HelloBanner", {
+      name: "HelloBanner",
+      filePath: "file:///test/HelloBanner.tsx",
+      props: [],
+    });
+
     const json = `"type": "`;
     const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
     const { sourceFile } = analyzeAndParseDocument("file:///test/dummy_completions.ts", "export default {}");

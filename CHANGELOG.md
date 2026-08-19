@@ -9,10 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Sitemap Awareness & Relation Graph (Phase 14)**:
-  - Added JSON location parser for indexing `streak.sitemap.json` elements.
-  - Implemented S901 (Duplicate routes), S902 (Missing widgets), and S903 (Missing handlers) sitemap diagnostics.
-  - Implemented S904 (Dead widgets warning) targeting unused widget components.
-  - Added Go to definition for sitemap handlers and widgets.
+  - Added JSON location parser for indexing `streak.sitemap.json` elements across both top-level and nested `renderConfig` properties.
+  - Enabled JSON document support in client `documentSelector` and `activationEvents` for `streak.sitemap.json`.
+  - Implemented `streak:S901` (Duplicate routes) and `streak:S905` (Duplicate renderConfig `renderId` values) error diagnostics.
+  - Implemented `streak:S902` (Missing widgets) error diagnostic with fuzzy "Did you mean?" suggestions.
+  - Implemented `streak:S903` (Missing data handler warning) checking `src/handler/` and `src/handlers/` strictly for `.ts` files.
+  - Implemented `streak:S906` (Missing root layout warning) checking `src/layout/` and `src/layouts/` strictly for `.tsx` files.
+  - Implemented `streak:S904` (Dead widgets warning) targeting unused widget components.
+  - Added Go to Definition for sitemap `dataHandler`, `rootLayout`, and widget `type` values.
   - Integrated Find References and Rename edits linking widget files and the sitemap.
   - Added hover tooltips for sitemap pages and widget handler statistics.
   - Added `streak-page` snippet and autocomplete for widget types inside the sitemap.
