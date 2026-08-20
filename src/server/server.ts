@@ -21,7 +21,7 @@ import { getCompletions } from "./completion/provider";
 import { resolveHover, resolveSitemapHover } from "./hover/provider";
 import { resolveDefinition, resolveSitemapDefinition } from "./definition/provider";
 import { resolveCodeActions } from "./codeaction/provider";
-import { scanWorkspace, scanFile } from "./registry/scanner";
+import { scanWorkspace, scanFile, resolveProjectRoot } from "./registry/scanner";
 import { widgetRegistry } from "./registry/widgets";
 import { sitemapRegistry } from "./registry/sitemaps";
 import { validateSitemap } from "./rules/sitemapRules";
@@ -166,11 +166,9 @@ connection.onHover((params): Hover | null => {
 
   if (uri.endsWith(".json")) {
     if (uri.endsWith("sitemap.json")) {
-      if (!workspaceRoot) {
-        return null;
-      }
+      const projectRoot = resolveProjectRoot(uri, workspaceRoot);
       sitemapRegistry.parseAndRegister(document.uri, document.getText());
-      return resolveSitemapHover(document, offset, workspaceRoot);
+      return resolveSitemapHover(document, offset, projectRoot);
     }
     return null;
   }
@@ -193,6 +191,7 @@ connection.onDefinition(async (params) => {
       return null;
     }
     const offset = document.offsetAt(params.position);
+    const projectRoot = resolveProjectRoot(uri, workspaceRoot);
 
     let customWidgetDir: string | undefined;
     let customPublicDir: string | undefined;
@@ -207,11 +206,8 @@ connection.onDefinition(async (params) => {
 
     if (uri.endsWith(".json")) {
       if (uri.endsWith("sitemap.json")) {
-        if (!workspaceRoot) {
-          return null;
-        }
         sitemapRegistry.parseAndRegister(document.uri, document.getText());
-        return resolveSitemapDefinition(document, offset, workspaceRoot, customWidgetDir);
+        return resolveSitemapDefinition(document, offset, projectRoot, customWidgetDir);
       }
       return null;
     }
@@ -225,7 +221,7 @@ connection.onDefinition(async (params) => {
 
     return await resolveDefinition(
       node,
-      workspaceRoot,
+      projectRoot,
       customWidgetDir,
       customPublicDir,
     );
@@ -485,11 +481,9 @@ async function validateJsonDocument(
     return;
   }
 
-  if (!workspaceRoot) {
-    return;
-  }
+  const projectRoot = resolveProjectRoot(uri, workspaceRoot);
 
-  const diagnostics = validateSitemap(document, workspaceRoot, ruleSeverities);
+  const diagnostics = validateSitemap(document, projectRoot, ruleSeverities);
   await connection.sendDiagnostics({ uri, diagnostics });
 
   for (const doc of documents.all()) {

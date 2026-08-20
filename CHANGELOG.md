@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Definition Provider Lifecycle & Concurrent AST Invalidation**:
   - Fixed `Attempted to get information from a node that was removed or forgotten` error during Go to Definition in data handler files by eliminating the asynchronous IPC gap before AST node resolution.
+- **Subproject & Monorepo Project Root Resolution**:
+  - Implemented `resolveProjectRoot` to automatically detect nested project directories containing `streak.sitemap.json` or `src/` when a parent directory or monorepo workspace is opened in VS Code.
+  - Updated `scanWorkspace` to recursively discover all `src/widgets/` directories across workspace subfolders, preventing false-positive `streak:S902`, `streak:S903`, and `streak:S906` missing widget/handler/layout errors.
 - **Rule Scope Refinement & `node_modules` Ignore**:
   - Completely ignored `node_modules` and TypeScript declaration files (`.d.ts`, `.d.cts`, `.d.mts`) from Language Server validation and diagnostic passes.
   - Restricted `streak:S301` (missing default export) strictly to framework directories (`src/handlers/`, `src/layouts/`, `src/widgets/`, `src/pages/`), eliminating false positive errors on scripts, test files, and utilities.

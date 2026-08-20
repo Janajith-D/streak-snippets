@@ -2,6 +2,7 @@ import { type Hover, type MarkupContent, type Diagnostic, DiagnosticSeverity } f
 import * as assert from "assert";
 import * as path from "node:path";
 import * as fs from "node:fs";
+import { pathToFileURL } from "node:url";
 
 // You can import and use all API from the 'vscode' module
 // as well as import your extension to test it
@@ -37,7 +38,7 @@ import { resolveHover, resolveSitemapHover } from "../server/hover/provider";
 import { resolveDefinition, resolveSitemapDefinition } from "../server/definition/provider";
 import { resolveCodeActions } from "../server/codeaction/provider";
 import { widgetRegistry } from "../server/registry/widgets";
-import { scanWorkspace } from "../server/registry/scanner";
+import { scanWorkspace, resolveProjectRoot } from "../server/registry/scanner";
 import { getCompletions } from "../server/completion/provider";
 import { getJsxContext } from "../server/completion/jsxAttributeCompletions";
 import { getAutoImportEdit } from "../server/completion/frameworkCompletions";
@@ -2044,6 +2045,67 @@ suite("Extension Test Suite", () => {
     );
     assert.strictEqual(dataHandlerAsyncRule.run(handlerFile, handlerAnalysis).length, 1);
     assert.strictEqual(dataHandlerStatusRule.run(handlerFile, handlerAnalysis).length, 1);
+  });
+
+  test("scanWorkspace and validateSitemap support nested subprojects (monorepo structure)", async () => {
+    const parentDir = path.join(__dirname, "../../tmp_subproject_test");
+    const subprojectDir = path.join(parentDir, "streak-website");
+    const widgetsDir = path.join(subprojectDir, "src", "widgets");
+    const handlerDir = path.join(subprojectDir, "src", "handler");
+    const layoutDir = path.join(subprojectDir, "src", "layout");
+
+    fs.mkdirSync(widgetsDir, { recursive: true });
+    fs.mkdirSync(handlerDir, { recursive: true });
+    fs.mkdirSync(layoutDir, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(widgetsDir, "HelloBanner.tsx"),
+      "export default function HelloBanner() { return <div>Banner</div>; }",
+    );
+    fs.writeFileSync(
+      path.join(handlerDir, "HomeDataHandler.ts"),
+      "export default async function HomeDataHandler() { return { status: 200, HelloBanner: {} }; }",
+    );
+    fs.writeFileSync(
+      path.join(layoutDir, "MainLayout.tsx"),
+      'import { WidgetPlaceholder } from "streak-forge/components"; export default function MainLayout() { return <div><WidgetPlaceholder id="HelloBanner" type="HelloBanner" /></div>; }',
+    );
+
+    const sitemapContent = JSON.stringify([
+      {
+        url: "/",
+        renderConfig: {
+          renderId: "homeRenderId",
+          dataHandler: "HomeDataHandler",
+          rootLayout: "MainLayout",
+          widgets: [{ id: "HelloBanner", type: "HelloBanner" }],
+        },
+      },
+    ]);
+    const sitemapFilePath = path.join(subprojectDir, "streak.sitemap.json");
+    fs.writeFileSync(sitemapFilePath, sitemapContent);
+
+    try {
+      // 1. Recursive workspace scan from parent folder discovers nested widget
+      await scanWorkspace(parentDir);
+      assert.ok(widgetRegistry.get("HelloBanner"));
+
+      // 2. resolveProjectRoot finds subproject folder for sitemap
+      const projectRoot = resolveProjectRoot(pathToFileURL(sitemapFilePath).toString(), parentDir);
+      assert.strictEqual(path.resolve(projectRoot), path.resolve(subprojectDir));
+
+      // 3. validateSitemap with projectRoot produces 0 errors
+      const doc = TextDocument.create(
+        pathToFileURL(sitemapFilePath).toString(),
+        "json",
+        1,
+        sitemapContent,
+      );
+      const diags = validateSitemap(doc, projectRoot);
+      assert.strictEqual(diags.length, 0);
+    } finally {
+      fs.rmSync(parentDir, { recursive: true, force: true });
+    }
   });
 });
 

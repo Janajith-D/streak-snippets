@@ -1,6 +1,7 @@
 import { Node, Project, ScriptTarget, SyntaxKind } from "ts-morph";
 import * as path from "node:path";
 import * as fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import { type WidgetProp, widgetRegistry } from "./widgets";
 import { sitemapRegistry } from "./sitemaps";
 
@@ -212,6 +213,37 @@ function extractProps(componentNode: Node): WidgetProp[] {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
+export function resolveProjectRoot(uri: string, workspaceRoot?: string): string {
+  try {
+    let filePath = uri;
+    if (uri.startsWith("file://")) {
+      filePath = fileURLToPath(uri);
+    }
+    let currentDir = fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()
+      ? filePath
+      : path.dirname(filePath);
+
+    while (currentDir && currentDir !== path.dirname(currentDir)) {
+      if (
+        fs.existsSync(path.join(currentDir, "streak.sitemap.json")) ||
+        fs.existsSync(path.join(currentDir, "sitemap.json")) ||
+        fs.existsSync(path.join(currentDir, "src", "widgets")) ||
+        fs.existsSync(path.join(currentDir, "src", "layouts")) ||
+        fs.existsSync(path.join(currentDir, "src", "layout"))
+      ) {
+        return currentDir;
+      }
+      if (workspaceRoot && path.resolve(currentDir) === path.resolve(workspaceRoot)) {
+        break;
+      }
+      currentDir = path.dirname(currentDir);
+    }
+  } catch {
+    /* ignore */
+  }
+  return workspaceRoot || process.cwd();
+}
+
 export async function scanFile(filePath: string): Promise<void> {
   try {
     const content = await fs.promises.readFile(filePath, "utf-8");
@@ -252,37 +284,113 @@ export async function scanFile(filePath: string): Promise<void> {
   }
 }
 
+async function findWidgetDirectories(root: string, customWidgetDir?: string): Promise<string[]> {
+  const dirs: string[] = [];
+  const targetDirName = customWidgetDir || "src/widgets";
+
+  const directPath = path.join(root, targetDirName);
+  if (fs.existsSync(directPath)) {
+    dirs.push(directPath);
+  }
+  const directFallback = path.join(root, "src", "components");
+  if (fs.existsSync(directFallback) && !dirs.includes(directFallback)) {
+    dirs.push(directFallback);
+  }
+
+  async function search(dir: string, depth: number) {
+    if (depth > 4) {
+      return;
+    }
+    try {
+      const list = await fs.promises.readdir(dir);
+      for (const item of list) {
+        if (
+          item === "node_modules" ||
+          item === ".git" ||
+          item === "dist" ||
+          item === "out" ||
+          item === ".vscode"
+        ) {
+          continue;
+        }
+        const full = path.join(dir, item);
+        const stat = await fs.promises.stat(full);
+        if (stat.isDirectory()) {
+          if (
+            (item === "widgets" || item === "components") &&
+            path.basename(path.dirname(full)) === "src"
+          ) {
+            if (!dirs.includes(full)) {
+              dirs.push(full);
+            }
+          } else {
+            await search(full, depth + 1);
+          }
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  await search(root, 0);
+  return dirs;
+}
+
+async function findSitemapFiles(root: string): Promise<string[]> {
+  const sitemaps: string[] = [];
+  async function search(dir: string, depth: number) {
+    if (depth > 4) {
+      return;
+    }
+    try {
+      const list = await fs.promises.readdir(dir);
+      for (const item of list) {
+        if (
+          item === "node_modules" ||
+          item === ".git" ||
+          item === "dist" ||
+          item === "out" ||
+          item === ".vscode"
+        ) {
+          continue;
+        }
+        const full = path.join(dir, item);
+        const stat = await fs.promises.stat(full);
+        if (stat.isDirectory()) {
+          await search(full, depth + 1);
+        } else if (item === "streak.sitemap.json" || item === "sitemap.json") {
+          sitemaps.push(full);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  await search(root, 0);
+  return sitemaps;
+}
+
 export async function scanWorkspace(
   workspaceRoot: string,
   customWidgetDir?: string,
 ): Promise<void> {
-  const resolvedWidgetDir = customWidgetDir
-    ? path.join(workspaceRoot, customWidgetDir)
-    : path.join(workspaceRoot, "src", "widgets");
-  const fallbackWidgetDir = path.join(workspaceRoot, "src", "components");
-
-  const dirs = [resolvedWidgetDir, fallbackWidgetDir];
-
   widgetRegistry.clear();
   sitemapRegistry.clear();
 
-  for (const dir of dirs) {
-    if (fs.existsSync(dir)) {
-      const files = await findFilesRecursive(dir);
-      for (const file of files) {
-        await scanFile(file);
-      }
+  const widgetDirs = await findWidgetDirectories(workspaceRoot, customWidgetDir);
+  for (const dir of widgetDirs) {
+    const files = await findFilesRecursive(dir);
+    for (const file of files) {
+      await scanFile(file);
     }
   }
 
-  let sitemapPath = path.join(workspaceRoot, "streak.sitemap.json");
-  if (!fs.existsSync(sitemapPath)) {
-    sitemapPath = path.join(workspaceRoot, "sitemap.json");
-  }
-
-  if (fs.existsSync(sitemapPath)) {
+  const sitemapFiles = await findSitemapFiles(workspaceRoot);
+  for (const sitemapPath of sitemapFiles) {
     try {
-      const text = fs.readFileSync(sitemapPath, "utf-8");
+      const text = await fs.promises.readFile(sitemapPath, "utf-8");
       sitemapRegistry.parseAndRegister(sitemapPath, text);
     } catch {
       // ignore
@@ -298,7 +406,6 @@ async function findFilesRecursive(dir: string): Promise<string[]> {
       const filePath = path.join(dir, file);
       const stat = await fs.promises.stat(filePath);
       if (stat?.isDirectory()) {
-        // optional chain fix
         results = results.concat(await findFilesRecursive(filePath));
       } else if (filePath.endsWith(".tsx") || filePath.endsWith(".ts")) {
         results.push(filePath);

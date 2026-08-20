@@ -134,6 +134,7 @@ function reportDuplicateRenderIds(
 function validatePageWidgets(
   page: SitemapPage,
   document: TextDocument,
+  workspaceRoot: string,
   diagnostics: Diagnostic[],
   ruleSeverities?: Record<string, string>,
 ) {
@@ -141,8 +142,10 @@ function validatePageWidgets(
   if (severity === null) {
     return;
   }
+  const widgetDir = path.join(workspaceRoot, "src", "widgets");
   for (const w of page.widgets) {
-    if (!widgetRegistry.get(w.type)) {
+    const existsOnDisk = fileExistsStrictCase(widgetDir, `${w.type}.tsx`);
+    if (!widgetRegistry.get(w.type) && !existsOnDisk) {
       const range = {
         start: document.positionAt(w.start),
         end: document.positionAt(w.end),
@@ -333,7 +336,7 @@ export function validateSitemap(
   for (const page of pages) {
     collectUrl(page, seenUrls);
     collectRenderId(page, seenRenderIds);
-    validatePageWidgets(page, document, diagnostics, ruleSeverities);
+    validatePageWidgets(page, document, workspaceRoot, diagnostics, ruleSeverities);
     validateWidgetIdTypeMatch(page, document, diagnostics, ruleSeverities);
     validateWidgetLoadingStrategy(page, document, diagnostics, ruleSeverities);
     validatePageHandler(page, document, workspaceRoot, diagnostics, ruleSeverities);

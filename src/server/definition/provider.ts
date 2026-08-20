@@ -4,6 +4,7 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import { pathToFileURL } from "node:url";
 import { sitemapRegistry, type SitemapPage } from "../registry/sitemaps";
+import { widgetRegistry } from "../registry/widgets";
 import { fileExistsStrictCase } from "../rules/sitemapRules";
 import { type TextDocument } from "vscode-languageserver-textdocument";
 
@@ -171,6 +172,13 @@ function resolveWidgetTypeDefinition(
     const fullPath = path.join(dir, `${value}.tsx`);
     return Location.create(
       pathToFileURL(fullPath).toString(),
+      Range.create(0, 0, 0, 0),
+    );
+  }
+  const registered = widgetRegistry.get(value);
+  if (registered && fs.existsSync(registered.filePath)) {
+    return Location.create(
+      pathToFileURL(registered.filePath).toString(),
       Range.create(0, 0, 0, 0),
     );
   }
