@@ -268,7 +268,9 @@ suite("Extension Test Suite", () => {
       code,
     );
     const lspDiagnostics = runRules(sourceFile, analysis);
-    assert.ok(lspDiagnostics.length >= 3);
+    assert.ok(lspDiagnostics.length >= 2);
+    assert.ok(lspDiagnostics.some((d) => d.code === "streak:S101"));
+    assert.ok(lspDiagnostics.some((d) => d.code === "streak:S102"));
   });
 
   // ── Snippet file validation ────────────────────────────────────────
@@ -1897,6 +1899,92 @@ suite("Extension Test Suite", () => {
     assert.strictEqual(diags.length, 1);
     assert.strictEqual(diags[0].code, "streak:S204");
     assert.ok(diags[0].message.includes("UnknownWidget"));
+  });
+
+  test("missingDefaultExportRule ignores non-framework files (scripts, tests, utils) and validates framework folders", () => {
+    const helperCode = `export const sum = (a: number, b: number) => a + b;`;
+    const { analysis: utilAnalysis, sourceFile: utilFile } = analyzeAndParseDocument(
+      "file:///workspace/src/utils/math.ts",
+      helperCode,
+    );
+    const utilDiags = missingDefaultExportRule.run(utilFile, utilAnalysis);
+    assert.strictEqual(utilDiags.length, 0);
+
+    const layoutCode = `export const MainLayout = () => <div>Layout</div>;`;
+    const { analysis: layoutAnalysis, sourceFile: layoutFile } = analyzeAndParseDocument(
+      "file:///workspace/src/layouts/MainLayout.tsx",
+      layoutCode,
+    );
+    const layoutDiags = missingDefaultExportRule.run(layoutFile, layoutAnalysis);
+    assert.strictEqual(layoutDiags.length, 1);
+    assert.strictEqual(layoutDiags[0].code, "streak:S301");
+  });
+
+  test("allowedImportsRule permits 'bun:test' alongside 'streak-forge/components'", () => {
+    const code = `
+      import { describe, test, expect } from "bun:test";
+      import { WidgetPlaceholder } from "streak-forge/components";
+      import { invalidModule } from "some-unapproved-module";
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument(
+      "file:///workspace/src/test/widget.test.ts",
+      code,
+    );
+    const diags = allowedImportsRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 1);
+    assert.strictEqual(diags[0].code, "streak:S701");
+    assert.ok(diags[0].message.includes("some-unapproved-module"));
+  });
+
+  test("widgetPlaceholderRule emits streak:S902 on layouts when widget does not exist in src/widgets", () => {
+    widgetRegistry.set("HelloBanner", {
+      name: "HelloBanner",
+      filePath: "/workspace/src/widgets/HelloBanner.tsx",
+      props: [],
+    });
+
+    const code = `
+      import { WidgetPlaceholder } from "streak-forge/components";
+      export default function Layout() {
+        return (
+          <div>
+            <WidgetPlaceholder id="HelloBanner" type="HelloBanner" />
+            <WidgetPlaceholder id="MissingWid" type="MissingWid" />
+          </div>
+        );
+      }
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument(
+      "file:///workspace/src/layouts/MainLayout.tsx",
+      code,
+    );
+    const diags = widgetPlaceholderRule.run(sourceFile, analysis);
+    const s902Diags = diags.filter((d) => d.code === "streak:S902");
+    assert.strictEqual(s902Diags.length, 1);
+    assert.ok(s902Diags[0].message.includes('Widget "MissingWid" does not exist in src/widgets'));
+  });
+
+  test("scriptClosureCaptureRule ignores TypeScript type annotations like ': MouseEvent'", () => {
+    const code = `
+      import { Script } from "streak-forge/components";
+      export default function MyWidget() {
+        return (
+          <Script id="my-script" options={{ color: "#fff" }}>
+            {(gDom: any, options: any) => {
+              document.addEventListener("mousedown", (e: MouseEvent) => {
+                const nx = e.clientX / window.innerWidth;
+              });
+            }}
+          </Script>
+        );
+      }
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument(
+      "file:///workspace/src/widgets/MyWidget.tsx",
+      code,
+    );
+    const diags = scriptClosureCaptureRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 0);
   });
 });
 

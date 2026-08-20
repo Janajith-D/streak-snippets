@@ -274,7 +274,8 @@
             "type": "string"
           },
           "default": [
-            "streak-forge/components"
+            "streak-forge/components",
+            "bun:test"
           ],
           "description": "List of approved module import specifiers inside project source files."
         },

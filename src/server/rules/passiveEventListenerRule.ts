@@ -8,7 +8,15 @@ import {
   type RuleOptions,
 } from "./types";
 
-const TARGET_EVENTS = new Set(["scroll", "mousemove", "touchstart", "touchmove"]);
+const TARGET_EVENTS = new Set([
+  "scroll",
+  "mousemove",
+  "touchstart",
+  "touchmove",
+  "wheel",
+  "mousewheel",
+  "pointermove",
+]);
 
 /**
  * Checks if the third argument to addEventListener specifies { passive: true }.

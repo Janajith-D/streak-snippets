@@ -92,10 +92,24 @@ connection.onInitialized(async () => {
   }
 });
 
+function isIgnoredDocumentUri(uri: string): boolean {
+  const norm = uri.replaceAll("\\", "/").toLowerCase();
+  return (
+    norm.includes("/node_modules/") ||
+    norm.endsWith(".d.ts") ||
+    norm.endsWith(".d.cts") ||
+    norm.endsWith(".d.mts")
+  );
+}
+
 connection.onCompletion(async (params) => {
   const uri = params.textDocument.uri;
   const document = documents.get(uri);
-  if (!document || (uri.endsWith(".json") && !uri.endsWith("sitemap.json"))) {
+  if (
+    !document ||
+    isIgnoredDocumentUri(uri) ||
+    (uri.endsWith(".json") && !uri.endsWith("sitemap.json"))
+  ) {
     return [];
   }
   const offset = document.offsetAt(params.position);
@@ -131,7 +145,11 @@ connection.onCompletion(async (params) => {
 connection.onCodeAction((params) => {
   const uri = params.textDocument.uri;
   const document = documents.get(uri);
-  if (!document || (uri.endsWith(".json") && !uri.endsWith("sitemap.json"))) {
+  if (
+    !document ||
+    isIgnoredDocumentUri(uri) ||
+    (uri.endsWith(".json") && !uri.endsWith("sitemap.json"))
+  ) {
     return [];
   }
   const { sourceFile } = analyzeAndParseDocument(uri, document.getText());
@@ -141,7 +159,7 @@ connection.onCodeAction((params) => {
 connection.onHover((params): Hover | null => {
   const uri = params.textDocument.uri;
   const document = documents.get(uri);
-  if (!document) {
+  if (!document || isIgnoredDocumentUri(uri)) {
     return null;
   }
   const offset = document.offsetAt(params.position);
@@ -170,7 +188,7 @@ connection.onHover((params): Hover | null => {
 connection.onDefinition(async (params) => {
   const uri = params.textDocument.uri;
   const document = documents.get(uri);
-  if (!document) {
+  if (!document || isIgnoredDocumentUri(uri)) {
     return null;
   }
   const offset = document.offsetAt(params.position);
@@ -488,6 +506,11 @@ async function validateJsonDocument(
 
 async function validateDocument(document: TextDocument): Promise<void> {
   const uri = document.uri;
+  if (isIgnoredDocumentUri(uri)) {
+    await connection.sendDiagnostics({ uri, diagnostics: [] });
+    return;
+  }
+
   const content = document.getText();
 
   connection.console.log(`[Validation] Running diagnostics for: ${uri}`);

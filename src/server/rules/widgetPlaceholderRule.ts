@@ -1,6 +1,8 @@
 import { Node, type SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
 import type { AnalysisResult } from "../../shared/types";
+import { widgetRegistry } from "../registry/widgets";
+import { getClosestWidgetMatches } from "./sitemapRules";
 import {
   getJsxAttrValue,
   getRangeFromNode,
@@ -128,6 +130,20 @@ export const widgetPlaceholderRule: Rule = {
           message: `<WidgetPlaceholder> 'id' ("${id}") and 'type' ("${type}") must match exactly.`,
           range,
           severity,
+          source: "Streak Engine",
+        });
+      }
+
+      // 4. Rule streak:S902 — Missing widget in src/widgets
+      if (type && widgetRegistry.getAll().length > 0 && !widgetRegistry.get(type)) {
+        const suggestions = getClosestWidgetMatches(type);
+        const suggestionText =
+          suggestions.length > 0 ? ` Did you mean: ${suggestions.join(", ")}?` : "";
+        diagnostics.push({
+          code: "streak:S902",
+          message: `Widget "${type}" does not exist in src/widgets as a .tsx file.${suggestionText}`,
+          range,
+          severity: DiagnosticSeverity.Warning,
           source: "Streak Engine",
         });
       }

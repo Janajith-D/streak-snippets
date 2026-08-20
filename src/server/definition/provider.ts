@@ -166,15 +166,13 @@ function resolveWidgetTypeDefinition(
   workspaceRoot: string,
   customWidgetDir = "src/widgets",
 ): Location | null {
-  const baseWidgetPath = path.join(workspaceRoot, customWidgetDir, value);
-  for (const ext of [".tsx", ".ts", ".jsx", ".js"]) {
-    const fullPath = baseWidgetPath + ext;
-    if (fs.existsSync(fullPath)) {
-      return Location.create(
-        pathToFileURL(fullPath).toString(),
-        Range.create(0, 0, 0, 0),
-      );
-    }
+  const dir = path.join(workspaceRoot, customWidgetDir);
+  if (fileExistsStrictCase(dir, `${value}.tsx`)) {
+    const fullPath = path.join(dir, `${value}.tsx`);
+    return Location.create(
+      pathToFileURL(fullPath).toString(),
+      Range.create(0, 0, 0, 0),
+    );
   }
   return null;
 }
@@ -201,7 +199,7 @@ function resolvePreloadHrefDefinition(
 
 /**
  * Handles F12/Go-to-definition for JSX attribute values:
- * - WidgetPlaceholder type → widget source file
+ * - WidgetPlaceholder type/id → widget source file
  * - Preload href → public asset file
  *
  * Extracted to reduce cognitive complexity of resolveDefinition.
@@ -238,7 +236,7 @@ function resolveJsxAttrDefinition(
 
   const tagName = tagNode.getTagNameNode().getText();
 
-  if (tagName === "WidgetPlaceholder" && attributeName === "type") {
+  if (tagName === "WidgetPlaceholder" && (attributeName === "type" || attributeName === "id")) {
     return resolveWidgetTypeDefinition(value, workspaceRoot, customWidgetDir);
   }
 

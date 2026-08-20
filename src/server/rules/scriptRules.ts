@@ -44,7 +44,72 @@ const ALLOWED_GLOBALS = new Set([
   "null",
   "true",
   "false",
+  "Event",
+  "MouseEvent",
+  "TouchEvent",
+  "KeyboardEvent",
+  "PointerEvent",
+  "FocusEvent",
+  "InputEvent",
+  "WheelEvent",
+  "AnimationEvent",
+  "TransitionEvent",
+  "CustomEvent",
+  "Element",
+  "HTMLElement",
+  "HTMLDivElement",
+  "HTMLInputElement",
+  "HTMLButtonElement",
+  "HTMLFormElement",
+  "HTMLAnchorElement",
+  "HTMLImageElement",
+  "HTMLCanvasElement",
+  "SVGElement",
+  "Node",
+  "Document",
+  "Window",
+  "EventTarget",
+  "FormData",
+  "Headers",
+  "Request",
+  "Response",
+  "URL",
+  "URLSearchParams",
+  "Blob",
+  "File",
+  "FileReader",
+  "MutationObserver",
+  "IntersectionObserver",
+  "ResizeObserver",
+  "performance",
+  "localStorage",
+  "sessionStorage",
+  "navigator",
+  "location",
+  "history",
+  "btoa",
+  "atob",
 ]);
+
+function isTypePosition(node: Node): boolean {
+  let curr: Node | undefined = node.getParent();
+  while (curr) {
+    if (
+      Node.isTypeNode(curr) ||
+      Node.isTypeReference(curr) ||
+      Node.isTypeAliasDeclaration(curr) ||
+      Node.isInterfaceDeclaration(curr) ||
+      curr.getKindName().includes("Type")
+    ) {
+      return true;
+    }
+    if (Node.isArrowFunction(curr) || Node.isFunctionExpression(curr) || Node.isBlock(curr)) {
+      break;
+    }
+    curr = curr.getParent();
+  }
+  return false;
+}
 
 /**
  * Rules for <Script> components in Streak Forge
@@ -99,6 +164,11 @@ export const scriptClosureCaptureRule: Rule = {
         callbackNode.forEachDescendant((innerNode) => {
           if (Node.isIdentifier(innerNode)) {
             const name = innerNode.getText();
+            // Ignore type positions (e.g. : MouseEvent)
+            if (isTypePosition(innerNode)) {
+              return;
+            }
+
             // Check if identifier is a variable reference (not property name)
             const parent = innerNode.getParent();
             const isPropAccessName =

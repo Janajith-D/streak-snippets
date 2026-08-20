@@ -5,6 +5,27 @@ All notable changes to the "streak-snippets" extension will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-08-20
+
+### Added
+- **Layout `<WidgetPlaceholder />` Navigation & Diagnostics**:
+  - **Go to Definition**: Enabled Ctrl+Click / F12 on `<WidgetPlaceholder type="..." />` and `id="..."` attributes in layout `.tsx` files to jump directly to the widget source (`src/widgets/<Type>.tsx`).
+  - **Missing Widget Warning (`streak:S902`)**: Added warning diagnostics on `<WidgetPlaceholder type="..." />` if the referenced widget `.tsx` file is missing in `src/widgets/`, complete with fuzzy "Did you mean?" suggestions.
+- **Approved Imports Whitelist Update (`streak:S701`)**:
+  - Added `"bun:test"` to the default approved module whitelist (`["streak-forge/components", "bun:test"]`).
+- **Passive Event Listeners Scope Extension (`streak:S406`)**:
+  - Added `"wheel"`, `"mousewheel"`, and `"pointermove"` to the targeted high-frequency scrolling events.
+
+### Fixed
+- **Rule Scope Refinement & `node_modules` Ignore**:
+  - Completely ignored `node_modules` and TypeScript declaration files (`.d.ts`, `.d.cts`, `.d.mts`) from Language Server validation and diagnostic passes.
+  - Restricted `streak:S301` (missing default export) strictly to framework directories (`src/handlers/`, `src/layouts/`, `src/widgets/`, `src/pages/`), eliminating false positive errors on scripts, test files, and utilities.
+- **TypeScript Type Annotations in `<Script>` Callbacks (`streak:S401`)**:
+  - Fixed false-positive closure variable capture warnings on type annotations (e.g. `(e: MouseEvent)`).
+  - Added common DOM and Web API type interfaces (`MouseEvent`, `TouchEvent`, `HTMLElement`, `Element`, `Document`, `Window`, `EventTarget`, etc.) to the allowed browser globals list.
+- **SonarQube Clean Code & Cognitive Complexity Refactoring**:
+  - Modularized `sitemaps.ts`, `dataHandlerWidgetKeyRule.ts`, and `server.ts` to reduce cognitive complexity below the allowed threshold of 15 and eliminated duplicate branch structures.
+
 ## [1.4.0] - 2026-08-19
 
 ### Added

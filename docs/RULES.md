@@ -248,21 +248,23 @@ export default getHomeData;
 ### `streak:S301` — Missing Default Export
 
 - **Category**: Framework Syntax
-- **Severity**: `Warning`
+- **Severity**: `Warning` (Widget: `Error`)
 - **Source**: `Streak Engine`
 
 #### Description
-Streak pages, components, and handlers rely on default exports for automatic routing and discovery.
+Streak framework files located under `src/handlers/`, `src/layouts/`, `src/widgets/`, or `src/pages/` rely on default exports for automatic routing, rendering, and component discovery. Non-framework files (scripts, tests, utilities) and declaration files (`.d.ts`, `.d.cts`) are excluded.
 
 #### Non-compliant Code ❌
 ```tsx
-export function Page() { return <h1>Page</h1>; }
+// file: src/layouts/MainLayout.tsx
+export function MainLayout() { return <div>Layout</div>; }
 ```
 
 #### Compliant Code ✅
 ```tsx
-export function Page() { return <h1>Page</h1>; }
-export default Page;
+// file: src/layouts/MainLayout.tsx
+export function MainLayout() { return <div>Layout</div>; }
+export default MainLayout;
 ```
 
 ---
@@ -490,14 +492,14 @@ Browser-side `<Script>` callbacks run directly in the DOM runtime and cannot con
 
 ---
 
-### `streak:S406` — Passive Event Listeners
+### `streak:S406` — Passive Event Listener
 
-- **Category**: Performance / Script
+- **Category**: Performance / Best Practice
 - **Severity**: `Warning`
 - **Source**: `Streak Engine`
 
 #### Description
-Passive event listeners allow the browser to scroll without waiting for your handler to finish. Always pass `{ passive: true }` for `scroll`, `mousemove`, `touchstart`, and `touchmove` events to prevent scroll-blocking and improve Lighthouse performance scores.
+Passive event listeners allow the browser to scroll without waiting for your handler to finish. Always pass `{ passive: true }` for high-frequency, scroll-blocking events (`scroll`, `mousemove`, `touchstart`, `touchmove`, `wheel`, `mousewheel`, `pointermove`) to prevent scroll-blocking and improve Lighthouse performance scores. Discrete click events (`mousedown`, `mouseup`, `click`) do not trigger this rule.
 
 #### Non-compliant Code ❌
 ```tsx
@@ -570,27 +572,19 @@ export default function ProductListItem() { return <div>Item</div>; }
 - **Source**: `Streak Engine`
 
 #### Description
-Ensures component nesting constraints are respected. Standard Streak components like `<WidgetPlaceholder>` cannot be nested inside browser-side `<Script>` callback functions, and `<Script>` tags cannot be nested inside other `<Script>` tags.
+`<WidgetPlaceholder>` and `<Dynamic>` components cannot be nested directly inside other `<WidgetPlaceholder>`, `<Preload>`, or `<Dynamic>` elements.
 
 #### Non-compliant Code ❌
 ```tsx
-<Script id="my-sc">
-  {(gDom) => (
-    <WidgetPlaceholder id="widget-in-script" type="MyWidget" />
-  )}
-</Script>
+<WidgetPlaceholder id="Hero" type="Hero">
+  <WidgetPlaceholder id="Child" type="Child" />
+</WidgetPlaceholder>
 ```
 
 #### Compliant Code ✅
 ```tsx
-<>
-  <WidgetPlaceholder id="my-widget" type="MyWidget" />
-  <Script id="my-sc">
-    {(gDom) => {
-      console.log("Script executed separately");
-    }}
-  </Script>
-</>
+<WidgetPlaceholder id="Hero" type="Hero" />
+<WidgetPlaceholder id="Child" type="Child" />
 ```
 
 ---
@@ -629,7 +623,7 @@ Ensures component nesting constraints are respected. Standard Streak components 
 - **Source**: `Streak Engine`
 
 #### Description
-Restricts file imports to a whitelisted set of approved modules (default: `streak-forge/components`). Unapproved module imports are flagged as warnings.
+Restricts file imports to a whitelisted set of approved modules (default: `["streak-forge/components", "bun:test"]`). Unapproved module imports are flagged as warnings.
 
 #### Non-compliant Code ❌
 ```tsx
@@ -639,6 +633,7 @@ import { someFunc } from "lodash";
 #### Compliant Code ✅
 ```tsx
 import { WidgetPlaceholder } from "streak-forge/components";
+import { describe, test, expect } from "bun:test";
 ```
 
 ---
@@ -650,52 +645,47 @@ import { WidgetPlaceholder } from "streak-forge/components";
 - **Source**: `Streak Engine`
 
 #### Description
-Scans code content and flags matches of restricted regular expression code structures (e.g. `eval(`, `setTimeout(`) specified in your workspace rules configurations.
+Flags disallowed code patterns matching configurable regular expressions defined in workspace settings (`streak.rules.forbiddenPatterns`).
 
 #### Non-compliant Code ❌
 ```tsx
-const data = eval("x + y");
+// Configured: ["eval\\("]
+eval("dangerousCode()");
 ```
 
 #### Compliant Code ✅
 ```tsx
-const data = x + y;
+JSON.parse(safeJsonString);
 ```
 
 ---
 
-### `streak:S801` — Widget Filename Matches Component
+### `streak:S801` — Widget Filename Mismatch
 
-- **Category**: Widget Component
+- **Category**: File Naming Convention
 - **Severity**: `Error`
 - **Source**: `Streak Engine`
 
 #### Description
-Ensures widget component name matches its filename to guarantee correct automatic mapping and registration.
+Widget components inside `src/widgets/*.tsx` must match the file name exactly (case-sensitive) with their default-exported component identifier.
 
 #### Non-compliant Code ❌
-`HelloBanner.tsx`
 ```tsx
-const HeroBanner = () => {
-  return <div>Hello</div>;
-};
-export default HeroBanner;
+// file: src/widgets/HeroBanner.tsx
+export default function Banner() { return <div>Hero</div>; }
 ```
 
 #### Compliant Code ✅
-`HelloBanner.tsx`
 ```tsx
-const HelloBanner = () => {
-  return <div>Hello</div>;
-};
-export default HelloBanner;
+// file: src/widgets/HeroBanner.tsx
+export default function HeroBanner() { return <div>Hero</div>; }
 ```
 
 ---
 
-### `streak:S901` — Duplicate Route Detected
+### `streak:S901` — Duplicate Sitemap Route
 
-- **Category**: Sitemap / Routes
+- **Category**: Sitemap / Routing
 - **Severity**: `Error`
 - **Source**: `Streak Engine`
 
@@ -722,25 +712,23 @@ Ensures sitemap page routes (`url` values) are unique across the project. Duplic
 
 ### `streak:S902` — Referenced Widget Does Not Exist
 
-- **Category**: Sitemap / Registry
+- **Category**: Layout / Sitemap / Registry
 - **Severity**: `Warning`
 - **Source**: `Streak Engine`
 
 #### Description
-Ensures that all widget `type` values declared inside the sitemap match an existing custom widget `.tsx` source file inside `src/widgets/`.
+Ensures that all widget `type` values declared inside `streak.sitemap.json` or `<WidgetPlaceholder type="..." />` in layout files match an existing custom widget `.tsx` source file inside `src/widgets/`.
 
 #### Non-compliant Code ❌
-```json
-{
-  "type": "NonExistentBanner"
-}
+```tsx
+// file: src/layouts/MainLayout.tsx
+<WidgetPlaceholder id="NonExistent" type="NonExistent" />
 ```
 
 #### Compliant Code ✅
-```json
-{
-  "type": "HelloBanner"
-}
+```tsx
+// file: src/layouts/MainLayout.tsx
+<WidgetPlaceholder id="HelloBanner" type="HelloBanner" />
 ```
 
 ---
