@@ -23,6 +23,7 @@ import { forbiddenPatternsRule } from "./forbiddenPatternsRule";
 import { widgetFilenameMatchesComponentRule } from "./widgetFilenameMatchesComponentRule";
 import { deadWidgetRule } from "./deadWidgetRule";
 import { passiveEventListenerRule } from "./passiveEventListenerRule";
+import { dataHandlerWidgetKeyRule } from "./dataHandlerWidgetKeyRule";
 
 export * from "./types";
 export * from "./widgetPlaceholderRule";
@@ -43,6 +44,7 @@ export * from "./forbiddenPatternsRule";
 export * from "./widgetFilenameMatchesComponentRule";
 export * from "./deadWidgetRule";
 export * from "./passiveEventListenerRule";
+export * from "./dataHandlerWidgetKeyRule";
 
 export const allRules: Rule[] = [
   widgetPlaceholderRule,
@@ -67,4 +69,5 @@ export const allRules: Rule[] = [
   widgetFilenameMatchesComponentRule,
   deadWidgetRule,
   passiveEventListenerRule,
+  dataHandlerWidgetKeyRule,
 ];

@@ -10,10 +10,11 @@ This document provides detailed SonarQube-style descriptions, rationale, and com
 |---|---|---|---|
 | [`streak:S101`](#streaks101---widgetplaceholder-missing-id-or-type-attribute) | Widget Component | Error | `<WidgetPlaceholder>` elements must have non-empty `id` and `type` attributes. |
 | [`streak:S102`](#streaks102---widgetplaceholder-layout-location-only) | Widget Component | Error | `<WidgetPlaceholder>` can only be used inside layout files (`src/layout` or `src/layouts`). |
-| [`streak:S103`](#streaks103---widgetplaceholder-id-type-exact-match) | Widget Component | Error | `<WidgetPlaceholder>` `id` and `type` attribute values must match exactly. |
+| [`streak:S103`](#streaks103---widgetplaceholder-id-type-exact-match) | Widget / Sitemap | Error | Widget `id` and `type` values must match exactly in layouts and sitemap entries. |
 | [`streak:S201`](#streaks201---data-handler-missing-status-property) | Data Handler | Warning | Data handler functions must return an object containing a `status` property. |
 | [`streak:S202`](#streaks202---data-handler-must-be-async) | Data Handler | Error | Data handlers must default-export an `async` function. |
 | [`streak:S203`](#streaks203---invalid-handler-status) | Data Handler | Warning | Data handler `status` should be a valid numeric HTTP status code (100–599). |
+| [`streak:S204`](#streaks204---data-handler-return-widget-key-match) | Data Handler | Warning | Data handler return object keys must match registered widget components in `src/widgets/`. |
 | [`streak:S301`](#streaks301---missing-default-export) | Framework Syntax | Warning | Framework pages, components, and handlers must provide a default export. |
 | [`streak:S302`](#streaks302---react-hooks-not-allowed) | Widget Component | Error | Streak static widgets must not use React runtime hooks (`useState`, `useEffect`, etc.). |
 | [`streak:S303`](#streaks303---unsafe-widget-data-access) | Widget Component | Error | Widget data must be accessed safely because `props.data` may be undefined. |
@@ -207,6 +208,39 @@ const getData = async () => {
   return { status: 200 };
 };
 export default getData;
+```
+
+---
+
+### `streak:S204` — Data Handler Return Widget Key Match
+
+- **Category**: Data Handler
+- **Severity**: `Warning`
+- **Source**: `Streak Engine`
+
+#### Description
+In data handler functions (`src/handler/*.ts`), each top-level object key returned (other than metadata properties like `status`, `metadata`, `headers`) supplies data to a corresponding widget and must match a registered `.tsx` widget in `src/widgets/`.
+
+#### Non-compliant Code ❌
+```ts
+const getHomeData = async () => {
+  return {
+    status: 200,
+    NonExistentWidget: { items: [] }, // No src/widgets/NonExistentWidget.tsx
+  };
+};
+export default getHomeData;
+```
+
+#### Compliant Code ✅
+```ts
+const getHomeData = async () => {
+  return {
+    status: 200,
+    ArticleList: { items: [] }, // Matches src/widgets/ArticleList.tsx
+  };
+};
+export default getHomeData;
 ```
 
 ---

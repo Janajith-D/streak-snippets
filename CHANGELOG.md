@@ -11,12 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Layout Constraints, Strict Case Sensitivity & Best Practices (Phase 15)**:
   - **Merged `<WidgetPlaceholder>` Rule (`streak:S101`)**: Unified missing `id` and `type` attributes into a single comprehensive error rule.
   - **Layout Location Restriction (`streak:S102`)**: Enforced error diagnostic restricting `<WidgetPlaceholder>` usage strictly to layout files (`src/layout/` or `src/layouts/`).
-  - **Exact ID & Type Match (`streak:S103`)**: Enforced error diagnostic requiring `id` and `type` attribute values to match exactly on `<WidgetPlaceholder>`.
+  - **Exact ID & Type Match (`streak:S103`)**: Enforced error diagnostic requiring `id` and `type` attribute values to match exactly on `<WidgetPlaceholder>` and in `streak.sitemap.json` `widgets[]` declarations.
+  - **Data Handler Return Widget Key Match (`streak:S204`)**: Added warning diagnostic ensuring top-level returned object properties in data handlers match registered widget components in `src/widgets/`.
   - **Passive Event Listeners (`streak:S406`)**: Added performance warning diagnostic requiring `{ passive: true }` on `scroll`, `mousemove`, `touchstart`, and `touchmove` listeners.
   - **Cross-Platform Strict Case Sensitivity**: Enforced exact character casing verification on Windows NTFS, macOS, and Linux for `dataHandler` (`.ts`), `rootLayout` (`.tsx`), and widget `type`.
   - **Widget `loadingStrategy` Validation (`streak:S907`)**: Added warning diagnostic validating that `loadingStrategy` is `"lazy"` if specified on sitemap widgets.
   - **Imports Whitelist Update (`streak:S701`)**: Updated default approved module imports strictly to `["streak-forge/components"]`.
   - **Sitemap Snippets**: Added `sf-widget` (`Streak Widget entry`) and single-page `sf-sitemap` (`Streak Sitemap`) scaffolding snippets.
+  - **Non-Sitemap JSON Validation Guard**: Fixed false positive `streak:S301` errors on `package.json` and `tsconfig.json` by isolating TS AST rules to `.ts`/`.tsx` files.
 
 ## [1.3.0] - 2026-08-08
 

@@ -29,6 +29,7 @@ import { widgetFilenameMatchesComponentRule } from "../server/rules/widgetFilena
 import { missingDefaultExportRule } from "../server/rules/missingDefaultExportRule";
 import { deadWidgetRule } from "../server/rules/deadWidgetRule";
 import { passiveEventListenerRule } from "../server/rules/passiveEventListenerRule";
+import { dataHandlerWidgetKeyRule } from "../server/rules/dataHandlerWidgetKeyRule";
 import { sitemapRegistry } from "../server/registry/sitemaps";
 import { validateSitemap } from "../server/rules/sitemapRules";
 import { resolveHover, resolveSitemapHover } from "../server/hover/provider";
@@ -1847,6 +1848,55 @@ suite("Extension Test Suite", () => {
     } finally {
       fs.rmSync(tempRoot, { recursive: true, force: true });
     }
+  });
+
+  test("validateSitemap flags mismatched id and type in widgets[] with streak:S103", () => {
+    const json = `[
+      {
+        "url": "/mismatch",
+        "renderConfig": {
+          "renderId": "mismatchRenderId",
+          "widgets": [
+            { "id": "BannerId", "type": "HeroBanner" },
+            { "id": "Header", "type": "Header" }
+          ]
+        }
+      }
+    ]`;
+    const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
+    const diags = validateSitemap(doc, "/workspace");
+    const s103Diags = diags.filter((d) => d.code === "streak:S103");
+    assert.strictEqual(s103Diags.length, 1);
+    const msg = typeof s103Diags[0].message === "string" ? s103Diags[0].message : s103Diags[0].message.value;
+    assert.ok(msg.includes('Widget \'id\' ("BannerId") and \'type\' ("HeroBanner") must match exactly.'));
+  });
+
+  test("streak:S204 flags data handler return keys that do not match registered widgets", () => {
+    // Populate widget registry with ArticleList
+    widgetRegistry.set("ArticleList", {
+      name: "ArticleList",
+      filePath: "/workspace/src/widgets/ArticleList.tsx",
+      props: [],
+    });
+
+    const code = `
+      const getHomeData = async () => {
+        return {
+          status: 200,
+          ArticleList: { items: [] },
+          UnknownWidget: { data: 123 },
+        };
+      };
+      export default getHomeData;
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument(
+      "file:///workspace/src/handler/HomeDataHandler.ts",
+      code,
+    );
+    const diags = dataHandlerWidgetKeyRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 1);
+    assert.strictEqual(diags[0].code, "streak:S204");
+    assert.ok(diags[0].message.includes("UnknownWidget"));
   });
 });
 

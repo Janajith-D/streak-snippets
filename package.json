@@ -374,6 +374,17 @@
           "default": "warning",
           "description": "Severity for missing passive option on event listeners rule (streak:S406)"
         },
+        "streak.rules.dataHandlerWidgetKey.severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
+          "default": "warning",
+          "description": "Severity for data handler return keys not matching registered widgets rule (streak:S204)"
+        },
         "streak.snippets.widgetDirectory": {
           "type": "string",
           "default": "src/widgets",

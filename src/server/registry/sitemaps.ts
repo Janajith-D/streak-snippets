@@ -136,6 +136,8 @@ export class JSONLocationParser {
 
 export interface SitemapPageWidget {
   id?: string;
+  idStart?: number;
+  idEnd?: number;
   type: string;
   start: number;
   end: number;
@@ -188,6 +190,8 @@ function parseWidgets(widgetsNode: JSONNode | undefined): SitemapPageWidget[] {
     if (typeNode?.type === "string") {
       widgets.push({
         id: idNode?.type === "string" ? (idNode.value as string) : undefined,
+        idStart: idNode?.start,
+        idEnd: idNode?.end,
         type: typeNode.value as string,
         start: typeNode.start,
         end: typeNode.end,

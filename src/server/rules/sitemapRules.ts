@@ -287,6 +287,35 @@ function validateWidgetLoadingStrategy(
   }
 }
 
+function validateWidgetIdTypeMatch(
+  page: SitemapPage,
+  document: TextDocument,
+  diagnostics: Diagnostic[],
+  ruleSeverities?: Record<string, string>,
+) {
+  const severity = getSeverity("streak:widget-placeholder-id-type-match", ruleSeverities, DiagnosticSeverity.Error);
+  if (severity === null) {
+    return;
+  }
+  for (const w of page.widgets) {
+    if (w.id !== undefined && w.type !== undefined && w.id !== w.type) {
+      const startOffset = w.idStart ?? w.start;
+      const endOffset = w.idEnd ?? w.end;
+      const range = {
+        start: document.positionAt(startOffset),
+        end: document.positionAt(endOffset),
+      };
+      diagnostics.push({
+        code: "streak:S103",
+        message: `Widget 'id' ("${w.id}") and 'type' ("${w.type}") must match exactly.`,
+        range,
+        severity,
+        source: "Streak Engine",
+      });
+    }
+  }
+}
+
 export function validateSitemap(
   document: TextDocument,
   workspaceRoot: string,
@@ -305,6 +334,7 @@ export function validateSitemap(
     collectUrl(page, seenUrls);
     collectRenderId(page, seenRenderIds);
     validatePageWidgets(page, document, diagnostics, ruleSeverities);
+    validateWidgetIdTypeMatch(page, document, diagnostics, ruleSeverities);
     validateWidgetLoadingStrategy(page, document, diagnostics, ruleSeverities);
     validatePageHandler(page, document, workspaceRoot, diagnostics, ruleSeverities);
     validatePageLayout(page, document, workspaceRoot, diagnostics, ruleSeverities);
