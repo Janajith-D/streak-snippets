@@ -1986,6 +1986,35 @@ suite("Extension Test Suite", () => {
     const diags = scriptClosureCaptureRule.run(sourceFile, analysis);
     assert.strictEqual(diags.length, 0);
   });
+
+  test("resolveDefinition resolves widget file when cursor is on handler return property name", async () => {
+    const tmpDir = path.join(__dirname, "../../tmp_def_test");
+    const widgetsDir = path.join(tmpDir, "src", "widgets");
+    fs.mkdirSync(widgetsDir, { recursive: true });
+    const widgetFilePath = path.join(widgetsDir, "HelloBanner.tsx");
+    fs.writeFileSync(widgetFilePath, "export default function HelloBanner() { return <div>Banner</div>; }");
+
+    try {
+      const code = `
+        const getHomeData = async () => {
+          return {
+            status: 200,
+            HelloBanner: { items: [] }
+          };
+        };
+        export default getHomeData;
+      `;
+      const { sourceFile } = analyzeAndParseDocument("file:///test/HomeHandler.ts", code);
+      const targetNode = sourceFile.getFirstDescendant((n) => n.getText() === "HelloBanner");
+      assert.ok(targetNode);
+
+      const loc = await resolveDefinition(targetNode, tmpDir);
+      assert.ok(loc);
+      assert.ok(loc.uri.endsWith("HelloBanner.tsx"));
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });
 
 

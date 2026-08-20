@@ -8,8 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.5.0] - 2026-08-20
 
 ### Added
-- **Layout `<WidgetPlaceholder />` Navigation & Diagnostics**:
-  - **Go to Definition**: Enabled Ctrl+Click / F12 on `<WidgetPlaceholder type="..." />` and `id="..."` attributes in layout `.tsx` files to jump directly to the widget source (`src/widgets/<Type>.tsx`).
+- **Layout & Handler `<WidgetPlaceholder />` Navigation & Diagnostics**:
+  - **Go to Definition in Layouts & Data Handlers**: Enabled Ctrl+Click / F12 on `<WidgetPlaceholder type="..." />` / `id="..."` in layouts AND returned widget keys (e.g. `HelloBanner: { ... }`) in data handler files to jump directly to the widget source (`src/widgets/<Type>.tsx`).
   - **Missing Widget Warning (`streak:S902`)**: Added warning diagnostics on `<WidgetPlaceholder type="..." />` if the referenced widget `.tsx` file is missing in `src/widgets/`, complete with fuzzy "Did you mean?" suggestions.
 - **Approved Imports Whitelist Update (`streak:S701`)**:
   - Added `"bun:test"` to the default approved module whitelist (`["streak-forge/components", "bun:test"]`).
@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `"wheel"`, `"mousewheel"`, and `"pointermove"` to the targeted high-frequency scrolling events.
 
 ### Fixed
+- **Definition Provider Lifecycle & Concurrent AST Invalidation**:
+  - Fixed `Attempted to get information from a node that was removed or forgotten` error during Go to Definition in data handler files by eliminating the asynchronous IPC gap before AST node resolution.
 - **Rule Scope Refinement & `node_modules` Ignore**:
   - Completely ignored `node_modules` and TypeScript declaration files (`.d.ts`, `.d.cts`, `.d.mts`) from Language Server validation and diagnostic passes.
   - Restricted `streak:S301` (missing default export) strictly to framework directories (`src/handlers/`, `src/layouts/`, `src/widgets/`, `src/pages/`), eliminating false positive errors on scripts, test files, and utilities.

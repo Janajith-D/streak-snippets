@@ -247,6 +247,24 @@ function resolveJsxAttrDefinition(
   return null;
 }
 
+function resolveHandlerReturnPropertyDefinition(
+  node: Node,
+  value: string,
+  workspaceRoot: string,
+  customWidgetDir = "src/widgets",
+): Location | null {
+  const parent = node.getParent();
+  if (
+    parent &&
+    (Node.isPropertyAssignment(parent) ||
+      Node.isShorthandPropertyAssignment(parent) ||
+      Node.isMethodDeclaration(parent))
+  ) {
+    return resolveWidgetTypeDefinition(value, workspaceRoot, customWidgetDir);
+  }
+  return null;
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function resolveDefinition(
@@ -259,15 +277,18 @@ export async function resolveDefinition(
     return null;
   }
 
-  // Only string/template literals carry navigable values
+  let value: string;
   if (
-    !Node.isStringLiteral(node) &&
-    !Node.isNoSubstitutionTemplateLiteral(node)
+    Node.isStringLiteral(node) ||
+    Node.isNoSubstitutionTemplateLiteral(node)
   ) {
+    value = node.getLiteralValue();
+  } else if (Node.isIdentifier(node)) {
+    value = node.getText();
+  } else {
     return null;
   }
 
-  const value = node.getLiteralValue();
   const parent = node.getParent();
 
   // Case 1: gDom.loadDynamicComponent("X") → navigate to <Dynamic id="X">
@@ -276,13 +297,30 @@ export async function resolveDefinition(
   }
 
   // Case 2: JSX attribute value → widget file or public asset
-  return resolveJsxAttrDefinition(
+  const jsxLoc = resolveJsxAttrDefinition(
     node,
     value,
     workspaceRoot,
     customWidgetDir,
     customPublicDir,
   );
+  if (jsxLoc) {
+    return jsxLoc;
+  }
+
+  // Case 3: Data handler return property or widget identifier → widget file
+  const handlerPropLoc = resolveHandlerReturnPropertyDefinition(
+    node,
+    value,
+    workspaceRoot,
+    customWidgetDir,
+  );
+  if (handlerPropLoc) {
+    return handlerPropLoc;
+  }
+
+  // Case 4: General widget identifier or string matching src/widgets/<Name>.tsx
+  return resolveWidgetTypeDefinition(value, workspaceRoot, customWidgetDir);
 }
 
 function findSitemapWidgetDefinition(

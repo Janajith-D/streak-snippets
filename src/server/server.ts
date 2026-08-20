@@ -186,56 +186,55 @@ connection.onHover((params): Hover | null => {
 });
 
 connection.onDefinition(async (params) => {
-  const uri = params.textDocument.uri;
-  const document = documents.get(uri);
-  if (!document || isIgnoredDocumentUri(uri)) {
-    return null;
-  }
-  const offset = document.offsetAt(params.position);
-
-  if (uri.endsWith(".json")) {
-    if (uri.endsWith("sitemap.json")) {
-      if (!workspaceRoot) {
-        return null;
-      }
-      sitemapRegistry.parseAndRegister(document.uri, document.getText());
-      let customWidgetDir: string | undefined;
-      try {
-        const streakSettings =
-          (await connection.workspace.getConfiguration("streak")) as StreakSettings;
-        customWidgetDir = streakSettings?.snippets?.widgetDirectory;
-      } catch {
-        /* ignore */
-      }
-      return resolveSitemapDefinition(document, offset, workspaceRoot, customWidgetDir);
-    }
-    return null;
-  }
-
-  const { sourceFile } = analyzeAndParseDocument(uri, document.getText());
-
-  const node = sourceFile.getDescendantAtPos(offset);
-  if (!node) {
-    return null;
-  }
-
-  let customWidgetDir: string | undefined;
-  let customPublicDir: string | undefined;
   try {
-    const streakSettings =
-      (await connection.workspace.getConfiguration("streak")) as StreakSettings;
-    customWidgetDir = streakSettings?.snippets?.widgetDirectory;
-    customPublicDir = streakSettings?.snippets?.publicDirectory;
-  } catch {
-    /* ignore */
-  }
+    const uri = params.textDocument.uri;
+    const document = documents.get(uri);
+    if (!document || isIgnoredDocumentUri(uri)) {
+      return null;
+    }
+    const offset = document.offsetAt(params.position);
 
-  return await resolveDefinition(
-    node,
-    workspaceRoot,
-    customWidgetDir,
-    customPublicDir,
-  );
+    let customWidgetDir: string | undefined;
+    let customPublicDir: string | undefined;
+    try {
+      const streakSettings =
+        (await connection.workspace.getConfiguration("streak")) as StreakSettings;
+      customWidgetDir = streakSettings?.snippets?.widgetDirectory;
+      customPublicDir = streakSettings?.snippets?.publicDirectory;
+    } catch {
+      /* ignore */
+    }
+
+    if (uri.endsWith(".json")) {
+      if (uri.endsWith("sitemap.json")) {
+        if (!workspaceRoot) {
+          return null;
+        }
+        sitemapRegistry.parseAndRegister(document.uri, document.getText());
+        return resolveSitemapDefinition(document, offset, workspaceRoot, customWidgetDir);
+      }
+      return null;
+    }
+
+    const { sourceFile } = analyzeAndParseDocument(uri, document.getText());
+
+    const node = sourceFile.getDescendantAtPos(offset);
+    if (!node) {
+      return null;
+    }
+
+    return await resolveDefinition(
+      node,
+      workspaceRoot,
+      customWidgetDir,
+      customPublicDir,
+    );
+  } catch (err) {
+    connection.console.log(
+      `[Definition] Error resolving definition: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return null;
+  }
 });
 
 function resolveWidgetNameAtOffset(uri: string, document: TextDocument, offset: number): string {
