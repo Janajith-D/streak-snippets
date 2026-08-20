@@ -21,7 +21,7 @@ import { getCompletions } from "./completion/provider";
 import { resolveHover, resolveSitemapHover } from "./hover/provider";
 import { resolveDefinition, resolveSitemapDefinition } from "./definition/provider";
 import { resolveCodeActions } from "./codeaction/provider";
-import { scanWorkspace, scanFile } from "./registry/scanner";
+import { scanWorkspace, scanFile, resolveProjectRoot } from "./registry/scanner";
 import { widgetRegistry } from "./registry/widgets";
 import { sitemapRegistry } from "./registry/sitemaps";
 import { validateSitemap } from "./rules/sitemapRules";
@@ -92,10 +92,24 @@ connection.onInitialized(async () => {
   }
 });
 
+function isIgnoredDocumentUri(uri: string): boolean {
+  const norm = uri.replaceAll("\\", "/").toLowerCase();
+  return (
+    norm.includes("/node_modules/") ||
+    norm.endsWith(".d.ts") ||
+    norm.endsWith(".d.cts") ||
+    norm.endsWith(".d.mts")
+  );
+}
+
 connection.onCompletion(async (params) => {
   const uri = params.textDocument.uri;
   const document = documents.get(uri);
-  if (!document) {
+  if (
+    !document ||
+    isIgnoredDocumentUri(uri) ||
+    (uri.endsWith(".json") && !uri.endsWith("sitemap.json"))
+  ) {
     return [];
   }
   const offset = document.offsetAt(params.position);
@@ -131,7 +145,11 @@ connection.onCompletion(async (params) => {
 connection.onCodeAction((params) => {
   const uri = params.textDocument.uri;
   const document = documents.get(uri);
-  if (!document) {
+  if (
+    !document ||
+    isIgnoredDocumentUri(uri) ||
+    (uri.endsWith(".json") && !uri.endsWith("sitemap.json"))
+  ) {
     return [];
   }
   const { sourceFile } = analyzeAndParseDocument(uri, document.getText());
@@ -141,17 +159,18 @@ connection.onCodeAction((params) => {
 connection.onHover((params): Hover | null => {
   const uri = params.textDocument.uri;
   const document = documents.get(uri);
-  if (!document) {
+  if (!document || isIgnoredDocumentUri(uri)) {
     return null;
   }
   const offset = document.offsetAt(params.position);
 
-  if (uri.endsWith("sitemap.json")) {
-    if (!workspaceRoot) {
-      return null;
+  if (uri.endsWith(".json")) {
+    if (uri.endsWith("sitemap.json")) {
+      const projectRoot = resolveProjectRoot(uri, workspaceRoot);
+      sitemapRegistry.parseAndRegister(document.uri, document.getText());
+      return resolveSitemapHover(document, offset, projectRoot);
     }
-    sitemapRegistry.parseAndRegister(document.uri, document.getText());
-    return resolveSitemapHover(document, offset, workspaceRoot);
+    return null;
   }
 
   const { sourceFile } = analyzeAndParseDocument(uri, document.getText());
@@ -165,53 +184,53 @@ connection.onHover((params): Hover | null => {
 });
 
 connection.onDefinition(async (params) => {
-  const uri = params.textDocument.uri;
-  const document = documents.get(uri);
-  if (!document) {
-    return null;
-  }
-  const offset = document.offsetAt(params.position);
-
-  if (uri.endsWith("sitemap.json")) {
-    if (!workspaceRoot) {
+  try {
+    const uri = params.textDocument.uri;
+    const document = documents.get(uri);
+    if (!document || isIgnoredDocumentUri(uri)) {
       return null;
     }
-    sitemapRegistry.parseAndRegister(document.uri, document.getText());
+    const offset = document.offsetAt(params.position);
+    const projectRoot = resolveProjectRoot(uri, workspaceRoot);
+
     let customWidgetDir: string | undefined;
+    let customPublicDir: string | undefined;
     try {
       const streakSettings =
         (await connection.workspace.getConfiguration("streak")) as StreakSettings;
       customWidgetDir = streakSettings?.snippets?.widgetDirectory;
+      customPublicDir = streakSettings?.snippets?.publicDirectory;
     } catch {
       /* ignore */
     }
-    return resolveSitemapDefinition(document, offset, workspaceRoot, customWidgetDir);
-  }
 
-  const { sourceFile } = analyzeAndParseDocument(uri, document.getText());
+    if (uri.endsWith(".json")) {
+      if (uri.endsWith("sitemap.json")) {
+        sitemapRegistry.parseAndRegister(document.uri, document.getText());
+        return resolveSitemapDefinition(document, offset, projectRoot, customWidgetDir);
+      }
+      return null;
+    }
 
-  const node = sourceFile.getDescendantAtPos(offset);
-  if (!node) {
+    const { sourceFile } = analyzeAndParseDocument(uri, document.getText());
+
+    const node = sourceFile.getDescendantAtPos(offset);
+    if (!node) {
+      return null;
+    }
+
+    return await resolveDefinition(
+      node,
+      projectRoot,
+      customWidgetDir,
+      customPublicDir,
+    );
+  } catch (err) {
+    connection.console.log(
+      `[Definition] Error resolving definition: ${err instanceof Error ? err.message : String(err)}`,
+    );
     return null;
   }
-
-  let customWidgetDir: string | undefined;
-  let customPublicDir: string | undefined;
-  try {
-    const streakSettings =
-      (await connection.workspace.getConfiguration("streak")) as StreakSettings;
-    customWidgetDir = streakSettings?.snippets?.widgetDirectory;
-    customPublicDir = streakSettings?.snippets?.publicDirectory;
-  } catch {
-    /* ignore */
-  }
-
-  return await resolveDefinition(
-    node,
-    workspaceRoot,
-    customWidgetDir,
-    customPublicDir,
-  );
 });
 
 function resolveWidgetNameAtOffset(uri: string, document: TextDocument, offset: number): string {
@@ -384,6 +403,8 @@ function buildRuleConfiguration(streakSettings: StreakSettings | undefined): {
       duplicateRenderId: "streak:duplicate-render-id",
       missingLayout: "streak:missing-layout",
       invalidLoadingStrategy: "streak:invalid-loading-strategy",
+      passiveEventListener: "streak:passive-event-listener",
+      dataHandlerWidgetKey: "streak:data-handler-widget-key",
     };
 
     for (const [settingsKey, ruleId] of Object.entries(settingsMap)) {
@@ -434,38 +455,62 @@ async function indexWidgetFile(uri: string): Promise<void> {
   }
 }
 
-async function validateDocument(document: TextDocument): Promise<void> {
-  const uri = document.uri;
-  const content = document.getText();
-
-  connection.console.log(`[Validation] Running diagnostics for: ${uri}`);
-
-  let config = { ruleSeverities: {} as Record<string, string>, ruleOptions: {} as Record<string, unknown> };
+async function fetchRuleConfiguration(): Promise<{
+  ruleSeverities: Record<string, string>;
+  ruleOptions: Record<string, unknown>;
+}> {
   try {
     const streakSettings =
       (await connection.workspace.getConfiguration("streak")) as StreakSettings;
-    config = buildRuleConfiguration(streakSettings);
+    return buildRuleConfiguration(streakSettings);
   } catch (err) {
-    connection.console.log(`Failed to fetch configurations: ${err instanceof Error ? err.message : String(err)}`);
+    connection.console.log(
+      `Failed to fetch configurations: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return { ruleSeverities: {}, ruleOptions: {} };
+  }
+}
+
+async function validateJsonDocument(
+  document: TextDocument,
+  ruleSeverities: Record<string, string>,
+): Promise<void> {
+  const uri = document.uri;
+  if (!uri.endsWith("sitemap.json")) {
+    await connection.sendDiagnostics({ uri, diagnostics: [] });
+    return;
   }
 
-  if (uri.endsWith("sitemap.json")) {
-    if (workspaceRoot) {
-      const diagnostics = validateSitemap(document, workspaceRoot, config.ruleSeverities);
-      await connection.sendDiagnostics({ uri, diagnostics });
+  const projectRoot = resolveProjectRoot(uri, workspaceRoot);
 
-      // Re-validate other open documents to update S904 dead widget warnings
-      for (const doc of documents.all()) {
-        if (doc.uri !== uri && doc.uri.endsWith(".tsx")) {
-          // Avoid infinite recursion by not calling validateDocument synchronously in a loop
-          setTimeout(() => {
-            validateDocument(doc).catch((_err) => {
-              // ignore validation failure
-            });
-          }, 50);
-        }
-      }
+  const diagnostics = validateSitemap(document, projectRoot, ruleSeverities);
+  await connection.sendDiagnostics({ uri, diagnostics });
+
+  for (const doc of documents.all()) {
+    if (doc.uri !== uri && doc.uri.endsWith(".tsx")) {
+      setTimeout(() => {
+        validateDocument(doc).catch(() => {
+          // ignore validation failure
+        });
+      }, 50);
     }
+  }
+}
+
+async function validateDocument(document: TextDocument): Promise<void> {
+  const uri = document.uri;
+  if (isIgnoredDocumentUri(uri)) {
+    await connection.sendDiagnostics({ uri, diagnostics: [] });
+    return;
+  }
+
+  const content = document.getText();
+
+  connection.console.log(`[Validation] Running diagnostics for: ${uri}`);
+  const config = await fetchRuleConfiguration();
+
+  if (uri.endsWith(".json")) {
+    await validateJsonDocument(document, config.ruleSeverities);
     return;
   }
 

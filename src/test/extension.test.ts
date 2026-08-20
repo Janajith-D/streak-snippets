@@ -2,6 +2,7 @@ import { type Hover, type MarkupContent, type Diagnostic, DiagnosticSeverity } f
 import * as assert from "assert";
 import * as path from "node:path";
 import * as fs from "node:fs";
+import { pathToFileURL } from "node:url";
 
 // You can import and use all API from the 'vscode' module
 // as well as import your extension to test it
@@ -10,6 +11,7 @@ import { analyzeAndParseDocument } from "../server/parser/analyzer";
 import { runRules } from "../server/rules/runner";
 import { widgetPlaceholderRule } from "../server/rules/widgetPlaceholderRule";
 import { dataHandlerAsyncRule } from "../server/rules/dataHandlerAsyncRule";
+import { dataHandlerStatusRule } from "../server/rules/dataHandlerStatusRule";
 import { dataHandlerStatusValueRule } from "../server/rules/dataHandlerStatusValueRule";
 import { reactHooksNotAllowedRule } from "../server/rules/reactHooksNotAllowedRule";
 import { unsafeWidgetDataAccessRule } from "../server/rules/unsafeWidgetDataAccessRule";
@@ -28,13 +30,15 @@ import { forbiddenPatternsRule } from "../server/rules/forbiddenPatternsRule";
 import { widgetFilenameMatchesComponentRule } from "../server/rules/widgetFilenameMatchesComponentRule";
 import { missingDefaultExportRule } from "../server/rules/missingDefaultExportRule";
 import { deadWidgetRule } from "../server/rules/deadWidgetRule";
+import { passiveEventListenerRule } from "../server/rules/passiveEventListenerRule";
+import { dataHandlerWidgetKeyRule } from "../server/rules/dataHandlerWidgetKeyRule";
 import { sitemapRegistry } from "../server/registry/sitemaps";
 import { validateSitemap } from "../server/rules/sitemapRules";
 import { resolveHover, resolveSitemapHover } from "../server/hover/provider";
 import { resolveDefinition, resolveSitemapDefinition } from "../server/definition/provider";
 import { resolveCodeActions } from "../server/codeaction/provider";
 import { widgetRegistry } from "../server/registry/widgets";
-import { scanWorkspace } from "../server/registry/scanner";
+import { scanWorkspace, resolveProjectRoot } from "../server/registry/scanner";
 import { getCompletions } from "../server/completion/provider";
 import { getJsxContext } from "../server/completion/jsxAttributeCompletions";
 import { getAutoImportEdit } from "../server/completion/frameworkCompletions";
@@ -77,7 +81,7 @@ suite("Extension Test Suite", () => {
 
   // ── Validation Rules Tests ─────────────────────────────────────────
 
-  test("WidgetPlaceholder rule flags missing id and type attributes with streak:S101 and streak:S102", () => {
+  test("WidgetPlaceholder rule flags missing id and type attributes with streak:S101", () => {
     const code = `
       import { WidgetPlaceholder } from "streak-forge/components";
       
@@ -86,13 +90,29 @@ suite("Extension Test Suite", () => {
       }
     `;
     const { analysis, sourceFile } = analyzeAndParseDocument(
-      "file:///test/Comp.tsx",
+      "file:///workspace/src/layout/MainLayout.tsx",
       code,
     );
     const diags = widgetPlaceholderRule.run(sourceFile, analysis);
-    assert.strictEqual(diags.length, 2);
-    assert.ok(diags.some((d) => d.code === "streak:S101"));
+    assert.strictEqual(diags.length, 1);
+    assert.strictEqual(diags[0].code, "streak:S101");
+  });
+
+  test("WidgetPlaceholder rule flags non-layout usage (S102) and mismatched id/type (S103)", () => {
+    const code = `
+      import { WidgetPlaceholder } from "streak-forge/components";
+      
+      export default function Component() {
+        return <WidgetPlaceholder id="Header" type="DifferentHeader" />;
+      }
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument(
+      "file:///workspace/src/widgets/MyWidget.tsx",
+      code,
+    );
+    const diags = widgetPlaceholderRule.run(sourceFile, analysis);
     assert.ok(diags.some((d) => d.code === "streak:S102"));
+    assert.ok(diags.some((d) => d.code === "streak:S103"));
   });
 
   test("streak:S202 flags non-async data handler functions", () => {
@@ -250,7 +270,9 @@ suite("Extension Test Suite", () => {
       code,
     );
     const lspDiagnostics = runRules(sourceFile, analysis);
-    assert.ok(lspDiagnostics.length >= 3);
+    assert.ok(lspDiagnostics.length >= 2);
+    assert.ok(lspDiagnostics.some((d) => d.code === "streak:S101"));
+    assert.ok(lspDiagnostics.some((d) => d.code === "streak:S102"));
   });
 
   // ── Snippet file validation ────────────────────────────────────────
@@ -941,17 +963,17 @@ suite("Extension Test Suite", () => {
       "Add id attribute to <WidgetPlaceholder>",
     );
 
-    // 3. WidgetPlaceholder missing type (S102)
-    const diagS102 = {
-      code: "streak:S102",
-      message: "Missing Type",
+    // 3. WidgetPlaceholder missing type (S101 with 'type')
+    const diagS101Type = {
+      code: "streak:S101",
+      message: "requires a non-empty 'type' attribute",
       range: { start: wpPos, end: wpPos },
     } as unknown as Diagnostic;
 
-    const actionsS102 = resolveCodeActions([diagS102], doc, sourceFile);
-    assert.strictEqual(actionsS102.length, 1);
+    const actionsS101Type = resolveCodeActions([diagS101Type], doc, sourceFile);
+    assert.strictEqual(actionsS101Type.length, 1);
     assert.strictEqual(
-      actionsS102[0].title,
+      actionsS101Type[0].title,
       "Add type attribute to <WidgetPlaceholder>",
     );
 
@@ -1778,6 +1800,312 @@ suite("Extension Test Suite", () => {
     assert.strictEqual(diags.length, 1);
     assert.strictEqual(diags[0].code, "streak:S904");
     assert.strictEqual(diags[0].message, "Widget is not referenced by any sitemap page.");
+  });
+
+  test("streak:S406 flags scroll/mousemove listeners without passive: true", () => {
+    const code = `
+      window.addEventListener("scroll", () => {});
+      window.addEventListener("mousemove", () => {}, false);
+      window.addEventListener("touchmove", () => {}, { passive: true });
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument(
+      "file:///test/events.tsx",
+      code,
+    );
+    const diags = passiveEventListenerRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 2);
+    assert.strictEqual(diags[0].code, "streak:S406");
+    assert.ok(diags[0].message.includes("scroll"));
+    assert.strictEqual(diags[1].code, "streak:S406");
+    assert.ok(diags[1].message.includes("mousemove"));
+  });
+
+  test("validateSitemap enforces strict case sensitivity on handlers and layouts", () => {
+    const json = `[
+      {
+        "url": "/case-test",
+        "renderConfig": {
+          "renderId": "caseRenderId",
+          "dataHandler": "homedatahandler",
+          "rootLayout": "mainlayout",
+          "widgets": []
+        }
+      }
+    ]`;
+    const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
+
+    const tempRoot = path.join(__dirname, `temp_case_test_${Date.now()}`).replaceAll("\\", "/");
+    const handlerDir = path.join(tempRoot, "src", "handler");
+    const layoutDir = path.join(tempRoot, "src", "layout");
+    fs.mkdirSync(handlerDir, { recursive: true });
+    fs.mkdirSync(layoutDir, { recursive: true });
+
+    // Exact casing on disk is HomeDataHandler.ts and MainLayout.tsx
+    fs.writeFileSync(path.join(handlerDir, "HomeDataHandler.ts"), "export default async function HomeDataHandler() { return { status: 200 }; }");
+    fs.writeFileSync(path.join(layoutDir, "MainLayout.tsx"), "export default function MainLayout() { return <div />; }");
+
+    try {
+      const diags = validateSitemap(doc, tempRoot);
+      // Because sitemap specifies "homedatahandler" and "mainlayout", strict case sensitivity flags warnings
+      assert.ok(diags.some((d) => d.code === "streak:S903"));
+      assert.ok(diags.some((d) => d.code === "streak:S906"));
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("validateSitemap flags mismatched id and type in widgets[] with streak:S103", () => {
+    const json = `[
+      {
+        "url": "/mismatch",
+        "renderConfig": {
+          "renderId": "mismatchRenderId",
+          "widgets": [
+            { "id": "BannerId", "type": "HeroBanner" },
+            { "id": "Header", "type": "Header" }
+          ]
+        }
+      }
+    ]`;
+    const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
+    const diags = validateSitemap(doc, "/workspace");
+    const s103Diags = diags.filter((d) => d.code === "streak:S103");
+    assert.strictEqual(s103Diags.length, 1);
+    const msg = typeof s103Diags[0].message === "string" ? s103Diags[0].message : s103Diags[0].message.value;
+    assert.ok(msg.includes('Widget \'id\' ("BannerId") and \'type\' ("HeroBanner") must match exactly.'));
+  });
+
+  test("streak:S204 flags data handler return keys that do not match registered widgets", () => {
+    // Populate widget registry with ArticleList
+    widgetRegistry.set("ArticleList", {
+      name: "ArticleList",
+      filePath: "/workspace/src/widgets/ArticleList.tsx",
+      props: [],
+    });
+
+    const code = `
+      const getHomeData = async () => {
+        return {
+          status: 200,
+          ArticleList: { items: [] },
+          UnknownWidget: { data: 123 },
+        };
+      };
+      export default getHomeData;
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument(
+      "file:///workspace/src/handler/HomeDataHandler.ts",
+      code,
+    );
+    const diags = dataHandlerWidgetKeyRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 1);
+    assert.strictEqual(diags[0].code, "streak:S204");
+    assert.ok(diags[0].message.includes("UnknownWidget"));
+  });
+
+  test("missingDefaultExportRule ignores non-framework files (scripts, tests, utils) and validates framework folders", () => {
+    const helperCode = `export const sum = (a: number, b: number) => a + b;`;
+    const { analysis: utilAnalysis, sourceFile: utilFile } = analyzeAndParseDocument(
+      "file:///workspace/src/utils/math.ts",
+      helperCode,
+    );
+    const utilDiags = missingDefaultExportRule.run(utilFile, utilAnalysis);
+    assert.strictEqual(utilDiags.length, 0);
+
+    const layoutCode = `export const MainLayout = () => <div>Layout</div>;`;
+    const { analysis: layoutAnalysis, sourceFile: layoutFile } = analyzeAndParseDocument(
+      "file:///workspace/src/layouts/MainLayout.tsx",
+      layoutCode,
+    );
+    const layoutDiags = missingDefaultExportRule.run(layoutFile, layoutAnalysis);
+    assert.strictEqual(layoutDiags.length, 1);
+    assert.strictEqual(layoutDiags[0].code, "streak:S301");
+  });
+
+  test("allowedImportsRule permits 'bun:test' alongside 'streak-forge/components'", () => {
+    const code = `
+      import { describe, test, expect } from "bun:test";
+      import { WidgetPlaceholder } from "streak-forge/components";
+      import { invalidModule } from "some-unapproved-module";
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument(
+      "file:///workspace/src/test/widget.test.ts",
+      code,
+    );
+    const diags = allowedImportsRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 1);
+    assert.strictEqual(diags[0].code, "streak:S701");
+    assert.ok(diags[0].message.includes("some-unapproved-module"));
+  });
+
+  test("widgetPlaceholderRule emits streak:S902 on layouts when widget does not exist in src/widgets", () => {
+    widgetRegistry.set("HelloBanner", {
+      name: "HelloBanner",
+      filePath: "/workspace/src/widgets/HelloBanner.tsx",
+      props: [],
+    });
+
+    const code = `
+      import { WidgetPlaceholder } from "streak-forge/components";
+      export default function Layout() {
+        return (
+          <div>
+            <WidgetPlaceholder id="HelloBanner" type="HelloBanner" />
+            <WidgetPlaceholder id="MissingWid" type="MissingWid" />
+          </div>
+        );
+      }
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument(
+      "file:///workspace/src/layouts/MainLayout.tsx",
+      code,
+    );
+    const diags = widgetPlaceholderRule.run(sourceFile, analysis);
+    const s902Diags = diags.filter((d) => d.code === "streak:S902");
+    assert.strictEqual(s902Diags.length, 1);
+    assert.ok(s902Diags[0].message.includes('Widget "MissingWid" does not exist in src/widgets'));
+  });
+
+  test("scriptClosureCaptureRule ignores TypeScript type annotations like ': MouseEvent'", () => {
+    const code = `
+      import { Script } from "streak-forge/components";
+      export default function MyWidget() {
+        return (
+          <Script id="my-script" options={{ color: "#fff" }}>
+            {(gDom: any, options: any) => {
+              document.addEventListener("mousedown", (e: MouseEvent) => {
+                const nx = e.clientX / window.innerWidth;
+              });
+            }}
+          </Script>
+        );
+      }
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument(
+      "file:///workspace/src/widgets/MyWidget.tsx",
+      code,
+    );
+    const diags = scriptClosureCaptureRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 0);
+  });
+
+  test("resolveDefinition resolves widget file when cursor is on handler return property name", async () => {
+    const tmpDir = path.join(__dirname, "../../tmp_def_test");
+    const widgetsDir = path.join(tmpDir, "src", "widgets");
+    fs.mkdirSync(widgetsDir, { recursive: true });
+    const widgetFilePath = path.join(widgetsDir, "HelloBanner.tsx");
+    fs.writeFileSync(widgetFilePath, "export default function HelloBanner() { return <div>Banner</div>; }");
+
+    try {
+      const code = `
+        const getHomeData = async () => {
+          return {
+            status: 200,
+            HelloBanner: { items: [] }
+          };
+        };
+        export default getHomeData;
+      `;
+      const { sourceFile } = analyzeAndParseDocument("file:///test/HomeHandler.ts", code);
+      const targetNode = sourceFile.getFirstDescendant((n) => n.getText() === "HelloBanner");
+      assert.ok(targetNode);
+
+      const loc = await resolveDefinition(targetNode, tmpDir);
+      assert.ok(loc);
+      assert.ok(loc.uri.endsWith("HelloBanner.tsx"));
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("dataHandler rules (S201, S202, S203, S204) ignore test files in src/tests/ and src/test/ and only validate handlers", () => {
+    const testCode = `
+      export const helper = () => {
+        return { message: "ok" };
+      };
+      export default function testRunner() {}
+    `;
+    const { analysis: testAnalysis, sourceFile: testFile } = analyzeAndParseDocument(
+      "file:///workspace/src/tests/auth.test.ts",
+      testCode,
+    );
+    assert.strictEqual(dataHandlerStatusRule.run(testFile, testAnalysis).length, 0);
+    assert.strictEqual(dataHandlerAsyncRule.run(testFile, testAnalysis).length, 0);
+    assert.strictEqual(dataHandlerStatusValueRule.run(testFile, testAnalysis).length, 0);
+    assert.strictEqual(dataHandlerWidgetKeyRule.run(testFile, testAnalysis).length, 0);
+
+    const handlerCode = `
+      export const getAuthData = () => {
+        return { message: "ok" };
+      };
+    `;
+    const { analysis: handlerAnalysis, sourceFile: handlerFile } = analyzeAndParseDocument(
+      "file:///workspace/src/handlers/authDataHandler.ts",
+      handlerCode,
+    );
+    assert.strictEqual(dataHandlerAsyncRule.run(handlerFile, handlerAnalysis).length, 1);
+    assert.strictEqual(dataHandlerStatusRule.run(handlerFile, handlerAnalysis).length, 1);
+  });
+
+  test("scanWorkspace and validateSitemap support nested subprojects (monorepo structure)", async () => {
+    const parentDir = path.join(__dirname, "../../tmp_subproject_test");
+    const subprojectDir = path.join(parentDir, "streak-website");
+    const widgetsDir = path.join(subprojectDir, "src", "widgets");
+    const handlerDir = path.join(subprojectDir, "src", "handler");
+    const layoutDir = path.join(subprojectDir, "src", "layout");
+
+    fs.mkdirSync(widgetsDir, { recursive: true });
+    fs.mkdirSync(handlerDir, { recursive: true });
+    fs.mkdirSync(layoutDir, { recursive: true });
+
+    fs.writeFileSync(
+      path.join(widgetsDir, "HelloBanner.tsx"),
+      "export default function HelloBanner() { return <div>Banner</div>; }",
+    );
+    fs.writeFileSync(
+      path.join(handlerDir, "HomeDataHandler.ts"),
+      "export default async function HomeDataHandler() { return { status: 200, HelloBanner: {} }; }",
+    );
+    fs.writeFileSync(
+      path.join(layoutDir, "MainLayout.tsx"),
+      'import { WidgetPlaceholder } from "streak-forge/components"; export default function MainLayout() { return <div><WidgetPlaceholder id="HelloBanner" type="HelloBanner" /></div>; }',
+    );
+
+    const sitemapContent = JSON.stringify([
+      {
+        url: "/",
+        renderConfig: {
+          renderId: "homeRenderId",
+          dataHandler: "HomeDataHandler",
+          rootLayout: "MainLayout",
+          widgets: [{ id: "HelloBanner", type: "HelloBanner" }],
+        },
+      },
+    ]);
+    const sitemapFilePath = path.join(subprojectDir, "streak.sitemap.json");
+    fs.writeFileSync(sitemapFilePath, sitemapContent);
+
+    try {
+      // 1. Recursive workspace scan from parent folder discovers nested widget
+      await scanWorkspace(parentDir);
+      assert.ok(widgetRegistry.get("HelloBanner"));
+
+      // 2. resolveProjectRoot finds subproject folder for sitemap
+      const projectRoot = resolveProjectRoot(pathToFileURL(sitemapFilePath).toString(), parentDir);
+      assert.strictEqual(path.resolve(projectRoot), path.resolve(subprojectDir));
+
+      // 3. validateSitemap with projectRoot produces 0 errors
+      const doc = TextDocument.create(
+        pathToFileURL(sitemapFilePath).toString(),
+        "json",
+        1,
+        sitemapContent,
+      );
+      const diags = validateSitemap(doc, projectRoot);
+      assert.strictEqual(diags.length, 0);
+    } finally {
+      fs.rmSync(parentDir, { recursive: true, force: true });
+    }
   });
 });
 

@@ -25,6 +25,7 @@ export const allowedImportsRule: Rule = {
     const allowed: string[] = (options?.ruleOptions?.allowedImports as
       string[] | undefined) ?? [
       "streak-forge/components",
+      "bun:test",
     ];
 
     const imports = sourceFile.getImportDeclarations();

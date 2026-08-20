@@ -136,6 +136,8 @@ export class JSONLocationParser {
 
 export interface SitemapPageWidget {
   id?: string;
+  idStart?: number;
+  idEnd?: number;
   type: string;
   start: number;
   end: number;
@@ -162,39 +164,54 @@ export interface SitemapPage {
   end: number;
 }
 
-function parseWidgets(widgetsNode: JSONNode | undefined): SitemapPageWidget[] {
-  const widgets: SitemapPageWidget[] = [];
-  if (widgetsNode?.type !== "array") {
-    return widgets;
+function extractLoadingStrategy(loadingStrategyNode: JSONNode | undefined): string | undefined {
+  if (!loadingStrategyNode) {
+    return undefined;
   }
+  if (typeof loadingStrategyNode.value === "string") {
+    return loadingStrategyNode.value;
+  }
+  if (typeof loadingStrategyNode.value === "number" || typeof loadingStrategyNode.value === "boolean") {
+    return String(loadingStrategyNode.value);
+  }
+  return loadingStrategyNode.type;
+}
+
+function parseSingleWidget(wNode: JSONNode): SitemapPageWidget | null {
+  if (wNode?.type !== "object") {
+    return null;
+  }
+  const wProps = wNode.value as Record<string, { keyNode: JSONNode; valNode: JSONNode }>;
+  const typeNode = wProps["type"]?.valNode;
+  if (typeNode?.type !== "string") {
+    return null;
+  }
+
+  const idNode = wProps["id"]?.valNode;
+  const loadingStrategyNode = wProps["loadingStrategy"]?.valNode;
+
+  return {
+    id: idNode?.type === "string" ? (idNode.value as string) : undefined,
+    idStart: idNode?.start,
+    idEnd: idNode?.end,
+    type: typeNode.value as string,
+    start: typeNode.start,
+    end: typeNode.end,
+    loadingStrategy: extractLoadingStrategy(loadingStrategyNode),
+    loadingStrategyStart: loadingStrategyNode?.start,
+    loadingStrategyEnd: loadingStrategyNode?.end,
+  };
+}
+
+function parseWidgets(widgetsNode: JSONNode | undefined): SitemapPageWidget[] {
+  if (widgetsNode?.type !== "array") {
+    return [];
+  }
+  const widgets: SitemapPageWidget[] = [];
   for (const wNode of widgetsNode.value as JSONNode[]) {
-    if (wNode?.type !== "object") {
-      continue;
-    }
-    const wProps = wNode.value as Record<string, { keyNode: JSONNode; valNode: JSONNode }>;
-    const idNode = wProps["id"]?.valNode;
-    const typeNode = wProps["type"]?.valNode;
-    const loadingStrategyNode = wProps["loadingStrategy"]?.valNode;
-    let loadingStrategy: string | undefined;
-    if (loadingStrategyNode) {
-      if (typeof loadingStrategyNode.value === "string") {
-        loadingStrategy = loadingStrategyNode.value;
-      } else if (typeof loadingStrategyNode.value === "number" || typeof loadingStrategyNode.value === "boolean") {
-        loadingStrategy = String(loadingStrategyNode.value);
-      } else {
-        loadingStrategy = loadingStrategyNode.type;
-      }
-    }
-    if (typeNode?.type === "string") {
-      widgets.push({
-        id: idNode?.type === "string" ? (idNode.value as string) : undefined,
-        type: typeNode.value as string,
-        start: typeNode.start,
-        end: typeNode.end,
-        loadingStrategy,
-        loadingStrategyStart: loadingStrategyNode?.start,
-        loadingStrategyEnd: loadingStrategyNode?.end,
-      });
+    const widget = parseSingleWidget(wNode);
+    if (widget) {
+      widgets.push(widget);
     }
   }
   return widgets;

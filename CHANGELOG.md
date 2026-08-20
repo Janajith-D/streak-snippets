@@ -5,6 +5,48 @@ All notable changes to the "streak-snippets" extension will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-08-20
+
+### Added
+- **Layout & Handler `<WidgetPlaceholder />` Navigation & Diagnostics**:
+  - **Go to Definition in Layouts & Data Handlers**: Enabled Ctrl+Click / F12 on `<WidgetPlaceholder type="..." />` / `id="..."` in layouts AND returned widget keys (e.g. `HelloBanner: { ... }`) in data handler files to jump directly to the widget source (`src/widgets/<Type>.tsx`).
+  - **Missing Widget Warning (`streak:S902`)**: Added warning diagnostics on `<WidgetPlaceholder type="..." />` if the referenced widget `.tsx` file is missing in `src/widgets/`, complete with fuzzy "Did you mean?" suggestions.
+- **Approved Imports Whitelist Update (`streak:S701`)**:
+  - Added `"bun:test"` to the default approved module whitelist (`["streak-forge/components", "bun:test"]`).
+- **Passive Event Listeners Scope Extension (`streak:S406`)**:
+  - Added `"wheel"`, `"mousewheel"`, and `"pointermove"` to the targeted high-frequency scrolling events.
+
+### Fixed
+- **Definition Provider Lifecycle & Concurrent AST Invalidation**:
+  - Fixed `Attempted to get information from a node that was removed or forgotten` error during Go to Definition in data handler files by eliminating the asynchronous IPC gap before AST node resolution.
+- **Subproject & Monorepo Project Root Resolution**:
+  - Implemented `resolveProjectRoot` to automatically detect nested project directories containing `streak.sitemap.json` or `src/` when a parent directory or monorepo workspace is opened in VS Code.
+  - Updated `scanWorkspace` to recursively discover all `src/widgets/` directories across workspace subfolders, preventing false-positive `streak:S902`, `streak:S903`, and `streak:S906` missing widget/handler/layout errors.
+- **Rule Scope Refinement & `node_modules` Ignore**:
+  - Completely ignored `node_modules` and TypeScript declaration files (`.d.ts`, `.d.cts`, `.d.mts`) from Language Server validation and diagnostic passes.
+  - Restricted `streak:S301` (missing default export) strictly to framework directories (`src/handlers/`, `src/layouts/`, `src/widgets/`, `src/pages/`), eliminating false positive errors on scripts, test files, and utilities.
+  - Restricted data handler rules (`streak:S201`, `streak:S202`, `streak:S203`, `streak:S204`) strictly to `src/handler/` and `src/handlers/`, preventing false positive errors on test files (`src/tests/*`, `*.test.ts`, `*.spec.ts`).
+- **TypeScript Type Annotations in `<Script>` Callbacks (`streak:S401`)**:
+  - Fixed false-positive closure variable capture warnings on type annotations (e.g. `(e: MouseEvent)`).
+  - Added common DOM and Web API type interfaces (`MouseEvent`, `TouchEvent`, `HTMLElement`, `Element`, `Document`, `Window`, `EventTarget`, etc.) to the allowed browser globals list.
+- **SonarQube Clean Code & Cognitive Complexity Refactoring**:
+  - Modularized `sitemaps.ts`, `dataHandlerWidgetKeyRule.ts`, and `server.ts` to reduce cognitive complexity below the allowed threshold of 15 and eliminated duplicate branch structures.
+
+## [1.4.0] - 2026-08-19
+
+### Added
+- **Layout Constraints, Strict Case Sensitivity & Best Practices (Phase 15)**:
+  - **Merged `<WidgetPlaceholder>` Rule (`streak:S101`)**: Unified missing `id` and `type` attributes into a single comprehensive error rule.
+  - **Layout Location Restriction (`streak:S102`)**: Enforced error diagnostic restricting `<WidgetPlaceholder>` usage strictly to layout files (`src/layout/` or `src/layouts/`).
+  - **Exact ID & Type Match (`streak:S103`)**: Enforced error diagnostic requiring `id` and `type` attribute values to match exactly on `<WidgetPlaceholder>` and in `streak.sitemap.json` `widgets[]` declarations.
+  - **Data Handler Return Widget Key Match (`streak:S204`)**: Added warning diagnostic ensuring top-level returned object properties in data handlers match registered widget components in `src/widgets/`.
+  - **Passive Event Listeners (`streak:S406`)**: Added performance warning diagnostic requiring `{ passive: true }` on `scroll`, `mousemove`, `touchstart`, and `touchmove` listeners.
+  - **Cross-Platform Strict Case Sensitivity**: Enforced exact character casing verification on Windows NTFS, macOS, and Linux for `dataHandler` (`.ts`), `rootLayout` (`.tsx`), and widget `type`.
+  - **Widget `loadingStrategy` Validation (`streak:S907`)**: Added warning diagnostic validating that `loadingStrategy` is `"lazy"` if specified on sitemap widgets.
+  - **Imports Whitelist Update (`streak:S701`)**: Updated default approved module imports strictly to `["streak-forge/components"]`.
+  - **Sitemap Snippets**: Added `sf-widget` (`Streak Widget entry`) and single-page `sf-sitemap` (`Streak Sitemap`) scaffolding snippets.
+  - **Non-Sitemap JSON Validation Guard**: Fixed false positive `streak:S301` errors on `package.json` and `tsconfig.json` by isolating TS AST rules to `.ts`/`.tsx` files.
+
 ## [1.3.0] - 2026-08-08
 
 ### Added
@@ -12,16 +54,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added JSON location parser for indexing `streak.sitemap.json` elements across both top-level and nested `renderConfig` properties.
   - Enabled JSON document support in client `documentSelector` and `activationEvents` for `streak.sitemap.json`.
   - Implemented `streak:S901` (Duplicate routes) and `streak:S905` (Duplicate renderConfig `renderId` values) error diagnostics.
-  - Implemented `streak:S902` (Missing widgets warning) checking `src/widgets/` strictly for `.tsx` files with fuzzy "Did you mean?" suggestions.
-  - Implemented `streak:S903` (Missing data handler warning) checking `src/handler/` and `src/handlers/` strictly for `.ts` files.
-  - Implemented `streak:S906` (Missing root layout warning) checking `src/layout/` and `src/layouts/` strictly for `.tsx` files.
-  - Implemented `streak:S907` (Invalid widget loadingStrategy warning) validating that `loadingStrategy` is `"lazy"` if specified.
+  - Implemented `streak:S902` (Missing widgets warning) checking `src/widgets/` for `.tsx` files with fuzzy "Did you mean?" suggestions.
+  - Implemented `streak:S903` (Missing data handler warning) checking `src/handler/` and `src/handlers/` for `.ts` files.
+  - Implemented `streak:S906` (Missing root layout warning) checking `src/layout/` and `src/layouts/` for `.tsx` files.
   - Implemented `streak:S904` (Dead widgets warning) targeting unused widget components.
-  - Updated `streak:S701` allowed imports default whitelist strictly to `streak-forge/components`.
   - Added Go to Definition for sitemap `dataHandler`, `rootLayout`, and widget `type` values.
   - Integrated Find References and Rename edits linking widget files and the sitemap.
   - Added hover tooltips for sitemap pages and widget handler statistics.
-  - Added `sf-widget` (`Streak Widget entry`) and single-page `sf-sitemap` (`Streak Sitemap`) snippets and autocomplete for widget types inside sitemaps.
 
 ## [1.2.0] - 2026-08-08
 

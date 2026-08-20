@@ -4,6 +4,8 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import { pathToFileURL } from "node:url";
 import { sitemapRegistry, type SitemapPage } from "../registry/sitemaps";
+import { widgetRegistry } from "../registry/widgets";
+import { fileExistsStrictCase } from "../rules/sitemapRules";
 import { type TextDocument } from "vscode-languageserver-textdocument";
 
 // Single shared project to avoid redundant ts-morph Project creation overhead
@@ -165,15 +167,20 @@ function resolveWidgetTypeDefinition(
   workspaceRoot: string,
   customWidgetDir = "src/widgets",
 ): Location | null {
-  const baseWidgetPath = path.join(workspaceRoot, customWidgetDir, value);
-  for (const ext of [".tsx", ".ts", ".jsx", ".js"]) {
-    const fullPath = baseWidgetPath + ext;
-    if (fs.existsSync(fullPath)) {
-      return Location.create(
-        pathToFileURL(fullPath).toString(),
-        Range.create(0, 0, 0, 0),
-      );
-    }
+  const dir = path.join(workspaceRoot, customWidgetDir);
+  if (fileExistsStrictCase(dir, `${value}.tsx`)) {
+    const fullPath = path.join(dir, `${value}.tsx`);
+    return Location.create(
+      pathToFileURL(fullPath).toString(),
+      Range.create(0, 0, 0, 0),
+    );
+  }
+  const registered = widgetRegistry.get(value);
+  if (registered && fs.existsSync(registered.filePath)) {
+    return Location.create(
+      pathToFileURL(registered.filePath).toString(),
+      Range.create(0, 0, 0, 0),
+    );
   }
   return null;
 }
@@ -200,7 +207,7 @@ function resolvePreloadHrefDefinition(
 
 /**
  * Handles F12/Go-to-definition for JSX attribute values:
- * - WidgetPlaceholder type → widget source file
+ * - WidgetPlaceholder type/id → widget source file
  * - Preload href → public asset file
  *
  * Extracted to reduce cognitive complexity of resolveDefinition.
@@ -237,7 +244,7 @@ function resolveJsxAttrDefinition(
 
   const tagName = tagNode.getTagNameNode().getText();
 
-  if (tagName === "WidgetPlaceholder" && attributeName === "type") {
+  if (tagName === "WidgetPlaceholder" && (attributeName === "type" || attributeName === "id")) {
     return resolveWidgetTypeDefinition(value, workspaceRoot, customWidgetDir);
   }
 
@@ -245,6 +252,24 @@ function resolveJsxAttrDefinition(
     return resolvePreloadHrefDefinition(value, workspaceRoot, customPublicDir);
   }
 
+  return null;
+}
+
+function resolveHandlerReturnPropertyDefinition(
+  node: Node,
+  value: string,
+  workspaceRoot: string,
+  customWidgetDir = "src/widgets",
+): Location | null {
+  const parent = node.getParent();
+  if (
+    parent &&
+    (Node.isPropertyAssignment(parent) ||
+      Node.isShorthandPropertyAssignment(parent) ||
+      Node.isMethodDeclaration(parent))
+  ) {
+    return resolveWidgetTypeDefinition(value, workspaceRoot, customWidgetDir);
+  }
   return null;
 }
 
@@ -260,15 +285,18 @@ export async function resolveDefinition(
     return null;
   }
 
-  // Only string/template literals carry navigable values
+  let value: string;
   if (
-    !Node.isStringLiteral(node) &&
-    !Node.isNoSubstitutionTemplateLiteral(node)
+    Node.isStringLiteral(node) ||
+    Node.isNoSubstitutionTemplateLiteral(node)
   ) {
+    value = node.getLiteralValue();
+  } else if (Node.isIdentifier(node)) {
+    value = node.getText();
+  } else {
     return null;
   }
 
-  const value = node.getLiteralValue();
   const parent = node.getParent();
 
   // Case 1: gDom.loadDynamicComponent("X") → navigate to <Dynamic id="X">
@@ -277,13 +305,30 @@ export async function resolveDefinition(
   }
 
   // Case 2: JSX attribute value → widget file or public asset
-  return resolveJsxAttrDefinition(
+  const jsxLoc = resolveJsxAttrDefinition(
     node,
     value,
     workspaceRoot,
     customWidgetDir,
     customPublicDir,
   );
+  if (jsxLoc) {
+    return jsxLoc;
+  }
+
+  // Case 3: Data handler return property or widget identifier → widget file
+  const handlerPropLoc = resolveHandlerReturnPropertyDefinition(
+    node,
+    value,
+    workspaceRoot,
+    customWidgetDir,
+  );
+  if (handlerPropLoc) {
+    return handlerPropLoc;
+  }
+
+  // Case 4: General widget identifier or string matching src/widgets/<Name>.tsx
+  return resolveWidgetTypeDefinition(value, workspaceRoot, customWidgetDir);
 }
 
 function findSitemapWidgetDefinition(
@@ -317,8 +362,8 @@ function findSitemapHandlerDefinition(
       path.join(workspaceRoot, "src", "handlers"),
     ];
     for (const dir of candidateDirs) {
-      const fullPath = path.join(dir, `${page.handler}.ts`);
-      if (fs.existsSync(fullPath)) {
+      if (fileExistsStrictCase(dir, `${page.handler}.ts`)) {
+        const fullPath = path.join(dir, `${page.handler}.ts`);
         return Location.create(
           pathToFileURL(fullPath).toString(),
           Range.create(0, 0, 0, 0),
@@ -346,8 +391,8 @@ function findSitemapLayoutDefinition(
       path.join(workspaceRoot, "src", "layouts"),
     ];
     for (const dir of candidateDirs) {
-      const fullPath = path.join(dir, `${page.layout}.tsx`);
-      if (fs.existsSync(fullPath)) {
+      if (fileExistsStrictCase(dir, `${page.layout}.tsx`)) {
+        const fullPath = path.join(dir, `${page.layout}.tsx`);
         return Location.create(
           pathToFileURL(fullPath).toString(),
           Range.create(0, 0, 0, 0),

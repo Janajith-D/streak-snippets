@@ -134,6 +134,7 @@ function reportDuplicateRenderIds(
 function validatePageWidgets(
   page: SitemapPage,
   document: TextDocument,
+  workspaceRoot: string,
   diagnostics: Diagnostic[],
   ruleSeverities?: Record<string, string>,
 ) {
@@ -141,8 +142,10 @@ function validatePageWidgets(
   if (severity === null) {
     return;
   }
+  const widgetDir = path.join(workspaceRoot, "src", "widgets");
   for (const w of page.widgets) {
-    if (!widgetRegistry.get(w.type)) {
+    const existsOnDisk = fileExistsStrictCase(widgetDir, `${w.type}.tsx`);
+    if (!widgetRegistry.get(w.type) && !existsOnDisk) {
       const range = {
         start: document.positionAt(w.start),
         end: document.positionAt(w.end),
@@ -166,6 +169,18 @@ function validatePageWidgets(
   }
 }
 
+export function fileExistsStrictCase(dir: string, fileNameWithExt: string): boolean {
+  if (!fs.existsSync(dir)) {
+    return false;
+  }
+  try {
+    const files = fs.readdirSync(dir);
+    return files.includes(fileNameWithExt);
+  } catch {
+    return false;
+  }
+}
+
 function validatePageHandler(
   page: SitemapPage,
   document: TextDocument,
@@ -185,7 +200,7 @@ function validatePageHandler(
     ];
     let found = false;
     for (const dir of candidateDirs) {
-      if (fs.existsSync(path.join(dir, `${handlerName}.ts`))) {
+      if (fileExistsStrictCase(dir, `${handlerName}.ts`)) {
         found = true;
         break;
       }
@@ -226,7 +241,7 @@ function validatePageLayout(
     ];
     let found = false;
     for (const dir of candidateDirs) {
-      if (fs.existsSync(path.join(dir, `${layoutName}.tsx`))) {
+      if (fileExistsStrictCase(dir, `${layoutName}.tsx`)) {
         found = true;
         break;
       }
@@ -275,6 +290,35 @@ function validateWidgetLoadingStrategy(
   }
 }
 
+function validateWidgetIdTypeMatch(
+  page: SitemapPage,
+  document: TextDocument,
+  diagnostics: Diagnostic[],
+  ruleSeverities?: Record<string, string>,
+) {
+  const severity = getSeverity("streak:widget-placeholder-id-type-match", ruleSeverities, DiagnosticSeverity.Error);
+  if (severity === null) {
+    return;
+  }
+  for (const w of page.widgets) {
+    if (w.id !== undefined && w.type !== undefined && w.id !== w.type) {
+      const startOffset = w.idStart ?? w.start;
+      const endOffset = w.idEnd ?? w.end;
+      const range = {
+        start: document.positionAt(startOffset),
+        end: document.positionAt(endOffset),
+      };
+      diagnostics.push({
+        code: "streak:S103",
+        message: `Widget 'id' ("${w.id}") and 'type' ("${w.type}") must match exactly.`,
+        range,
+        severity,
+        source: "Streak Engine",
+      });
+    }
+  }
+}
+
 export function validateSitemap(
   document: TextDocument,
   workspaceRoot: string,
@@ -292,7 +336,8 @@ export function validateSitemap(
   for (const page of pages) {
     collectUrl(page, seenUrls);
     collectRenderId(page, seenRenderIds);
-    validatePageWidgets(page, document, diagnostics, ruleSeverities);
+    validatePageWidgets(page, document, workspaceRoot, diagnostics, ruleSeverities);
+    validateWidgetIdTypeMatch(page, document, diagnostics, ruleSeverities);
     validateWidgetLoadingStrategy(page, document, diagnostics, ruleSeverities);
     validatePageHandler(page, document, workspaceRoot, diagnostics, ruleSeverities);
     validatePageLayout(page, document, workspaceRoot, diagnostics, ruleSeverities);

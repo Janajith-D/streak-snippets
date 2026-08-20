@@ -8,11 +8,13 @@ This document provides detailed SonarQube-style descriptions, rationale, and com
 
 | Rule Key | Name / Category | Default Severity | Description |
 |---|---|---|---|
-| [`streak:S101`](#streaks101---widgetplaceholder-missing-id-attribute) | Widget Component | Error | `<WidgetPlaceholder>` elements must have a non-empty `id` attribute. |
-| [`streak:S102`](#streaks102---widgetplaceholder-missing-type-attribute) | Widget Component | Error | `<WidgetPlaceholder>` elements must have a non-empty `type` attribute. |
+| [`streak:S101`](#streaks101---widgetplaceholder-missing-id-or-type-attribute) | Widget Component | Error | `<WidgetPlaceholder>` elements must have non-empty `id` and `type` attributes. |
+| [`streak:S102`](#streaks102---widgetplaceholder-layout-location-only) | Widget Component | Error | `<WidgetPlaceholder>` can only be used inside layout files (`src/layout` or `src/layouts`). |
+| [`streak:S103`](#streaks103---widgetplaceholder-id-type-exact-match) | Widget / Sitemap | Error | Widget `id` and `type` values must match exactly in layouts and sitemap entries. |
 | [`streak:S201`](#streaks201---data-handler-missing-status-property) | Data Handler | Warning | Data handler functions must return an object containing a `status` property. |
 | [`streak:S202`](#streaks202---data-handler-must-be-async) | Data Handler | Error | Data handlers must default-export an `async` function. |
 | [`streak:S203`](#streaks203---invalid-handler-status) | Data Handler | Warning | Data handler `status` should be a valid numeric HTTP status code (100–599). |
+| [`streak:S204`](#streaks204---data-handler-return-widget-key-match) | Data Handler | Warning | Data handler return object keys must match registered widget components in `src/widgets/`. |
 | [`streak:S301`](#streaks301---missing-default-export) | Framework Syntax | Warning | Framework pages, components, and handlers must provide a default export. |
 | [`streak:S302`](#streaks302---react-hooks-not-allowed) | Widget Component | Error | Streak static widgets must not use React runtime hooks (`useState`, `useEffect`, etc.). |
 | [`streak:S303`](#streaks303---unsafe-widget-data-access) | Widget Component | Error | Widget data must be accessed safely because `props.data` may be undefined. |
@@ -21,6 +23,8 @@ This document provides detailed SonarQube-style descriptions, rationale, and com
 | [`streak:S402`](#streaks402---invalid-script-signature) | Script Component | Error | `<Script>` callback must follow `(gDom, options) => void`. |
 | [`streak:S403`](#streaks403---import-inside-script) | Script Component | Error | Browser-side Script code must not contain or depend on module imports or `require()`. |
 | [`streak:S404`](#streaks404---async-script-callback) | Script Component | Error | `<Script>` callbacks must not be declared `async`. |
+| [`streak:S405`](#streaks405---script-required-id) | Script Component | Warning | Script component requires a non-empty `id` attribute. |
+| [`streak:S406`](#streaks406---passive-event-listeners) | Performance / Script | Warning | Scroll, mousemove, and touch event listeners must specify `{ passive: true }`. |
 | [`streak:S501`](#streaks501---invalid-dynamic-component-id) | Dynamic Component | Error | `<Dynamic>` must have a static, non-empty `id`. |
 | [`streak:S601`](#streaks601---duplicated-widget) | Workspace Registry | Error | Custom widget names must be unique across all widget source files. |
 | [`streak:S602`](#streaks602---component-nesting) | Jsx Nesting | Error | Nested `<Script>` tags or `<WidgetPlaceholder>` inside scripts are not allowed. |
@@ -40,44 +44,89 @@ This document provides detailed SonarQube-style descriptions, rationale, and com
 
 ## Rule Details
 
-### `streak:S101` — `<WidgetPlaceholder>` Missing `id` Attribute
+### `streak:S101` — `<WidgetPlaceholder>` Missing `id` or `type` Attribute
 
 - **Category**: Widget Component
 - **Severity**: `Error`
 - **Source**: `Streak Engine`
 
 #### Description
-The `WidgetPlaceholder` component requires a unique `id` attribute matching the widget ID in the sitemap.
+The `<WidgetPlaceholder>` component requires non-empty `id` and `type` attributes matching the widget configuration in the sitemap.
 
 #### Non-compliant Code ❌
 ```tsx
-<WidgetPlaceholder type="banner" />
+<WidgetPlaceholder type="HelloBanner" />
+<WidgetPlaceholder id="HelloBanner" />
 ```
 
 #### Compliant Code ✅
 ```tsx
-<WidgetPlaceholder id="hero-banner" type="banner" />
+<WidgetPlaceholder id="HelloBanner" type="HelloBanner" />
 ```
 
 ---
 
-### `streak:S102` — `<WidgetPlaceholder>` Missing `type` Attribute
+### `streak:S102` — `<WidgetPlaceholder>` Layout Location Only
 
 - **Category**: Widget Component
 - **Severity**: `Error`
 - **Source**: `Streak Engine`
 
 #### Description
-The `WidgetPlaceholder` component requires a `type` attribute determining which widget renderer to load.
+`<WidgetPlaceholder>` elements can only be used inside layout components located in `src/layout/` or `src/layouts/`. They cannot be embedded inside custom widgets or general components.
+
+#### Non-compliant Code ❌
+`src/widgets/MyWidget.tsx`
+```tsx
+export default function MyWidget() {
+  return (
+    <div>
+      <WidgetPlaceholder id="Header" type="Header" />
+    </div>
+  );
+}
+```
+
+#### Compliant Code ✅
+`src/layout/MainLayout.tsx`
+```tsx
+export default function MainLayout() {
+  return (
+    <main>
+      <WidgetPlaceholder id="Header" type="Header" />
+    </main>
+  );
+}
+```
+
+---
+
+### `streak:S103` — `<WidgetPlaceholder>` `id` and `type` Exact Match
+
+- **Category**: Widget Component
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+The `id` and `type` attributes on `<WidgetPlaceholder>` must match each other and the sitemap/widget declaration exactly.
+
+| Location | Field |
+|---|---|
+| `streak.sitemap.json` | `widgets[].id` and `widgets[].type` |
+| Layout (`src/layout/`) | `<WidgetPlaceholder id= type= />` |
+| Handler return | Object key |
+| Widget file | Filename (`src/widgets/<Name>.tsx`) |
+
+All four values are case-sensitive and must match exactly.
 
 #### Non-compliant Code ❌
 ```tsx
-<WidgetPlaceholder id="sidebar-widget" />
+<WidgetPlaceholder id="hero-banner" type="HelloBanner" />
 ```
 
 #### Compliant Code ✅
 ```tsx
-<WidgetPlaceholder id="sidebar-widget" type="sidebar" />
+<WidgetPlaceholder id="HelloBanner" type="HelloBanner" />
 ```
 
 ---
@@ -163,24 +212,59 @@ export default getData;
 
 ---
 
-### `streak:S301` — Missing Default Export
+### `streak:S204` — Data Handler Return Widget Key Match
 
-- **Category**: Framework Syntax
+- **Category**: Data Handler
 - **Severity**: `Warning`
 - **Source**: `Streak Engine`
 
 #### Description
-Streak pages, components, and handlers rely on default exports for automatic routing and discovery.
+In data handler functions (`src/handler/*.ts`), each top-level object key returned (other than metadata properties like `status`, `metadata`, `headers`) supplies data to a corresponding widget and must match a registered `.tsx` widget in `src/widgets/`.
+
+#### Non-compliant Code ❌
+```ts
+const getHomeData = async () => {
+  return {
+    status: 200,
+    NonExistentWidget: { items: [] }, // No src/widgets/NonExistentWidget.tsx
+  };
+};
+export default getHomeData;
+```
+
+#### Compliant Code ✅
+```ts
+const getHomeData = async () => {
+  return {
+    status: 200,
+    ArticleList: { items: [] }, // Matches src/widgets/ArticleList.tsx
+  };
+};
+export default getHomeData;
+```
+
+---
+
+### `streak:S301` — Missing Default Export
+
+- **Category**: Framework Syntax
+- **Severity**: `Warning` (Widget: `Error`)
+- **Source**: `Streak Engine`
+
+#### Description
+Streak framework files located under `src/handlers/`, `src/layouts/`, `src/widgets/`, or `src/pages/` rely on default exports for automatic routing, rendering, and component discovery. Non-framework files (scripts, tests, utilities) and declaration files (`.d.ts`, `.d.cts`) are excluded.
 
 #### Non-compliant Code ❌
 ```tsx
-export function Page() { return <h1>Page</h1>; }
+// file: src/layouts/MainLayout.tsx
+export function MainLayout() { return <div>Layout</div>; }
 ```
 
 #### Compliant Code ✅
 ```tsx
-export function Page() { return <h1>Page</h1>; }
-export default Page;
+// file: src/layouts/MainLayout.tsx
+export function MainLayout() { return <div>Layout</div>; }
+export default MainLayout;
 ```
 
 ---
@@ -408,6 +492,29 @@ Browser-side `<Script>` callbacks run directly in the DOM runtime and cannot con
 
 ---
 
+### `streak:S406` — Passive Event Listener
+
+- **Category**: Performance / Best Practice
+- **Severity**: `Warning`
+- **Source**: `Streak Engine`
+
+#### Description
+Passive event listeners allow the browser to scroll without waiting for your handler to finish. Always pass `{ passive: true }` for high-frequency, scroll-blocking events (`scroll`, `mousemove`, `touchstart`, `touchmove`, `wheel`, `mousewheel`, `pointermove`) to prevent scroll-blocking and improve Lighthouse performance scores. Discrete click events (`mousedown`, `mouseup`, `click`) do not trigger this rule.
+
+#### Non-compliant Code ❌
+```tsx
+window.addEventListener("scroll", handleScroll);
+window.addEventListener("mousemove", handleMove);
+```
+
+#### Compliant Code ✅
+```tsx
+window.addEventListener("scroll", handleScroll, { passive: true });
+window.addEventListener("mousemove", handleMove, { passive: true });
+```
+
+---
+
 ### `streak:S501` — Invalid Dynamic Component ID
 
 - **Category**: Dynamic Component
@@ -465,27 +572,19 @@ export default function ProductListItem() { return <div>Item</div>; }
 - **Source**: `Streak Engine`
 
 #### Description
-Ensures component nesting constraints are respected. Standard Streak components like `<WidgetPlaceholder>` cannot be nested inside browser-side `<Script>` callback functions, and `<Script>` tags cannot be nested inside other `<Script>` tags.
+`<WidgetPlaceholder>` and `<Dynamic>` components cannot be nested directly inside other `<WidgetPlaceholder>`, `<Preload>`, or `<Dynamic>` elements.
 
 #### Non-compliant Code ❌
 ```tsx
-<Script id="my-sc">
-  {(gDom) => (
-    <WidgetPlaceholder id="widget-in-script" type="MyWidget" />
-  )}
-</Script>
+<WidgetPlaceholder id="Hero" type="Hero">
+  <WidgetPlaceholder id="Child" type="Child" />
+</WidgetPlaceholder>
 ```
 
 #### Compliant Code ✅
 ```tsx
-<>
-  <WidgetPlaceholder id="my-widget" type="MyWidget" />
-  <Script id="my-sc">
-    {(gDom) => {
-      console.log("Script executed separately");
-    }}
-  </Script>
-</>
+<WidgetPlaceholder id="Hero" type="Hero" />
+<WidgetPlaceholder id="Child" type="Child" />
 ```
 
 ---
@@ -524,7 +623,7 @@ Ensures component nesting constraints are respected. Standard Streak components 
 - **Source**: `Streak Engine`
 
 #### Description
-Restricts file imports to a whitelisted set of approved modules (default: `streak-forge/components`). Unapproved module imports are flagged as warnings.
+Restricts file imports to a whitelisted set of approved modules (default: `["streak-forge/components", "bun:test"]`). Unapproved module imports are flagged as warnings.
 
 #### Non-compliant Code ❌
 ```tsx
@@ -534,6 +633,7 @@ import { someFunc } from "lodash";
 #### Compliant Code ✅
 ```tsx
 import { WidgetPlaceholder } from "streak-forge/components";
+import { describe, test, expect } from "bun:test";
 ```
 
 ---
@@ -545,52 +645,47 @@ import { WidgetPlaceholder } from "streak-forge/components";
 - **Source**: `Streak Engine`
 
 #### Description
-Scans code content and flags matches of restricted regular expression code structures (e.g. `eval(`, `setTimeout(`) specified in your workspace rules configurations.
+Flags disallowed code patterns matching configurable regular expressions defined in workspace settings (`streak.rules.forbiddenPatterns`).
 
 #### Non-compliant Code ❌
 ```tsx
-const data = eval("x + y");
+// Configured: ["eval\\("]
+eval("dangerousCode()");
 ```
 
 #### Compliant Code ✅
 ```tsx
-const data = x + y;
+JSON.parse(safeJsonString);
 ```
 
 ---
 
-### `streak:S801` — Widget Filename Matches Component
+### `streak:S801` — Widget Filename Mismatch
 
-- **Category**: Widget Component
+- **Category**: File Naming Convention
 - **Severity**: `Error`
 - **Source**: `Streak Engine`
 
 #### Description
-Ensures widget component name matches its filename to guarantee correct automatic mapping and registration.
+Widget components inside `src/widgets/*.tsx` must match the file name exactly (case-sensitive) with their default-exported component identifier.
 
 #### Non-compliant Code ❌
-`HelloBanner.tsx`
 ```tsx
-const HeroBanner = () => {
-  return <div>Hello</div>;
-};
-export default HeroBanner;
+// file: src/widgets/HeroBanner.tsx
+export default function Banner() { return <div>Hero</div>; }
 ```
 
 #### Compliant Code ✅
-`HelloBanner.tsx`
 ```tsx
-const HelloBanner = () => {
-  return <div>Hello</div>;
-};
-export default HelloBanner;
+// file: src/widgets/HeroBanner.tsx
+export default function HeroBanner() { return <div>Hero</div>; }
 ```
 
 ---
 
-### `streak:S901` — Duplicate Route Detected
+### `streak:S901` — Duplicate Sitemap Route
 
-- **Category**: Sitemap / Routes
+- **Category**: Sitemap / Routing
 - **Severity**: `Error`
 - **Source**: `Streak Engine`
 
@@ -617,25 +712,23 @@ Ensures sitemap page routes (`url` values) are unique across the project. Duplic
 
 ### `streak:S902` — Referenced Widget Does Not Exist
 
-- **Category**: Sitemap / Registry
+- **Category**: Layout / Sitemap / Registry
 - **Severity**: `Warning`
 - **Source**: `Streak Engine`
 
 #### Description
-Ensures that all widget `type` values declared inside the sitemap match an existing custom widget `.tsx` source file inside `src/widgets/`.
+Ensures that all widget `type` values declared inside `streak.sitemap.json` or `<WidgetPlaceholder type="..." />` in layout files match an existing custom widget `.tsx` source file inside `src/widgets/`.
 
 #### Non-compliant Code ❌
-```json
-{
-  "type": "NonExistentBanner"
-}
+```tsx
+// file: src/layouts/MainLayout.tsx
+<WidgetPlaceholder id="NonExistent" type="NonExistent" />
 ```
 
 #### Compliant Code ✅
-```json
-{
-  "type": "HelloBanner"
-}
+```tsx
+// file: src/layouts/MainLayout.tsx
+<WidgetPlaceholder id="HelloBanner" type="HelloBanner" />
 ```
 
 ---
