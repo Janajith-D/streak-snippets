@@ -442,43 +442,59 @@ async function indexWidgetFile(uri: string): Promise<void> {
   }
 }
 
+async function fetchRuleConfiguration(): Promise<{
+  ruleSeverities: Record<string, string>;
+  ruleOptions: Record<string, unknown>;
+}> {
+  try {
+    const streakSettings =
+      (await connection.workspace.getConfiguration("streak")) as StreakSettings;
+    return buildRuleConfiguration(streakSettings);
+  } catch (err) {
+    connection.console.log(
+      `Failed to fetch configurations: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return { ruleSeverities: {}, ruleOptions: {} };
+  }
+}
+
+async function validateJsonDocument(
+  document: TextDocument,
+  ruleSeverities: Record<string, string>,
+): Promise<void> {
+  const uri = document.uri;
+  if (!uri.endsWith("sitemap.json")) {
+    await connection.sendDiagnostics({ uri, diagnostics: [] });
+    return;
+  }
+
+  if (!workspaceRoot) {
+    return;
+  }
+
+  const diagnostics = validateSitemap(document, workspaceRoot, ruleSeverities);
+  await connection.sendDiagnostics({ uri, diagnostics });
+
+  for (const doc of documents.all()) {
+    if (doc.uri !== uri && doc.uri.endsWith(".tsx")) {
+      setTimeout(() => {
+        validateDocument(doc).catch(() => {
+          // ignore validation failure
+        });
+      }, 50);
+    }
+  }
+}
+
 async function validateDocument(document: TextDocument): Promise<void> {
   const uri = document.uri;
   const content = document.getText();
 
   connection.console.log(`[Validation] Running diagnostics for: ${uri}`);
-
-  let config = { ruleSeverities: {} as Record<string, string>, ruleOptions: {} as Record<string, unknown> };
-  try {
-    const streakSettings =
-      (await connection.workspace.getConfiguration("streak")) as StreakSettings;
-    config = buildRuleConfiguration(streakSettings);
-  } catch (err) {
-    connection.console.log(`Failed to fetch configurations: ${err instanceof Error ? err.message : String(err)}`);
-  }
+  const config = await fetchRuleConfiguration();
 
   if (uri.endsWith(".json")) {
-    if (uri.endsWith("sitemap.json")) {
-      if (workspaceRoot) {
-        const diagnostics = validateSitemap(document, workspaceRoot, config.ruleSeverities);
-        await connection.sendDiagnostics({ uri, diagnostics });
-
-        // Re-validate other open documents to update S904 dead widget warnings
-        for (const doc of documents.all()) {
-          if (doc.uri !== uri && doc.uri.endsWith(".tsx")) {
-            // Avoid infinite recursion by not calling validateDocument synchronously in a loop
-            setTimeout(() => {
-              validateDocument(doc).catch((_err) => {
-                // ignore validation failure
-              });
-            }, 50);
-          }
-        }
-      }
-    } else {
-      // Clear any diagnostics for non-sitemap JSON files (e.g. package.json, tsconfig.json)
-      await connection.sendDiagnostics({ uri, diagnostics: [] });
-    }
+    await validateJsonDocument(document, config.ruleSeverities);
     return;
   }
 

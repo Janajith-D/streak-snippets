@@ -56,37 +56,80 @@ function getCandidateHandlers(sourceFile: SourceFile): Node[] {
   return candidateFuncs;
 }
 
+function unwrapObjectLiteral(expr: Node | undefined): Node | null {
+  if (!expr) {
+    return null;
+  }
+  const target = Node.isParenthesizedExpression(expr)
+    ? expr.getExpression()
+    : expr;
+  return Node.isObjectLiteralExpression(target) ? target : null;
+}
+
 function getReturnedObjectLiterals(fn: Node): Node[] {
   const returnedObjects: Node[] = [];
 
-  // 1. Explicit return statements: return { ... }
   const returnStatements = fn.getDescendantsOfKind(SyntaxKind.ReturnStatement);
   for (const ret of returnStatements) {
-    const expr = ret.getExpression();
-    if (expr && Node.isObjectLiteralExpression(expr)) {
-      returnedObjects.push(expr);
-    } else if (expr && Node.isParenthesizedExpression(expr)) {
-      const inner = expr.getExpression();
-      if (Node.isObjectLiteralExpression(inner)) {
-        returnedObjects.push(inner);
-      }
+    const obj = unwrapObjectLiteral(ret.getExpression());
+    if (obj) {
+      returnedObjects.push(obj);
     }
   }
 
-  // 2. Concise arrow function return: () => ({ ... })
   if (Node.isArrowFunction(fn)) {
-    const body = fn.getBody();
-    if (Node.isObjectLiteralExpression(body)) {
-      returnedObjects.push(body);
-    } else if (Node.isParenthesizedExpression(body)) {
-      const inner = body.getExpression();
-      if (Node.isObjectLiteralExpression(inner)) {
-        returnedObjects.push(inner);
-      }
+    const obj = unwrapObjectLiteral(fn.getBody());
+    if (obj) {
+      returnedObjects.push(obj);
     }
   }
 
   return returnedObjects;
+}
+
+function getPropertyNameAndNode(
+  prop: Node,
+): { name: string; nameNode: Node | undefined } | null {
+  if (
+    Node.isPropertyAssignment(prop) ||
+    Node.isShorthandPropertyAssignment(prop) ||
+    Node.isMethodDeclaration(prop)
+  ) {
+    return { name: prop.getName(), nameNode: prop.getNameNode() };
+  }
+  return null;
+}
+
+function validateReturnObjectProperties(
+  obj: Node,
+  sourceFile: SourceFile,
+  registeredWidgets: Set<string>,
+  severity: DiagnosticSeverity,
+): RuleDiagnostic[] {
+  const diagnostics: RuleDiagnostic[] = [];
+  if (!Node.isObjectLiteralExpression(obj)) {
+    return diagnostics;
+  }
+
+  for (const prop of obj.getProperties()) {
+    const propInfo = getPropertyNameAndNode(prop);
+    if (!propInfo?.name || IGNORED_RETURN_KEYS.has(propInfo.name)) {
+      continue;
+    }
+
+    if (registeredWidgets.size > 0 && !registeredWidgets.has(propInfo.name)) {
+      const range = getRangeFromNode(sourceFile, propInfo.nameNode ?? prop);
+      diagnostics.push({
+        code: "streak:S204",
+        message: `Return property "${propInfo.name}" does not match any registered widget in src/widgets (${propInfo.name}.tsx).`,
+        range,
+        severity,
+        source: "Streak Engine",
+      });
+    }
+  }
+
+  return diagnostics;
 }
 
 export const dataHandlerWidgetKeyRule: Rule = {
@@ -104,53 +147,26 @@ export const dataHandlerWidgetKeyRule: Rule = {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
-    // Only apply to .ts files (data handlers), not .tsx components
     if (analysis.uri.endsWith(".tsx")) {
       return diagnostics;
     }
 
     const candidateFuncs = getCandidateHandlers(sourceFile);
-    const registeredWidgets = new Set(widgetRegistry.getAll().map((w) => w.name));
+    const registeredWidgets = new Set(
+      widgetRegistry.getAll().map((w) => w.name),
+    );
 
     for (const fn of candidateFuncs) {
       const returnedObjects = getReturnedObjectLiterals(fn);
-
       for (const obj of returnedObjects) {
-        if (!Node.isObjectLiteralExpression(obj)) {
-          continue;
-        }
-
-        for (const prop of obj.getProperties()) {
-          let propNameNode: Node | undefined;
-          let propName = "";
-
-          if (Node.isPropertyAssignment(prop)) {
-            propNameNode = prop.getNameNode();
-            propName = prop.getName();
-          } else if (Node.isShorthandPropertyAssignment(prop)) {
-            propNameNode = prop.getNameNode();
-            propName = prop.getName();
-          } else if (Node.isMethodDeclaration(prop)) {
-            propNameNode = prop.getNameNode();
-            propName = prop.getName();
-          }
-
-          if (!propName || IGNORED_RETURN_KEYS.has(propName)) {
-            continue;
-          }
-
-          // If widget registry is populated and widget does not exist
-          if (registeredWidgets.size > 0 && !registeredWidgets.has(propName)) {
-            const range = getRangeFromNode(sourceFile, propNameNode ?? prop);
-            diagnostics.push({
-              code: "streak:S204",
-              message: `Return property "${propName}" does not match any registered widget in src/widgets (${propName}.tsx).`,
-              range,
-              severity,
-              source: "Streak Engine",
-            });
-          }
-        }
+        diagnostics.push(
+          ...validateReturnObjectProperties(
+            obj,
+            sourceFile,
+            registeredWidgets,
+            severity,
+          ),
+        );
       }
     }
 
