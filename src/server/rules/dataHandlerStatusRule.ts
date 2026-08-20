@@ -63,6 +63,22 @@ function getCandidateHandlers(sourceFile: SourceFile): Node[] {
   return candidateFuncs;
 }
 
+function isDataHandlerFile(uriOrPath: string): boolean {
+  const norm = decodeURIComponent(uriOrPath).replaceAll("\\", "/").toLowerCase();
+  if (norm.endsWith(".tsx")) {
+    return false;
+  }
+  if (
+    norm.includes("/test/") ||
+    norm.includes("/tests/") ||
+    norm.endsWith(".test.ts") ||
+    norm.endsWith(".spec.ts")
+  ) {
+    return norm.includes("datahandler");
+  }
+  return /(?:^|\/)src\/handlers?\//.test(norm) || /(?:^|\/)handlers?\//.test(norm);
+}
+
 export const dataHandlerStatusRule: Rule = {
   id: "streak:data-handler-status",
   name: "Data Handler Status Check",
@@ -78,8 +94,8 @@ export const dataHandlerStatusRule: Rule = {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
-    // Only apply to .ts files (data handlers), not .tsx components
-    if (analysis.uri.endsWith(".tsx")) {
+    const rawPath = analysis.uri || sourceFile.getFilePath();
+    if (!isDataHandlerFile(rawPath)) {
       return diagnostics;
     }
 

@@ -10,6 +10,7 @@ import { analyzeAndParseDocument } from "../server/parser/analyzer";
 import { runRules } from "../server/rules/runner";
 import { widgetPlaceholderRule } from "../server/rules/widgetPlaceholderRule";
 import { dataHandlerAsyncRule } from "../server/rules/dataHandlerAsyncRule";
+import { dataHandlerStatusRule } from "../server/rules/dataHandlerStatusRule";
 import { dataHandlerStatusValueRule } from "../server/rules/dataHandlerStatusValueRule";
 import { reactHooksNotAllowedRule } from "../server/rules/reactHooksNotAllowedRule";
 import { unsafeWidgetDataAccessRule } from "../server/rules/unsafeWidgetDataAccessRule";
@@ -2014,6 +2015,35 @@ suite("Extension Test Suite", () => {
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
+  });
+
+  test("dataHandler rules (S201, S202, S203, S204) ignore test files in src/tests/ and src/test/ and only validate handlers", () => {
+    const testCode = `
+      export const helper = () => {
+        return { message: "ok" };
+      };
+      export default function testRunner() {}
+    `;
+    const { analysis: testAnalysis, sourceFile: testFile } = analyzeAndParseDocument(
+      "file:///workspace/src/tests/auth.test.ts",
+      testCode,
+    );
+    assert.strictEqual(dataHandlerStatusRule.run(testFile, testAnalysis).length, 0);
+    assert.strictEqual(dataHandlerAsyncRule.run(testFile, testAnalysis).length, 0);
+    assert.strictEqual(dataHandlerStatusValueRule.run(testFile, testAnalysis).length, 0);
+    assert.strictEqual(dataHandlerWidgetKeyRule.run(testFile, testAnalysis).length, 0);
+
+    const handlerCode = `
+      export const getAuthData = () => {
+        return { message: "ok" };
+      };
+    `;
+    const { analysis: handlerAnalysis, sourceFile: handlerFile } = analyzeAndParseDocument(
+      "file:///workspace/src/handlers/authDataHandler.ts",
+      handlerCode,
+    );
+    assert.strictEqual(dataHandlerAsyncRule.run(handlerFile, handlerAnalysis).length, 1);
+    assert.strictEqual(dataHandlerStatusRule.run(handlerFile, handlerAnalysis).length, 1);
   });
 });
 

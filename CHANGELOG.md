@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Rule Scope Refinement & `node_modules` Ignore**:
   - Completely ignored `node_modules` and TypeScript declaration files (`.d.ts`, `.d.cts`, `.d.mts`) from Language Server validation and diagnostic passes.
   - Restricted `streak:S301` (missing default export) strictly to framework directories (`src/handlers/`, `src/layouts/`, `src/widgets/`, `src/pages/`), eliminating false positive errors on scripts, test files, and utilities.
+  - Restricted data handler rules (`streak:S201`, `streak:S202`, `streak:S203`, `streak:S204`) strictly to `src/handler/` and `src/handlers/`, preventing false positive errors on test files (`src/tests/*`, `*.test.ts`, `*.spec.ts`).
 - **TypeScript Type Annotations in `<Script>` Callbacks (`streak:S401`)**:
   - Fixed false-positive closure variable capture warnings on type annotations (e.g. `(e: MouseEvent)`).
   - Added common DOM and Web API type interfaces (`MouseEvent`, `TouchEvent`, `HTMLElement`, `Element`, `Document`, `Window`, `EventTarget`, etc.) to the allowed browser globals list.
