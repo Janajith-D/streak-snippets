@@ -2107,6 +2107,57 @@ suite("Extension Test Suite", () => {
       fs.rmSync(parentDir, { recursive: true, force: true });
     }
   });
+
+  // ── Phase 15 Production Readiness Tests ─────────────────────────────
+
+  test("Performance: validateSitemap handles 10,000 pages within performance threshold (< 500ms)", () => {
+    // Generate 10,000 pages
+    const pages = [];
+    for (let i = 0; i < 10000; i++) {
+      pages.push({
+        url: `/page-${i}`,
+        renderConfig: {
+          renderId: `render-${i}`,
+          widgets: [{ id: `Widget${i % 10}`, type: `Widget${i % 10}` }],
+        },
+      });
+    }
+    const sitemapJson = JSON.stringify(pages);
+    const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, sitemapJson);
+
+    const startTime = Date.now();
+    const diags = validateSitemap(doc, "/mock/root");
+    const duration = Date.now() - startTime;
+
+    assert.ok(duration < 500, `Expected validation to take < 500ms, took ${duration}ms`);
+    assert.ok(diags.length > 0); // Missing widget warnings
+  });
+
+  test("Security: resolveDefinition blocks path traversal attempts escaping public directory", async () => {
+    const code = `
+      import { Preload } from "streak-forge/components";
+      export default function TestComp() {
+        return <Preload href="../../secret.env" as="style" />;
+      }
+    `;
+    const { sourceFile } = analyzeAndParseDocument("file:///test/comp.tsx", code);
+    const node = sourceFile.getDescendants().find((n) => n.getText() === '"../../secret.env"');
+    assert.ok(node);
+
+    const loc = await resolveDefinition(node, "/workspace/root", "src/widgets", "public");
+    assert.strictEqual(loc, null);
+  });
+
+  test("Reliability: JSONLocationParser and validateSitemap safely tolerate malformed JSON", () => {
+    const malformedJson = `[ { "url": "/test", "renderConfig": { "widgets": [ { "id": "W1", "type": } ] } `;
+    const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, malformedJson);
+
+    // Should not throw
+    assert.doesNotThrow(() => {
+      const diags = validateSitemap(doc, "/mock/root");
+      assert.ok(Array.isArray(diags));
+    });
+  });
 });
 
 

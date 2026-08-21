@@ -475,20 +475,22 @@ function extractFieldsFromHandlerFile(handlerPath: string, widgetName: string): 
     const tempName = `temp_handler_${Date.now()}.ts`;
     const sourceFile = handlerProj.createSourceFile(tempName, content);
 
-    let fields: string[] = [];
-    const defaultExport = sourceFile.getDefaultExportSymbol();
-    if (defaultExport) {
-      const decl = defaultExport.getDeclarations()[0];
-      if (decl) {
-        const funcNode = findFuncNodeFromDefaultExport(decl, sourceFile);
-        if (funcNode) {
-          fields = extractPropertiesFromReturnStatements(funcNode, widgetName);
+    try {
+      let fields: string[] = [];
+      const defaultExport = sourceFile.getDefaultExportSymbol();
+      if (defaultExport) {
+        const decl = defaultExport.getDeclarations()[0];
+        if (decl) {
+          const funcNode = findFuncNodeFromDefaultExport(decl, sourceFile);
+          if (funcNode) {
+            fields = extractPropertiesFromReturnStatements(funcNode, widgetName);
+          }
         }
       }
+      return fields;
+    } finally {
+      sourceFile.delete();
     }
-
-    sourceFile.delete();
-    return fields;
   } catch {
     return [];
   }

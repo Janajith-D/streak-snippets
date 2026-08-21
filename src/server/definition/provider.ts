@@ -85,55 +85,58 @@ async function findDynamicTagLocation(
     const tempFile = defProject.createSourceFile(tempName, content);
     let foundLocation: Location | null = null;
 
-    tempFile.forEachDescendant((child) => {
-      if (
-        !Node.isJsxOpeningElement(child) &&
-        !Node.isJsxSelfClosingElement(child)
-      ) {
-        return;
-      }
-      if (child.getTagNameNode().getText() !== "Dynamic") {
-        return;
-      }
-      const idAttr = child.getAttribute("id");
-      if (!idAttr || !Node.isJsxAttribute(idAttr)) {
-        return;
-      }
-      const init = idAttr.getInitializer();
-      if (!init) {
-        return;
-      }
-
-      let idVal = "";
-      if (Node.isStringLiteral(init)) {
-        idVal = init.getLiteralValue();
-      } else if (Node.isJsxExpression(init)) {
-        const expr = init.getExpression();
-        if (expr && Node.isStringLiteral(expr)) {
-          idVal = expr.getLiteralValue();
+    try {
+      tempFile.forEachDescendant((child) => {
+        if (
+          !Node.isJsxOpeningElement(child) &&
+          !Node.isJsxSelfClosingElement(child)
+        ) {
+          return;
         }
-      }
+        if (child.getTagNameNode().getText() !== "Dynamic") {
+          return;
+        }
+        const idAttr = child.getAttribute("id");
+        if (!idAttr || !Node.isJsxAttribute(idAttr)) {
+          return;
+        }
+        const init = idAttr.getInitializer();
+        if (!init) {
+          return;
+        }
 
-      if (idVal !== value) {
-        return;
-      }
+        let idVal = "";
+        if (Node.isStringLiteral(init)) {
+          idVal = init.getLiteralValue();
+        } else if (Node.isJsxExpression(init)) {
+          const expr = init.getExpression();
+          if (expr && Node.isStringLiteral(expr)) {
+            idVal = expr.getLiteralValue();
+          }
+        }
 
-      const start = child.getStart();
-      const end = child.getEnd();
-      const startLines = content.substring(0, start).split(/\r?\n/);
-      const startLine = Math.max(0, startLines.length - 1);
-      const startChar = Math.max(0, startLines.at(-1)?.length ?? 0);
-      const endLines = content.substring(0, end).split(/\r?\n/);
-      const endLine = Math.max(0, endLines.length - 1);
-      const endChar = Math.max(0, endLines.at(-1)?.length ?? 0);
+        if (idVal !== value) {
+          return;
+        }
 
-      foundLocation = Location.create(
-        pathToFileURL(filePath).toString(),
-        Range.create(startLine, startChar, endLine, endChar),
-      );
-    });
+        const start = child.getStart();
+        const end = child.getEnd();
+        const startLines = content.substring(0, start).split(/\r?\n/);
+        const startLine = Math.max(0, startLines.length - 1);
+        const startChar = Math.max(0, startLines.at(-1)?.length ?? 0);
+        const endLines = content.substring(0, end).split(/\r?\n/);
+        const endLine = Math.max(0, endLines.length - 1);
+        const endChar = Math.max(0, endLines.at(-1)?.length ?? 0);
 
-    tempFile.delete();
+        foundLocation = Location.create(
+          pathToFileURL(filePath).toString(),
+          Range.create(startLine, startChar, endLine, endChar),
+        );
+      });
+    } finally {
+      tempFile.delete();
+    }
+
     return foundLocation;
   } catch {
     return null;
@@ -195,7 +198,14 @@ function resolvePreloadHrefDefinition(
   customPublicDir = "public",
 ): Location | null {
   const cleanHref = value.startsWith("/") ? value.substring(1) : value;
-  const fullPath = path.join(workspaceRoot, customPublicDir, cleanHref);
+  const baseDir = path.resolve(path.join(workspaceRoot, customPublicDir));
+  const fullPath = path.resolve(path.join(baseDir, cleanHref));
+
+  // Path traversal guard
+  if (!fullPath.startsWith(baseDir)) {
+    return null;
+  }
+
   if (fs.existsSync(fullPath)) {
     return Location.create(
       pathToFileURL(fullPath).toString(),
