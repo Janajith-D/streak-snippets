@@ -13,6 +13,7 @@ export interface RuleDiagnostic {
   severity: DiagnosticSeverity;
   code: string;
   source: string;
+  data?: unknown;
 }
 
 export interface RuleOptions {

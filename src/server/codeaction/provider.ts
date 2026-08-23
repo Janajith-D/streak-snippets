@@ -180,6 +180,46 @@ function buildDefaultExportAction(
   };
 }
 
+/** streak:S701 — Add unapproved module to approved imports configuration */
+function buildAllowedImportAction(diag: Diagnostic): CodeAction | null {
+  let moduleSpecifier: string | undefined;
+
+  if (
+    diag.data &&
+    typeof diag.data === "object" &&
+    "moduleSpecifier" in diag.data
+  ) {
+    moduleSpecifier = String(
+      (diag.data as { moduleSpecifier?: unknown }).moduleSpecifier,
+    );
+  } else {
+    // Fallback: extract from message "Importing unapproved module 'xxx' is not allowed"
+    const rawMsg =
+      typeof diag.message === "string"
+        ? diag.message
+        : (diag.message as { value?: string }).value ?? "";
+    const match = /'([^']+)'/.exec(rawMsg);
+    if (match) {
+      moduleSpecifier = match[1];
+    }
+  }
+
+  if (!moduleSpecifier) {
+    return null;
+  }
+
+  return {
+    title: `Add "${moduleSpecifier}" to approved imports (streak.rules.allowedImports)`,
+    kind: CodeActionKind.QuickFix,
+    diagnostics: [diag],
+    command: {
+      title: `Add "${moduleSpecifier}" to approved imports`,
+      command: "streak.addAllowedImport",
+      arguments: [moduleSpecifier],
+    },
+  };
+}
+
 /** Dispatches a single diagnostic to the appropriate code action builders. */
 function buildCodeActionsForDiag(
   diag: Diagnostic,
@@ -189,6 +229,13 @@ function buildCodeActionsForDiag(
 ): CodeAction[] {
   const actions: CodeAction[] = [];
   switch (diag.code) {
+    case "streak:S701": {
+      const a = buildAllowedImportAction(diag);
+      if (a) {
+        actions.push(a);
+      }
+      break;
+    }
     case "streak:S405":
       actions.push(buildScriptIdAction(diag, uri));
       break;

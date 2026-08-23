@@ -8,6 +8,51 @@ import {
   getRangeFromNode,
 } from "./types";
 
+const COMMON_PATH_PREFIXES = new Set([
+  "components",
+  "widgets",
+  "layouts",
+  "layout",
+  "handlers",
+  "handler",
+  "pages",
+  "page",
+  "utils",
+  "lib",
+  "app",
+  "src",
+  "hooks",
+  "services",
+  "styles",
+  "assets",
+  "common",
+  "core",
+  "features",
+  "shared",
+  "modules",
+  "config",
+  "constants",
+  "helpers",
+]);
+
+function isInternalPathImport(specifier: string): boolean {
+  if (
+    specifier.startsWith(".") ||
+    specifier.startsWith("@/") ||
+    specifier.startsWith("~/") ||
+    specifier.startsWith("#")
+  ) {
+    return true;
+  }
+  if (specifier.startsWith("@")) {
+    const slashIdx = specifier.indexOf("/");
+    const firstSegment =
+      slashIdx === -1 ? specifier.substring(1) : specifier.substring(1, slashIdx);
+    return COMMON_PATH_PREFIXES.has(firstSegment.toLowerCase());
+  }
+  return false;
+}
+
 export const allowedImportsRule: Rule = {
   id: "streak:allowed-imports",
   name: "Allowed Imports Rule",
@@ -32,7 +77,7 @@ export const allowedImportsRule: Rule = {
     for (const imp of imports) {
       const moduleSpecifier = imp.getModuleSpecifierValue();
 
-      if (moduleSpecifier.startsWith(".")) {
+      if (isInternalPathImport(moduleSpecifier)) {
         continue;
       }
 
@@ -43,6 +88,7 @@ export const allowedImportsRule: Rule = {
           range: getRangeFromNode(sourceFile, imp.getModuleSpecifier()),
           severity,
           source: "Streak Engine",
+          data: { moduleSpecifier },
         });
       }
     }
@@ -50,3 +96,4 @@ export const allowedImportsRule: Rule = {
     return diagnostics;
   },
 };
+

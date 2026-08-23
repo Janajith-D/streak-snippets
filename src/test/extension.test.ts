@@ -2158,6 +2158,99 @@ suite("Extension Test Suite", () => {
       assert.ok(Array.isArray(diags));
     });
   });
+
+  // ── S701 Allowed Imports & Quick Fix Tests ─────────────────────────────
+
+  test("streak:S701 ignores relative imports and @ aliases (@/, ~/ and @components/)", () => {
+    const code = `
+      import { Button } from "./Button";
+      import { Card } from "../Card";
+      import { Header } from "@/components/Header";
+      import { Layout } from "@layouts/MainLayout";
+      import { format } from "@utils/format";
+      import { api } from "~/lib/api";
+      import { Core } from "streak-forge/components";
+      import { test } from "bun:test";
+      import lodash from "lodash";
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/sample.tsx", code);
+    const diags = allowedImportsRule.run(sourceFile, analysis);
+
+    // Only "lodash" should be flagged
+    assert.strictEqual(diags.length, 1);
+    assert.strictEqual(diags[0].code, "streak:S701");
+    assert.ok(diags[0].message.includes("lodash"));
+    assert.strictEqual((diags[0].data as { moduleSpecifier?: string })?.moduleSpecifier, "lodash");
+  });
+
+  test("resolveCodeActions provides Quick Fix for streak:S701 unapproved import", () => {
+    const code = `import lodash from "lodash";`;
+    const doc = TextDocument.create("file:///test/sample.tsx", "typescriptreact", 1, code);
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/sample.tsx", code);
+    const diags = runRules(sourceFile, analysis);
+
+    const s701Diag = diags.find((d) => d.code === "streak:S701");
+    assert.ok(s701Diag);
+
+    const actions = resolveCodeActions([s701Diag], doc, sourceFile);
+    const quickFix = actions.find((a) => a.title.includes("lodash"));
+    assert.ok(quickFix);
+    assert.strictEqual(quickFix.command?.command, "streak.addAllowedImport");
+    assert.deepStrictEqual(quickFix.command?.arguments, ["lodash"]);
+  });
+
+  test("streak.addAllowedImport command is registered in VS Code", async () => {
+    const commands = await vscode.commands.getCommands();
+    assert.ok(commands.includes("streak.addAllowedImport"));
+  });
+
+  test("streak:S204 ignores 'common' and 'global' returned object properties in data handlers", () => {
+    const code = `
+      export default async function getHomeData() {
+        return {
+          status: 200,
+          common: {
+            language: "en"
+          },
+          global: {
+            theme: "dark"
+          }
+        };
+      }
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/src/handlers/HomeDataHandler.ts", code);
+    const diags = dataHandlerWidgetKeyRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 0);
+  });
+
+  test("streak:S304 flags required data prop on interface but passes optional data? prop", () => {
+    const invalidCode = `
+      interface AnnouncementBannerProps {
+        common?: { language?: string };
+        data: { isEnabled: boolean };
+      }
+      export default function AnnouncementBanner(props: AnnouncementBannerProps) {
+        return <div>{props.data.isEnabled}</div>;
+      }
+    `;
+    const { analysis: invalidAnalysis, sourceFile: invalidSource } = analyzeAndParseDocument("file:///test/src/widgets/AnnouncementBanner.tsx", invalidCode);
+    const invalidDiags = invalidWidgetPropsContractRule.run(invalidSource, invalidAnalysis);
+    assert.strictEqual(invalidDiags.length, 1);
+    assert.strictEqual(invalidDiags[0].code, "streak:S304");
+
+    const validCode = `
+      interface AnnouncementBannerProps {
+        common?: { language?: string };
+        data?: { isEnabled: boolean };
+      }
+      export default function AnnouncementBanner(props: AnnouncementBannerProps) {
+        return <div>{props.data?.isEnabled}</div>;
+      }
+    `;
+    const { analysis: validAnalysis, sourceFile: validSource } = analyzeAndParseDocument("file:///test/src/widgets/AnnouncementBanner.tsx", validCode);
+    const validDiags = invalidWidgetPropsContractRule.run(validSource, validAnalysis);
+    assert.strictEqual(validDiags.length, 0);
+  });
 });
 
 
