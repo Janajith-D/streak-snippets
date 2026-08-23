@@ -2158,6 +2158,51 @@ suite("Extension Test Suite", () => {
       assert.ok(Array.isArray(diags));
     });
   });
+
+  // ── S701 Allowed Imports & Quick Fix Tests ─────────────────────────────
+
+  test("streak:S701 ignores relative imports and @ aliases (@/, ~/ and @components/)", () => {
+    const code = `
+      import { Button } from "./Button";
+      import { Card } from "../Card";
+      import { Header } from "@/components/Header";
+      import { Layout } from "@layouts/MainLayout";
+      import { format } from "@utils/format";
+      import { api } from "~/lib/api";
+      import { Core } from "streak-forge/components";
+      import { test } from "bun:test";
+      import lodash from "lodash";
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/sample.tsx", code);
+    const diags = allowedImportsRule.run(sourceFile, analysis);
+
+    // Only "lodash" should be flagged
+    assert.strictEqual(diags.length, 1);
+    assert.strictEqual(diags[0].code, "streak:S701");
+    assert.ok(diags[0].message.includes("lodash"));
+    assert.strictEqual((diags[0].data as { moduleSpecifier?: string })?.moduleSpecifier, "lodash");
+  });
+
+  test("resolveCodeActions provides Quick Fix for streak:S701 unapproved import", () => {
+    const code = `import lodash from "lodash";`;
+    const doc = TextDocument.create("file:///test/sample.tsx", "typescriptreact", 1, code);
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/sample.tsx", code);
+    const diags = runRules(sourceFile, analysis);
+
+    const s701Diag = diags.find((d) => d.code === "streak:S701");
+    assert.ok(s701Diag);
+
+    const actions = resolveCodeActions([s701Diag], doc, sourceFile);
+    const quickFix = actions.find((a) => a.title.includes("lodash"));
+    assert.ok(quickFix);
+    assert.strictEqual(quickFix.command?.command, "streak.addAllowedImport");
+    assert.deepStrictEqual(quickFix.command?.arguments, ["lodash"]);
+  });
+
+  test("streak.addAllowedImport command is registered in VS Code", async () => {
+    const commands = await vscode.commands.getCommands();
+    assert.ok(commands.includes("streak.addAllowedImport"));
+  });
 });
 
 

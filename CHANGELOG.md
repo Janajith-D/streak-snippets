@@ -5,6 +5,14 @@ All notable changes to the "streak-snippets" extension will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.2] - 2026-08-23
+
+### Added
+- **Allowed Imports (`streak:S701`) Enhancements & Quick Fix**:
+  - **Path Alias Support (`@` and `~` Aliases)**: Configured `streak:S701` to recognize internal path aliases (`@/`, `~/`, `#`, and common project prefixes like `@components/`, `@layouts/`, `@widgets/`, `@utils/`, `@lib/`, `@app/`, `@src/`, etc.) as internal project files and ignore them, just like relative `.` imports.
+  - **Quick Fix to Add Approved Imports**: Implemented a `Ctrl + .` Quick Fix for `streak:S701` diagnostics (e.g. `import lodash from "lodash"` -> **"Add 'lodash' to approved imports (streak.rules.allowedImports)"**).
+  - **Workspace Settings Integration**: Executing the Quick Fix runs the registered command `streak.addAllowedImport` and automatically appends the package name to `.vscode/settings.json`, immediately clearing the diagnostic while preserving the ability to remove it later via standard VS Code settings.
+
 ## [1.5.1] - 2026-08-21
 
 ### Hardened & Security

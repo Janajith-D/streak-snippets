@@ -8,6 +8,23 @@ import {
   getRangeFromNode,
 } from "./types";
 
+function isInternalPathImport(specifier: string): boolean {
+  if (specifier.startsWith(".")) {
+    return true;
+  }
+  if (
+    specifier.startsWith("@/") ||
+    specifier.startsWith("~/") ||
+    specifier.startsWith("#")
+  ) {
+    return true;
+  }
+  // Recognize common directory path aliases with @
+  return /^@(components|widgets|layouts|layout|handlers|handler|pages|page|utils|lib|app|src|hooks|services|styles|assets|common|core|features|shared|modules|config|constants|helpers)\b/i.test(
+    specifier,
+  );
+}
+
 export const allowedImportsRule: Rule = {
   id: "streak:allowed-imports",
   name: "Allowed Imports Rule",
@@ -32,7 +49,7 @@ export const allowedImportsRule: Rule = {
     for (const imp of imports) {
       const moduleSpecifier = imp.getModuleSpecifierValue();
 
-      if (moduleSpecifier.startsWith(".")) {
+      if (isInternalPathImport(moduleSpecifier)) {
         continue;
       }
 
@@ -43,6 +60,7 @@ export const allowedImportsRule: Rule = {
           range: getRangeFromNode(sourceFile, imp.getModuleSpecifier()),
           severity,
           source: "Streak Engine",
+          data: { moduleSpecifier },
         });
       }
     }
@@ -50,3 +68,4 @@ export const allowedImportsRule: Rule = {
     return diagnostics;
   },
 };
+

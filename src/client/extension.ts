@@ -158,6 +158,35 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(scaffoldCmd);
 
+  // Register Add Allowed Import Command
+  const addImportCmd = vscode.commands.registerCommand(
+    "streak.addAllowedImport",
+    async (moduleSpecifier: string) => {
+      if (!moduleSpecifier) {
+        return;
+      }
+      const config = vscode.workspace.getConfiguration("streak");
+      const current = config.get<string[]>("rules.allowedImports") || [
+        "streak-forge/components",
+        "bun:test",
+      ];
+      if (!current.includes(moduleSpecifier)) {
+        const updated = [...current, moduleSpecifier];
+        const target =
+          vscode.workspace.workspaceFolders &&
+          vscode.workspace.workspaceFolders.length > 0
+            ? vscode.ConfigurationTarget.Workspace
+            : vscode.ConfigurationTarget.Global;
+        await config.update("rules.allowedImports", updated, target);
+        vscode.window.showInformationMessage(
+          `Added '${moduleSpecifier}' to Streak approved imports.`,
+        );
+      }
+    },
+  );
+
+  context.subscriptions.push(addImportCmd);
+
   // Start the Language Server
   startLanguageServer(context);
 }

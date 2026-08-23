@@ -46,5 +46,6 @@ export function runRules(
     code: d.code,
     source: d.source,
     message: d.message,
+    data: d.data,
   }));
 }
