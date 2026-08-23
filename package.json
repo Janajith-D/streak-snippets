@@ -1,8 +1,8 @@
 {
   "name": "streak-snippets",
-  "displayName": "Streak Snippets",
+  "displayName": "Streak Snippets (Beta)",
   "description": "Snippets, commands, and developer productivity tools for the Streak.js framework",
-  "version": "1.0.0",
+  "version": "0.9.0",
   "publisher": "Streak",
   "license": "MIT",
   "homepage": "https://github.com/Janajith-D/streak-snippets#readme",
