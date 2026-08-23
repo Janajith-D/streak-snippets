@@ -8,21 +8,49 @@ import {
   getRangeFromNode,
 } from "./types";
 
+const COMMON_PATH_PREFIXES = new Set([
+  "components",
+  "widgets",
+  "layouts",
+  "layout",
+  "handlers",
+  "handler",
+  "pages",
+  "page",
+  "utils",
+  "lib",
+  "app",
+  "src",
+  "hooks",
+  "services",
+  "styles",
+  "assets",
+  "common",
+  "core",
+  "features",
+  "shared",
+  "modules",
+  "config",
+  "constants",
+  "helpers",
+]);
+
 function isInternalPathImport(specifier: string): boolean {
-  if (specifier.startsWith(".")) {
-    return true;
-  }
   if (
+    specifier.startsWith(".") ||
     specifier.startsWith("@/") ||
     specifier.startsWith("~/") ||
     specifier.startsWith("#")
   ) {
     return true;
   }
-  // Recognize common directory path aliases with @
-  return /^@(components|widgets|layouts|layout|handlers|handler|pages|page|utils|lib|app|src|hooks|services|styles|assets|common|core|features|shared|modules|config|constants|helpers)\b/i.test(
-    specifier,
-  );
+  if (specifier.startsWith("@")) {
+    const slashIdx = specifier.indexOf("/");
+    const firstSegment =
+      slashIdx === -1 ? specifier.substring(1) : specifier.substring(1, slashIdx);
+    return COMMON_PATH_PREFIXES.has(firstSegment.toLowerCase());
+  }
+  return false;
 }
 
 export const allowedImportsRule: Rule = {

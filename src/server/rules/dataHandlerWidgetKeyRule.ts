@@ -11,6 +11,8 @@ import {
 
 const IGNORED_RETURN_KEYS = new Set([
   "status",
+  "common",
+  "global",
   "metadata",
   "renderConfig",
   "headers",

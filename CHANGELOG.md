@@ -5,6 +5,14 @@ All notable changes to the "streak-snippets" extension will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.3] - 2026-08-23
+
+### Fixed & Clean Code
+- **SonarQube Regex Complexity in `allowedImportsRule.ts`**:
+  - Replaced the 23-alternation regular expression with an $O(1)$ `Set` lookup of path prefixes (`COMMON_PATH_PREFIXES`), reducing complexity to 0 and eliminating the SonarQube rule warning.
+- **Data Handler Reserved Keys Whitelist (`streak:S204`)**:
+  - Added `"common"` and `"global"` to the ignored return keys list in `dataHandlerWidgetKeyRule.ts` and `EXCLUDED_KEYS` in `jsxAttributeCompletions.ts`, preventing false-positive widget key errors when handlers return shared page data (e.g. `{ status: 200, common: { language: "en" } }`).
+
 ## [1.5.2] - 2026-08-23
 
 ### Added

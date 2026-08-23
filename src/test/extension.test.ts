@@ -2203,6 +2203,54 @@ suite("Extension Test Suite", () => {
     const commands = await vscode.commands.getCommands();
     assert.ok(commands.includes("streak.addAllowedImport"));
   });
+
+  test("streak:S204 ignores 'common' and 'global' returned object properties in data handlers", () => {
+    const code = `
+      export default async function getHomeData() {
+        return {
+          status: 200,
+          common: {
+            language: "en"
+          },
+          global: {
+            theme: "dark"
+          }
+        };
+      }
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/src/handlers/HomeDataHandler.ts", code);
+    const diags = dataHandlerWidgetKeyRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 0);
+  });
+
+  test("streak:S304 flags required data prop on interface but passes optional data? prop", () => {
+    const invalidCode = `
+      interface AnnouncementBannerProps {
+        common?: { language?: string };
+        data: { isEnabled: boolean };
+      }
+      export default function AnnouncementBanner(props: AnnouncementBannerProps) {
+        return <div>{props.data.isEnabled}</div>;
+      }
+    `;
+    const { analysis: invalidAnalysis, sourceFile: invalidSource } = analyzeAndParseDocument("file:///test/src/widgets/AnnouncementBanner.tsx", invalidCode);
+    const invalidDiags = invalidWidgetPropsContractRule.run(invalidSource, invalidAnalysis);
+    assert.strictEqual(invalidDiags.length, 1);
+    assert.strictEqual(invalidDiags[0].code, "streak:S304");
+
+    const validCode = `
+      interface AnnouncementBannerProps {
+        common?: { language?: string };
+        data?: { isEnabled: boolean };
+      }
+      export default function AnnouncementBanner(props: AnnouncementBannerProps) {
+        return <div>{props.data?.isEnabled}</div>;
+      }
+    `;
+    const { analysis: validAnalysis, sourceFile: validSource } = analyzeAndParseDocument("file:///test/src/widgets/AnnouncementBanner.tsx", validCode);
+    const validDiags = invalidWidgetPropsContractRule.run(validSource, validAnalysis);
+    assert.strictEqual(validDiags.length, 0);
+  });
 });
 
 

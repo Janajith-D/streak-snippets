@@ -31,7 +31,15 @@ const SUPPORTED_TAGS = new Set([
 const KEY_RE = /^\s*(\w[\w-]*)\s*:/;
 
 /** Framework-reserved keys excluded from widget ID suggestions. */
-const EXCLUDED_KEYS = new Set(["status", "PageHead", "data"]);
+const EXCLUDED_KEYS = new Set([
+  "status",
+  "common",
+  "global",
+  "PageHead",
+  "data",
+  "metadata",
+  "renderConfig",
+]);
 
 // ── Private helpers ─────────────────────────────────────────────────────────
 
