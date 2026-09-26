@@ -5,31 +5,24 @@ import eslintConfigPrettier from "eslint-config-prettier";
 
 export default [
   js.configs.recommended,
-
   ...tseslint.configs.recommendedTypeChecked,
-
   eslintConfigPrettier,
 
   {
     files: ["**/*.ts", "**/*.tsx"],
-
     languageOptions: {
       parser: tseslint.parser,
-
       parserOptions: {
         project: "./tsconfig.json",
         tsconfigRootDir: import.meta.dirname,
       },
-
       ecmaVersion: "latest",
       sourceType: "module",
     },
-
     plugins: {
       "@typescript-eslint": tseslint.plugin,
       "unused-imports": unusedImports,
     },
-
     rules: {
       /*
        * Existing Rules
@@ -43,44 +36,38 @@ export default [
        * General Quality
        */
       "no-console": "off",
-
       "no-duplicate-imports": "warn",
-
       "no-unreachable": "error",
-
       "no-var": "error",
-
       "prefer-const": "warn",
-
       "object-shorthand": "warn",
-
       "prefer-template": "warn",
 
       /*
        * TypeScript
        */
       "@typescript-eslint/no-explicit-any": "warn",
-
       "@typescript-eslint/no-empty-function": "warn",
-
       "@typescript-eslint/no-non-null-assertion": "warn",
-
       "@typescript-eslint/consistent-type-imports": "warn",
 
       /*
        * VS Code Extension / LSP Safety
        */
       "@typescript-eslint/no-floating-promises": "error",
-
       "@typescript-eslint/await-thenable": "error",
-
       "@typescript-eslint/no-misused-promises": "error",
+      "@typescript-eslint/switch-exhaustiveness-check": "warn",
+      "@typescript-eslint/prefer-nullish-coalescing": "warn",
+      "@typescript-eslint/prefer-optional-chain": "warn",
+      "@typescript-eslint/no-unnecessary-type-assertion": "warn",
+      "@typescript-eslint/no-unnecessary-condition": "warn",
+      "@typescript-eslint/return-await": "warn",
 
       /*
        * Unused Imports
        */
       "unused-imports/no-unused-imports": "warn",
-
       "@typescript-eslint/no-unused-vars": [
         "warn",
         {

@@ -14,19 +14,15 @@ import {
   type RuleOptions,
 } from "./types";
 
-// Global browser identifiers allowed inside Script callbacks
+// Global browser and ECMAScript identifiers allowed inside Script callbacks
 const ALLOWED_GLOBALS = new Set([
+  // Core language objects and constructors
   "window",
   "document",
+  "globalThis",
   "console",
   "Math",
   "JSON",
-  "setTimeout",
-  "clearTimeout",
-  "setInterval",
-  "clearInterval",
-  "requestAnimationFrame",
-  "cancelAnimationFrame",
   "Object",
   "Array",
   "String",
@@ -34,16 +30,103 @@ const ALLOWED_GLOBALS = new Set([
   "Boolean",
   "Date",
   "RegExp",
-  "Error",
-  "fetch",
-  "alert",
-  "gDom",
-  "options",
-  "dom",
+  "Symbol",
+  "BigInt",
+  "Set",
+  "Map",
+  "WeakSet",
+  "WeakMap",
+  "Promise",
+
+  // Typed arrays and binary data
+  "ArrayBuffer",
+  "DataView",
+  "Int8Array",
+  "Uint8Array",
+  "Uint8ClampedArray",
+  "Int16Array",
+  "Uint16Array",
+  "Int32Array",
+  "Uint32Array",
+  "Float32Array",
+  "Float64Array",
+  "BigInt64Array",
+  "BigUint64Array",
+
+  // Primitive values & constants
   "undefined",
   "null",
   "true",
   "false",
+  "NaN",
+  "Infinity",
+
+  // Global parsing and URI functions
+  "parseInt",
+  "parseFloat",
+  "isNaN",
+  "isFinite",
+  "encodeURI",
+  "encodeURIComponent",
+  "decodeURI",
+  "decodeURIComponent",
+  "btoa",
+  "atob",
+  "structuredClone",
+  "queueMicrotask",
+
+  // Timers and scheduling
+  "setTimeout",
+  "clearTimeout",
+  "setInterval",
+  "clearInterval",
+  "requestAnimationFrame",
+  "cancelAnimationFrame",
+
+  // Errors
+  "Error",
+  "TypeError",
+  "RangeError",
+  "SyntaxError",
+  "ReferenceError",
+  "URIError",
+  "EvalError",
+
+  // Streak-specific runtime identifiers
+  "gDom",
+  "options",
+  "dom",
+
+  // Network and fetch
+  "fetch",
+  "alert",
+  "FormData",
+  "Headers",
+  "Request",
+  "Response",
+  "URL",
+  "URLSearchParams",
+  "Blob",
+  "File",
+  "FileReader",
+  "WebSocket",
+  "Worker",
+  "MessageChannel",
+  "MessagePort",
+  "BroadcastChannel",
+  "AbortController",
+  "AbortSignal",
+
+  // Web and encoding APIs
+  "TextEncoder",
+  "TextDecoder",
+  "crypto",
+  "Crypto",
+  "SubtleCrypto",
+  "Intl",
+  "Notification",
+
+  // DOM Events
   "Event",
   "MouseEvent",
   "TouchEvent",
@@ -55,6 +138,12 @@ const ALLOWED_GLOBALS = new Set([
   "AnimationEvent",
   "TransitionEvent",
   "CustomEvent",
+  "EventTarget",
+
+  // DOM Nodes and Elements
+  "Node",
+  "Document",
+  "Window",
   "Element",
   "HTMLElement",
   "HTMLDivElement",
@@ -65,30 +154,20 @@ const ALLOWED_GLOBALS = new Set([
   "HTMLImageElement",
   "HTMLCanvasElement",
   "SVGElement",
-  "Node",
-  "Document",
-  "Window",
-  "EventTarget",
-  "FormData",
-  "Headers",
-  "Request",
-  "Response",
-  "URL",
-  "URLSearchParams",
-  "Blob",
-  "File",
-  "FileReader",
+
+  // Observers
   "MutationObserver",
   "IntersectionObserver",
   "ResizeObserver",
+  "PerformanceObserver",
+
+  // Browser state
   "performance",
   "localStorage",
   "sessionStorage",
   "navigator",
   "location",
   "history",
-  "btoa",
-  "atob",
 ]);
 
 function isTypePosition(node: Node): boolean {

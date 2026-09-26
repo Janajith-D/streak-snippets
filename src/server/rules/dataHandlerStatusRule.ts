@@ -1,6 +1,7 @@
 import { Node, SyntaxKind, type SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
 import type { AnalysisResult } from "../../shared/types";
+import { getDefaultExportedHandler, isDataHandlerFile } from "./dataHandlerUtils";
 import {
   getRangeFromNode,
   type Rule,
@@ -28,62 +29,11 @@ function returnsStatus(fn: Node): boolean {
   return false;
 }
 
-function getCandidateHandlers(sourceFile: SourceFile): Node[] {
-  const functions = sourceFile.getFunctions();
-  const arrowFuncs = sourceFile.getDescendantsOfKind(SyntaxKind.ArrowFunction);
-  const candidateFuncs: Node[] = [];
-
-  for (const fn of functions) {
-    if (
-      fn.isDefaultExport() ||
-      fn.isExported() ||
-      /Data|Handler/.test(fn.getName() ?? "")
-    ) {
-      candidateFuncs.push(fn);
-    }
-  }
-
-  for (const arrowFn of arrowFuncs) {
-    const parent = arrowFn.getParent();
-    let parentName = "";
-    if (parent && Node.isVariableDeclaration(parent)) {
-      parentName = parent.getName();
-    }
-    const isExported =
-      parent?.getParent()?.getParent()?.getKind() ===
-        SyntaxKind.ExportAssignment ||
-      parent?.getParent()?.getParent()?.getKind() ===
-        SyntaxKind.VariableStatement;
-
-    if (isExported || /Data|Handler/.test(parentName)) {
-      candidateFuncs.push(arrowFn);
-    }
-  }
-
-  return candidateFuncs;
-}
-
-function isDataHandlerFile(uriOrPath: string): boolean {
-  const norm = decodeURIComponent(uriOrPath).replaceAll("\\", "/").toLowerCase();
-  if (norm.endsWith(".tsx")) {
-    return false;
-  }
-  if (
-    norm.includes("/test/") ||
-    norm.includes("/tests/") ||
-    norm.endsWith(".test.ts") ||
-    norm.endsWith(".spec.ts")
-  ) {
-    return norm.includes("datahandler");
-  }
-  return /(?:^|\/)src\/handlers?\//.test(norm) || /(?:^|\/)handlers?\//.test(norm);
-}
-
 export const dataHandlerStatusRule: Rule = {
   id: "streak:data-handler-status",
   name: "Data Handler Status Check",
   description:
-    "Ensures Streak data handler functions return an object with a 'status' property (e.g. status: 200).",
+    "Ensures Streak default-exported data handler function returns an object with a 'status' property (e.g. status: 200).",
   defaultSeverity: DiagnosticSeverity.Warning,
 
   run(
@@ -99,20 +49,21 @@ export const dataHandlerStatusRule: Rule = {
       return diagnostics;
     }
 
-    const candidateFuncs = getCandidateHandlers(sourceFile);
+    const handler = getDefaultExportedHandler(sourceFile);
+    if (!handler) {
+      return diagnostics;
+    }
 
-    for (const fn of candidateFuncs) {
-      if (!returnsStatus(fn)) {
-        const range = getRangeFromNode(sourceFile, fn);
-        diagnostics.push({
-          code: "streak:S201",
-          message:
-            "Streak data handler should return an object containing a 'status' property (e.g. status: 200).",
-          range,
-          severity,
-          source: "Streak Engine",
-        });
-      }
+    if (!returnsStatus(handler)) {
+      const range = getRangeFromNode(sourceFile, handler);
+      diagnostics.push({
+        code: "streak:S201",
+        message:
+          "Streak data handler should return an object containing a 'status' property (e.g. status: 200).",
+        range,
+        severity,
+        source: "Streak Engine",
+      });
     }
 
     return diagnostics;

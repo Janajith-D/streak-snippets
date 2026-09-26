@@ -48,7 +48,7 @@ export const widgetPlaceholderRule: Rule = {
   id: "streak:widget-placeholder-props",
   name: "WidgetPlaceholder Props Rule",
   description:
-    "Ensures <WidgetPlaceholder> elements have valid 'id' and 'type' props, are used inside layouts, and id/type match exactly.",
+    "Ensures <WidgetPlaceholder> elements have valid 'id' and 'type' props and are used inside layouts.",
   defaultSeverity: DiagnosticSeverity.Error,
 
   run(
@@ -123,18 +123,9 @@ export const widgetPlaceholderRule: Rule = {
           severity,
           source: "Streak Engine",
         });
-      } else if (id !== type) {
-        // 3. Rule streak:S103 — id and type must match exactly
-        diagnostics.push({
-          code: "streak:S103",
-          message: `<WidgetPlaceholder> 'id' ("${id}") and 'type' ("${type}") must match exactly.`,
-          range,
-          severity,
-          source: "Streak Engine",
-        });
       }
 
-      // 4. Rule streak:S902 — Missing widget in src/widgets
+      // 3. Rule streak:S902 — Missing widget in src/widgets
       if (type && widgetRegistry.getAll().length > 0 && !widgetRegistry.get(type)) {
         const suggestions = getClosestWidgetMatches(type);
         const suggestionText =

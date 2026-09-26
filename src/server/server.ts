@@ -21,7 +21,7 @@ import { getCompletions } from "./completion/provider";
 import { resolveHover, resolveSitemapHover } from "./hover/provider";
 import { resolveDefinition, resolveSitemapDefinition } from "./definition/provider";
 import { resolveCodeActions } from "./codeaction/provider";
-import { scanWorkspace, scanFile, resolveProjectRoot } from "./registry/scanner";
+import { scanWorkspace, scanFile, resolveProjectRoot, findStreakProjectRoot } from "./registry/scanner";
 import { widgetRegistry } from "./registry/widgets";
 import { sitemapRegistry } from "./registry/sitemaps";
 import { validateSitemap } from "./rules/sitemapRules";
@@ -34,7 +34,7 @@ interface StreakSettings {
     widgetDirectory?: string;
     publicDirectory?: string;
   };
-  rules?: Record<string, { severity?: string; allowedImports?: string[]; forbiddenPatterns?: string[] }>;
+  rules?: Record<string, { severity?: string; forbiddenPatterns?: string[] }>;
 }
 
 // Create a connection for the server, using Node's IPC / stdio communication
@@ -108,6 +108,7 @@ connection.onCompletion(async (params) => {
   if (
     !document ||
     isIgnoredDocumentUri(uri) ||
+    !findStreakProjectRoot(uri, workspaceRoot) ||
     (uri.endsWith(".json") && !uri.endsWith("sitemap.json"))
   ) {
     return [];
@@ -148,6 +149,7 @@ connection.onCodeAction((params) => {
   if (
     !document ||
     isIgnoredDocumentUri(uri) ||
+    !findStreakProjectRoot(uri, workspaceRoot) ||
     (uri.endsWith(".json") && !uri.endsWith("sitemap.json"))
   ) {
     return [];
@@ -159,7 +161,7 @@ connection.onCodeAction((params) => {
 connection.onHover((params): Hover | null => {
   const uri = params.textDocument.uri;
   const document = documents.get(uri);
-  if (!document || isIgnoredDocumentUri(uri)) {
+  if (!document || isIgnoredDocumentUri(uri) || !findStreakProjectRoot(uri, workspaceRoot)) {
     return null;
   }
   const offset = document.offsetAt(params.position);
@@ -187,7 +189,7 @@ connection.onDefinition(async (params) => {
   try {
     const uri = params.textDocument.uri;
     const document = documents.get(uri);
-    if (!document || isIgnoredDocumentUri(uri)) {
+    if (!document || isIgnoredDocumentUri(uri) || !findStreakProjectRoot(uri, workspaceRoot)) {
       return null;
     }
     const offset = document.offsetAt(params.position);
@@ -336,7 +338,7 @@ function findWidgetRenameChangesInSitemap(
 connection.onReferences((params): Location[] => {
   const uri = params.textDocument.uri;
   const document = documents.get(uri);
-  if (!document) {
+  if (!document || !findStreakProjectRoot(uri, workspaceRoot)) {
     return [];
   }
   const offset = document.offsetAt(params.position);
@@ -350,7 +352,7 @@ connection.onReferences((params): Location[] => {
 connection.onRenameRequest((params): WorkspaceEdit | null => {
   const uri = params.textDocument.uri;
   const document = documents.get(uri);
-  if (!document) {
+  if (!document || !findStreakProjectRoot(uri, workspaceRoot)) {
     return null;
   }
   const offset = document.offsetAt(params.position);
@@ -394,7 +396,6 @@ function buildRuleConfiguration(streakSettings: StreakSettings | undefined): {
       duplicatedWidget: "streak:duplicated-widget",
       componentNesting: "streak:component-nesting",
       scriptStructure: "streak:script-structure",
-      allowedImports: "streak:allowed-imports",
       forbiddenPatterns: "streak:forbidden-patterns",
       duplicateRoute: "streak:duplicate-route",
       missingWidget: "streak:missing-widget",
@@ -413,9 +414,6 @@ function buildRuleConfiguration(streakSettings: StreakSettings | undefined): {
       }
     }
 
-    if (streakSettings.rules.allowedImports) {
-      ruleOptions.allowedImports = streakSettings.rules.allowedImports;
-    }
     if (streakSettings.rules.forbiddenPatterns) {
       ruleOptions.forbiddenPatterns = streakSettings.rules.forbiddenPatterns;
     }
@@ -499,7 +497,7 @@ async function validateJsonDocument(
 
 async function validateDocument(document: TextDocument): Promise<void> {
   const uri = document.uri;
-  if (isIgnoredDocumentUri(uri)) {
+  if (isIgnoredDocumentUri(uri) || !findStreakProjectRoot(uri, workspaceRoot)) {
     await connection.sendDiagnostics({ uri, diagnostics: [] });
     return;
   }

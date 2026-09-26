@@ -5,6 +5,33 @@ All notable changes to the "streak-snippets" extension will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3] - 2026-09-26
+
+### Improvements & Fixes
+- **Full Removal of `streak:S701` (Allowed Imports)**:
+  - Completely removed rule `streak:S701`, associated configuration settings (`streak.rules.allowedImports`), quick fixes, and commands, eliminating import whitelisting overhead across projects.
+- **Narrowed Scope for `streak:S204` (Widget Key Match)**:
+  - Restricted return property key validation strictly to the default-exported handler function, allowing internal utility, helper, and data-fetching functions to return arbitrary properties (e.g. `{ heading: "Title" }`) without false-positive widget key errors.
+- **Monorepo-Aware Streak.js Project Identification**:
+  - Implemented automatic Streak.js project detection based on `streak-forge` dependencies in `package.json`, `streak.sitemap.json`, and project structure. Unrelated projects in a monorepo workspace no longer trigger Streak diagnostics, hovers, completions, or background AST parsing.
+- **Interactive Streak Engine Issues Status Bar**:
+  - Upgraded the status bar item to actively display Streak Engine errors and warnings (`$(error) Streak: {E} error(s)` / `$(warning) Streak: {W} warning(s)` / `$(pass) Streak: All Clean ({N} widgets)`). Clicking the status bar opens the Problems panel. Non-Streak files in monorepos automatically hide the status bar item.
+
+## [0.9.2] - 2026-09-26
+
+### Improvements & Fixes
+- **Descoped `streak:S103` (`id === type` check)**:
+  - Removed strict identity enforcement between `<WidgetPlaceholder>` `id` and `type` attributes in layouts and sitemap entries, enabling real-world widget reuse across pages.
+- **Allowed Imports Deprecation (`streak:S701`)**:
+  - Changed default severity from `"warning"` to `"off"` and marked rule as deprecated to eliminate configuration overhead for third-party packages.
+- **Enhanced `gDom` Runtime API Completions & Custom Type Scanner**:
+  - Updated built-in completions to the 4 official runtime methods (`addResourceToBody`, `loadPackage`, `loadDynamicComponent`, `addWidgetToBody`).
+  - Added declaration file scanner supporting `global.d.ts` with `declare global` interfaces extending `GDom` or `Window` to provide smart completions for custom extended `gDom` methods.
+- **Scoped Data Handler Validation (`streak:S201` & `streak:S202`)**:
+  - Restricted status return and async checks strictly to the default-exported handler function, allowing arbitrary synchronous utility and helper functions in handler files without false diagnostics.
+- **Expanded `<Script>` Allowed Browser & ECMAScript Globals (`streak:S401`)**:
+  - Added standard ES and Web globals (`Set`, `Map`, `WeakSet`, `WeakMap`, `Promise`, `parseInt`, `parseFloat`, `encodeURIComponent`, `decodeURIComponent`, `structuredClone`, `queueMicrotask`, `TypeError`, `RangeError`, typed arrays, etc.) to prevent false-positive closure capture errors.
+
 ## [0.9.0] - 2026-08-23
 
 ### Beta Release (Milestone 16)

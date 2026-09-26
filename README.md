@@ -47,9 +47,9 @@ Quick import shortcuts — type the prefix and press `Tab`:
 The extension includes a Language Server Protocol (LSP) analysis engine that parses framework files (`.ts`, `.tsx`, and `streak.sitemap.json`) in real time, reporting diagnostics directly in the **Problems** panel:
 
 - **Widget Components (`streak:S101`–`S102`, `S302`–`S304`, `S801`)**: Enforces required attributes, stateless widgets, safe `props.data` access, and component naming alignment.
-- **Data Handlers (`streak:S201`–`S203`)**: Enforces `async` exports, `status` properties, and valid HTTP response codes.
+- **Data Handlers (`streak:S201`–`S204`)**: Enforces `async` exports, `status` properties, valid HTTP response codes, and registered widget return keys.
 - **Script & Dynamic Components (`streak:S401`–`S405`, `S501`, `S602`–`S603`)**: Validates closure scope isolation, client signatures, and dynamic IDs.
-- **Imports & Security (`streak:S701`–`S702`)**: Whitelist enforcement and forbidden code patterns.
+- **Code Safety & Patterns (`streak:S702`)**: Forbidden code patterns and security guards.
 - **Sitemap & Navigation (`streak:S901`–`S906`)**: Validates unique routes/renderIds, widget references, `.ts` data handlers, and `.tsx` root layouts.
 
 > 📖 For full descriptions, rationale, and ❌/✅ code examples for all 20 rules, see the comprehensive [**Rule Catalog (`docs/RULES.md`)**](docs/RULES.md).
@@ -103,7 +103,7 @@ Hovering over any supported JSX attribute on built-in elements reveals its purpo
 - **`options` on `<Script />`**: Forwards data to the browser execution thread callback.
 
 #### 3. Client API Documentation
-Hovering over `gDom` methods (like `loadDynamicComponent`, `getElement`, `updateOptions`) shows signatures, return types, and descriptions of client-side DOM scripting interfaces.
+Hovering over `gDom` methods (such as `loadDynamicComponent`, `loadPackage`, `addResourceToBody`, `addWidgetToBody`, and custom methods declared in `global.d.ts`) shows signatures, return types, and descriptions of client-side DOM scripting interfaces.
 
 
 ### Go to Definition & Navigation (LSP Engine)
@@ -181,7 +181,6 @@ Configure rule severities and diagnostics in VS Code settings:
 | `streak.rules.duplicatedWidget.severity` | `string` | `"error"` | Severity for `streak:S601` |
 | `streak.rules.componentNesting.severity` | `string` | `"error"` | Severity for `streak:S602` |
 | `streak.rules.scriptStructure.severity` | `string` | `"error"` | Severity for `streak:S603` |
-| `streak.rules.allowedImports.severity` | `string` | `"warning"` | Severity for `streak:S701` |
 | `streak.rules.forbiddenPatterns.severity` | `string` | `"error"` | Severity for `streak:S702` |
 
 ---

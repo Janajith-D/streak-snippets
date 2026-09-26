@@ -6,6 +6,7 @@ import {
 import { type CompletionContext } from "./types";
 import { getDynamicComponentIds } from "./jsxAttributeCompletions";
 import { GDOM_METHODS } from "./runtimeApi";
+import { gdomRegistry } from "../registry/gdomTypeScanner";
 import {
   GDOM_ACCESS_RE,
   LOAD_DYNAMIC_RE,
@@ -62,10 +63,18 @@ export function isInsideScriptCallback(text: string, offset: number): boolean {
 }
 
 /**
- * Generates completions for gDom methods based on the central runtime API definition.
+ * Generates completions for gDom methods based on the central runtime API definition
+ * and any custom methods discovered from global type declarations (global.d.ts).
  */
 export function getGDomCompletions(): CompletionItem[] {
-  return GDOM_METHODS.map((method) => ({
+  const customMethods = gdomRegistry.getMethods();
+  const builtInNames = new Set(GDOM_METHODS.map((m) => m.name));
+  const merged = [
+    ...GDOM_METHODS,
+    ...customMethods.filter((m) => !builtInNames.has(m.name)),
+  ];
+
+  return merged.map((method) => ({
     label: method.name,
     kind: CompletionItemKind.Method,
     insertText: `${method.name}(${method.name === "loadDynamicComponent" ? '"$1"' : "$1"})`,
