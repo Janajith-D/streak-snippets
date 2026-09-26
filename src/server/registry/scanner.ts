@@ -1,16 +1,11 @@
-import { Node, Project, ScriptTarget, SyntaxKind } from "ts-morph";
+import { Node, Project, ScriptTarget, type Symbol as MorphSymbol, SyntaxKind } from "ts-morph";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import { type WidgetProp, widgetRegistry } from "./widgets";
 import { sitemapRegistry } from "./sitemaps";
 import { gdomRegistry, scanGDomTypes } from "./gdomTypeScanner";
-import {
-  findStreakProjectRoot,
-  isStreakProjectDirectory,
-  isStreakFile,
-} from "./projectDetector";
-
-export { findStreakProjectRoot, isStreakProjectDirectory, isStreakFile };
+export { findStreakProjectRoot, isStreakProjectDirectory, isStreakFile } from "./projectDetector";
+import { findStreakProjectRoot, isStreakProjectDirectory } from "./projectDetector";
 
 // Single shared compiler project instance to avoid redundant instantiation overhead
 const scanProject = new Project({
@@ -33,19 +28,17 @@ function getDefaultExportComponentName(
   if (!defaultExportSymbol) {
     return undefined;
   }
-  const decl = defaultExportSymbol.getDeclarations()[0];
-  if (!decl) {
+  const decls = defaultExportSymbol.getDeclarations();
+  if (decls.length === 0) {
     return undefined;
   }
+  const decl = decls[0];
   if (Node.isExportAssignment(decl)) {
     const expr = decl.getExpression();
-    if (expr && Node.isIdentifier(expr)) {
+    if (Node.isIdentifier(expr)) {
       return expr.getText();
     }
-  } else if (
-    Node.isFunctionDeclaration(decl) ||
-    Node.isClassDeclaration(decl)
-  ) {
+  } else if (Node.isFunctionDeclaration(decl) || Node.isClassDeclaration(decl)) {
     return decl.getName() ?? "";
   }
   return undefined;
@@ -62,10 +55,7 @@ function getVariableDeclComponentName(
     const name = vd.getName();
     if (name && /^[A-Z]/.test(name)) {
       const init = vd.getInitializer();
-      if (
-        init &&
-        (Node.isArrowFunction(init) || Node.isFunctionExpression(init))
-      ) {
+      if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
         return name;
       }
     }
@@ -119,10 +109,7 @@ function resolveComponentNode(
   const vd = sourceFile.getVariableDeclaration(componentName);
   if (vd) {
     const init = vd.getInitializer();
-    if (
-      init &&
-      (Node.isArrowFunction(init) || Node.isFunctionExpression(init))
-    ) {
+    if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
       return init;
     }
   }
@@ -135,13 +122,8 @@ function resolveComponentNode(
  */
 function extractDocComment(componentNode: Node): string {
   let docNode: Node = componentNode;
-  if (
-    Node.isArrowFunction(componentNode) ||
-    Node.isFunctionExpression(componentNode)
-  ) {
-    const varStatement = componentNode.getFirstAncestorByKind(
-      SyntaxKind.VariableStatement,
-    );
+  if (Node.isArrowFunction(componentNode) || Node.isFunctionExpression(componentNode)) {
+    const varStatement = componentNode.getFirstAncestorByKind(SyntaxKind.VariableStatement);
     if (varStatement) {
       docNode = varStatement;
     }
@@ -156,10 +138,39 @@ function extractDocComment(componentNode: Node): string {
   return "";
 }
 
+function extractPropTypeText(prop: MorphSymbol): string {
+  const valDecl = prop.getValueDeclaration();
+  if (valDecl) {
+    const typedNode = valDecl as unknown as { getTypeNode?(): Node };
+    const typeNode = typedNode.getTypeNode?.();
+    if (typeNode) {
+      return typeNode.getText();
+    }
+    return valDecl.getType().getText();
+  }
+  return prop.getDeclaredType().getText();
+}
+
+function extractPropDocComment(prop: MorphSymbol): string | undefined {
+  let propDoc = "";
+  for (const decl of prop.getDeclarations()) {
+    const jsDocable = decl as unknown as {
+      getJsDocs?(): { getDescription(): string }[];
+    };
+    const jsDocs = jsDocable.getJsDocs?.();
+    if (jsDocs) {
+      propDoc = jsDocs
+        .map((jd) => jd.getDescription().trim())
+        .join("\n")
+        .trim();
+    }
+  }
+  return propDoc.length > 0 ? propDoc : undefined;
+}
+
 /**
  * Extracts the typed prop list from a function/arrow/expression component.
- * Extracted to reduce cognitive complexity of scanFile.
- * Also fixes the SonarQube "useless assignment" by hoisting typeText declaration.
+ * Extracted helpers reduce cognitive complexity below 15.
  */
 function extractProps(componentNode: Node): WidgetProp[] {
   if (
@@ -170,48 +181,20 @@ function extractProps(componentNode: Node): WidgetProp[] {
     return [];
   }
 
-  const firstParam = componentNode.getParameters()[0];
-  if (!firstParam) {
+  const params = componentNode.getParameters();
+  if (params.length === 0) {
     return [];
   }
 
   const propsList: WidgetProp[] = [];
-  const type = firstParam.getType();
+  const type = params[0].getType();
 
   for (const prop of type.getProperties()) {
-    const name = prop.getName();
-    const isOptional = prop.isOptional();
-
-    // Fix: hoist typeText — no useless "any" initialisation before conditional overwrite
-    const valDecl = prop.getValueDeclaration();
-    let typeText: string;
-    if (valDecl) {
-      const typedNode = valDecl as unknown as { getTypeNode?(): Node };
-      const typeNode = typedNode.getTypeNode?.();
-      typeText = typeNode ? typeNode.getText() : valDecl.getType().getText();
-    } else {
-      typeText = prop.getDeclaredType().getText();
-    }
-
-    let propDoc = "";
-    for (const decl of prop.getDeclarations()) {
-      const jsDocable = decl as unknown as {
-        getJsDocs?(): { getDescription(): string }[];
-      };
-      const jsDocs = jsDocable.getJsDocs?.();
-      if (jsDocs) {
-        propDoc = jsDocs
-          .map((jd) => jd.getDescription().trim())
-          .join("\n")
-          .trim();
-      }
-    }
-
     propsList.push({
-      name,
-      type: typeText,
-      isOptional,
-      docComment: propDoc || undefined,
+      name: prop.getName(),
+      type: extractPropTypeText(prop),
+      isOptional: prop.isOptional(),
+      docComment: extractPropDocComment(prop),
     });
   }
 
@@ -229,17 +212,15 @@ export function resolveProjectRoot(uri: string, workspaceRoot?: string): string 
   } catch {
     /* ignore */
   }
-  return workspaceRoot || process.cwd();
+  return workspaceRoot ?? process.cwd();
 }
 
 export async function scanFile(filePath: string): Promise<void> {
   try {
     const content = await fs.promises.readFile(filePath, "utf-8");
-    const sourceFile = scanProject.createSourceFile(
-      `${filePath}.temp.tsx`,
-      content,
-      { overwrite: true },
-    );
+    const sourceFile = scanProject.createSourceFile(`${filePath}.temp.tsx`, content, {
+      overwrite: true,
+    });
 
     // 1. Resolve component name
     const componentName = resolveComponentName(sourceFile, filePath);
@@ -262,7 +243,7 @@ export async function scanFile(filePath: string): Promise<void> {
     widgetRegistry.set(componentName, {
       name: componentName,
       filePath,
-      docComment: docComment || undefined,
+      docComment: docComment.length > 0 ? docComment : undefined,
       props: propsList,
     });
 
@@ -272,16 +253,22 @@ export async function scanFile(filePath: string): Promise<void> {
   }
 }
 
-async function findWidgetDirectories(root: string, customWidgetDir?: string): Promise<string[]> {
+async function findWidgetDirectories(
+  root: string,
+  customWidgetDir = "src/widgets",
+): Promise<string[]> {
   const dirs: string[] = [];
-  const targetDirName = customWidgetDir || "src/widgets";
 
-  const directPath = path.join(root, targetDirName);
+  const directPath = path.join(root, customWidgetDir);
   if (fs.existsSync(directPath)) {
     dirs.push(directPath);
   }
   const directFallback = path.join(root, "src", "components");
-  if (fs.existsSync(directFallback) && !dirs.includes(directFallback) && isStreakProjectDirectory(root)) {
+  if (
+    fs.existsSync(directFallback) &&
+    !dirs.includes(directFallback) &&
+    isStreakProjectDirectory(root)
+  ) {
     dirs.push(directFallback);
   }
 
@@ -447,7 +434,7 @@ async function findFilesRecursive(dir: string): Promise<string[]> {
     for (const file of list) {
       const filePath = path.join(dir, file);
       const stat = await fs.promises.stat(filePath);
-      if (stat?.isDirectory()) {
+      if (stat.isDirectory()) {
         results = results.concat(await findFilesRecursive(filePath));
       } else if (filePath.endsWith(".tsx") || filePath.endsWith(".ts")) {
         results.push(filePath);

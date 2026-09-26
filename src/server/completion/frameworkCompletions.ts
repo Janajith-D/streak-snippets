@@ -20,11 +20,9 @@ interface ComponentConfig {
 const BU_COMPONENTS: ComponentConfig[] = [
   {
     name: "WidgetPlaceholder",
-    snippet:
-      'WidgetPlaceholder id="${1:widget-id}" type="${2:widget-type}" />',
+    snippet: 'WidgetPlaceholder id="${1:widget-id}" type="${2:widget-type}" />',
     detail: "Streak WidgetPlaceholder Component",
-    documentation:
-      "Specifies a placeholder where a widget will be injected dynamically.",
+    documentation: "Specifies a placeholder where a widget will be injected dynamically.",
   },
   {
     name: "Script",
@@ -42,8 +40,7 @@ const BU_COMPONENTS: ComponentConfig[] = [
       "</Script>",
     ].join("\n"),
     detail: "Streak Browser-side Script Component",
-    documentation:
-      "Executes client-side script code with direct access to the DOM node via gDom.",
+    documentation: "Executes client-side script code with direct access to the DOM node via gDom.",
   },
   {
     name: "Preload",
@@ -54,12 +51,9 @@ const BU_COMPONENTS: ComponentConfig[] = [
   },
   {
     name: "Dynamic",
-    snippet: ['Dynamic id="${1:dynamic-id}">', "  $2", "</Dynamic>"].join(
-      "\n",
-    ),
+    snippet: ['Dynamic id="${1:dynamic-id}">', "  $2", "</Dynamic>"].join("\n"),
     detail: "Streak Dynamic Injected Component",
-    documentation:
-      "Wraps components that will be dynamically injected/loaded on the client side.",
+    documentation: "Wraps components that will be dynamically injected/loaded on the client side.",
   },
 ];
 
@@ -126,9 +120,7 @@ function buildUpdatedImportText(
 
   return [
     "import {",
-    ...newNames.map(
-      (name, i) => `${indent}${name}${i === newNames.length - 1 ? "" : ","}`,
-    ),
+    ...newNames.map((name, i) => `${indent}${name}${i === newNames.length - 1 ? "" : ","}`),
     `} from ${originalQuotes}streak-forge/components${originalQuotes};`,
   ].join("\n");
 }
@@ -137,10 +129,7 @@ function buildUpdatedImportText(
  * Returns sfWid / sfWidE scaffold completions when editing inside a widgets/ folder.
  * Extracted to reduce cognitive complexity of getFrameworkCompletions.
  */
-function getWidgetScaffoldCompletions(
-  context: CompletionContext,
-  word: string,
-): CompletionItem[] {
+function getWidgetScaffoldCompletions(context: CompletionContext, word: string): CompletionItem[] {
   const componentName = path.basename(context.uri).replace(/\.[^/.]+$/, "");
   const completions: CompletionItem[] = [];
 
@@ -217,8 +206,7 @@ function getScriptSnippetCompletion(
         "</Script>",
       ].join("\n"),
       detail: "Script Element (sfS)",
-      documentation:
-        "Insert a Script element template with options and callback.",
+      documentation: "Insert a Script element template with options and callback.",
       additionalTextEdits: autoImports,
     },
   ];
@@ -242,16 +230,10 @@ export function getAutoImportEdit(
       return [];
     }
 
-    const newNames = [...namedImports, componentName].sort((a, b) =>
-      a.localeCompare(b),
-    );
+    const newNames = [...namedImports, componentName].sort((a, b) => a.localeCompare(b));
     const originalText = importDecl.getText();
     const originalQuotes = originalText.includes("'") ? "'" : '"';
-    const newImportText = buildUpdatedImportText(
-      originalText,
-      originalQuotes,
-      newNames,
-    );
+    const newImportText = buildUpdatedImportText(originalText, originalQuotes, newNames);
 
     return [
       {
@@ -318,15 +300,8 @@ export function getFrameworkCompletions(
   }
 
   // 3. sfS Script snippet — only in .tsx files, outside Script callbacks
-  if (
-    context.uri.endsWith(".tsx") &&
-    !isInsideScriptCallback(context.text, context.offset)
-  ) {
-    return getScriptSnippetCompletion(
-      document,
-      sourceFile,
-      getTrailingWord(context),
-    );
+  if (context.uri.endsWith(".tsx") && !isInsideScriptCallback(context.text, context.offset)) {
+    return getScriptSnippetCompletion(document, sourceFile, getTrailingWord(context));
   }
 
   return [];

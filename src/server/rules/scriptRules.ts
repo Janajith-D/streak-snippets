@@ -7,12 +7,7 @@ import {
 } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
 import type { AnalysisResult } from "../../shared/types";
-import {
-  getRangeFromNode,
-  type Rule,
-  type RuleDiagnostic,
-  type RuleOptions,
-} from "./types";
+import { getRangeFromNode, type Rule, type RuleDiagnostic, type RuleOptions } from "./types";
 
 // Global browser and ECMAScript identifiers allowed inside Script callbacks
 const ALLOWED_GLOBALS = new Set([
@@ -196,15 +191,10 @@ function isTypePosition(node: Node): boolean {
 export const scriptClosureCaptureRule: Rule = {
   id: "streak:script-closure-capture",
   name: "Script Closure Capture",
-  description:
-    "Ensures <Script> callback functions do not capture outer component variables.",
+  description: "Ensures <Script> callback functions do not capture outer component variables.",
   defaultSeverity: DiagnosticSeverity.Error,
 
-  run(
-    sourceFile: SourceFile,
-    analysis: AnalysisResult,
-    options?: RuleOptions,
-  ): RuleDiagnostic[] {
+  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
@@ -226,8 +216,7 @@ export const scriptClosureCaptureRule: Rule = {
             const innerExpr = expr.getExpression();
             if (
               innerExpr &&
-              (Node.isArrowFunction(innerExpr) ||
-                Node.isFunctionExpression(innerExpr))
+              (Node.isArrowFunction(innerExpr) || Node.isFunctionExpression(innerExpr))
             ) {
               callbackNode = innerExpr;
             }
@@ -236,9 +225,7 @@ export const scriptClosureCaptureRule: Rule = {
       }
 
       if (isScriptTag && callbackNode) {
-        const paramNames = new Set(
-          callbackNode.getParameters().map((p) => p.getName()),
-        );
+        const paramNames = new Set(callbackNode.getParameters().map((p) => p.getName()));
 
         callbackNode.forEachDescendant((innerNode) => {
           if (Node.isIdentifier(innerNode)) {
@@ -251,15 +238,9 @@ export const scriptClosureCaptureRule: Rule = {
             // Check if identifier is a variable reference (not property name)
             const parent = innerNode.getParent();
             const isPropAccessName =
-              parent &&
-              Node.isPropertyAccessExpression(parent) &&
-              parent.getNameNode() === innerNode;
+              Node.isPropertyAccessExpression(parent) && parent.getNameNode() === innerNode;
 
-            if (
-              !isPropAccessName &&
-              !ALLOWED_GLOBALS.has(name) &&
-              !paramNames.has(name)
-            ) {
+            if (!isPropAccessName && !ALLOWED_GLOBALS.has(name) && !paramNames.has(name)) {
               // Verify identifier is declared in outer component scope
               const symbol = innerNode.getSymbol();
               if (symbol) {
@@ -267,8 +248,7 @@ export const scriptClosureCaptureRule: Rule = {
                 const isDeclaredInsideScript = declarations.some((d) => {
                   try {
                     return (
-                      d.getStart() >= callbackNode.getStart() &&
-                      d.getEnd() <= callbackNode.getEnd()
+                      d.getStart() >= callbackNode.getStart() && d.getEnd() <= callbackNode.getEnd()
                     );
                   } catch {
                     return false;
@@ -320,15 +300,10 @@ function checkScriptParams(
 export const invalidScriptSignatureRule: Rule = {
   id: "streak:invalid-script-signature",
   name: "Invalid Script Signature",
-  description:
-    "Ensures <Script> callback follows (gDom, options) => void signature.",
+  description: "Ensures <Script> callback follows (gDom, options) => void signature.",
   defaultSeverity: DiagnosticSeverity.Error,
 
-  run(
-    sourceFile: SourceFile,
-    analysis: AnalysisResult,
-    options?: RuleOptions,
-  ): RuleDiagnostic[] {
+  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
@@ -361,15 +336,10 @@ export const invalidScriptSignatureRule: Rule = {
 export const importInsideScriptRule: Rule = {
   id: "streak:import-inside-script",
   name: "Import Inside Script",
-  description:
-    "Ensures browser-side Script code does not contain module imports or require calls.",
+  description: "Ensures browser-side Script code does not contain module imports or require calls.",
   defaultSeverity: DiagnosticSeverity.Error,
 
-  run(
-    sourceFile: SourceFile,
-    analysis: AnalysisResult,
-    options?: RuleOptions,
-  ): RuleDiagnostic[] {
+  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
@@ -418,11 +388,7 @@ export const asyncScriptCallbackRule: Rule = {
   description: "Ensures <Script> callbacks are not declared async.",
   defaultSeverity: DiagnosticSeverity.Error,
 
-  run(
-    sourceFile: SourceFile,
-    analysis: AnalysisResult,
-    options?: RuleOptions,
-  ): RuleDiagnostic[] {
+  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
@@ -439,8 +405,7 @@ export const asyncScriptCallbackRule: Rule = {
             const callbackNode = expr.getExpression();
             if (
               callbackNode &&
-              (Node.isArrowFunction(callbackNode) ||
-                Node.isFunctionExpression(callbackNode)) &&
+              (Node.isArrowFunction(callbackNode) || Node.isFunctionExpression(callbackNode)) &&
               callbackNode.isAsync()
             ) {
               const range = getRangeFromNode(sourceFile, callbackNode);

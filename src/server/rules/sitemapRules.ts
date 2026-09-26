@@ -45,7 +45,10 @@ function collectUrl(page: SitemapPage, seenUrls: Map<string, { start: number; en
   }
 }
 
-function collectRenderId(page: SitemapPage, seenRenderIds: Map<string, { start: number; end: number }[]>) {
+function collectRenderId(
+  page: SitemapPage,
+  seenRenderIds: Map<string, { start: number; end: number }[]>,
+) {
   if (page.renderId && page.renderIdStart !== undefined && page.renderIdEnd !== undefined) {
     if (!seenRenderIds.has(page.renderId)) {
       seenRenderIds.set(page.renderId, []);
@@ -109,7 +112,11 @@ function reportDuplicateRenderIds(
   diagnostics: Diagnostic[],
   ruleSeverities?: Record<string, string>,
 ) {
-  const severity = getSeverity("streak:duplicate-render-id", ruleSeverities, DiagnosticSeverity.Error);
+  const severity = getSeverity(
+    "streak:duplicate-render-id",
+    ruleSeverities,
+    DiagnosticSeverity.Error,
+  );
   if (severity === null) {
     return;
   }
@@ -188,7 +195,11 @@ function validatePageHandler(
   diagnostics: Diagnostic[],
   ruleSeverities?: Record<string, string>,
 ) {
-  const severity = getSeverity("streak:missing-handler", ruleSeverities, DiagnosticSeverity.Warning);
+  const severity = getSeverity(
+    "streak:missing-handler",
+    ruleSeverities,
+    DiagnosticSeverity.Warning,
+  );
   if (severity === null) {
     return;
   }
@@ -269,7 +280,11 @@ function validateWidgetLoadingStrategy(
   diagnostics: Diagnostic[],
   ruleSeverities?: Record<string, string>,
 ) {
-  const severity = getSeverity("streak:invalid-loading-strategy", ruleSeverities, DiagnosticSeverity.Warning);
+  const severity = getSeverity(
+    "streak:invalid-loading-strategy",
+    ruleSeverities,
+    DiagnosticSeverity.Warning,
+  );
   if (severity === null) {
     return;
   }

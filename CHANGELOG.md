@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.9.3] - 2026-09-26
 
 ### Improvements & Fixes
+
 - **Full Removal of `streak:S701` (Allowed Imports)**:
   - Completely removed rule `streak:S701`, associated configuration settings (`streak.rules.allowedImports`), quick fixes, and commands, eliminating import whitelisting overhead across projects.
 - **Narrowed Scope for `streak:S204` (Widget Key Match)**:
@@ -16,10 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Implemented automatic Streak.js project detection based on `streak-forge` dependencies in `package.json`, `streak.sitemap.json`, and project structure. Unrelated projects in a monorepo workspace no longer trigger Streak diagnostics, hovers, completions, or background AST parsing.
 - **Interactive Streak Engine Issues Status Bar**:
   - Upgraded the status bar item to actively display Streak Engine errors and warnings (`$(error) Streak: {E} error(s)` / `$(warning) Streak: {W} warning(s)` / `$(pass) Streak: All Clean ({N} widgets)`). Clicking the status bar opens the Problems panel. Non-Streak files in monorepos automatically hide the status bar item.
+- **Codebase Clean Code & SonarQube Compliance**:
+  - Refactored AST scanners and providers (`gdomTypeScanner.ts`, `scanner.ts`, `dataHandlerUtils.ts`, `extension.ts`) to reduce function cognitive complexity well within the allowed threshold ($\le 15$).
+  - Eliminated unnecessary conditionals, optional chains on guaranteed non-nullish types, nested ternaries, and standardized nullish coalescing (`??`) across rules and registries.
+- **Prettier Setup & Formatting Pipeline**:
+  - Configured project-wide Prettier (`.prettierrc.json`, `.prettierignore`) with double quotes, 2-space indentation, and semicolons.
+  - Added `npm run format` and `npm run format:check` scripts to the build and verification gates.
+- **Agentic Development Rules & Quality Audit**:
+  - Added `.agents/rules/05-typescript-clean-code.md` and updated `.agents/skills/audit-code-quality/` with guidelines on cognitive complexity, ES6 default parameters, array bounds checking, and Prettier checks to prevent future regressions.
 
 ## [0.9.2] - 2026-09-26
 
 ### Improvements & Fixes
+
 - **Descoped `streak:S103` (`id === type` check)**:
   - Removed strict identity enforcement between `<WidgetPlaceholder>` `id` and `type` attributes in layouts and sitemap entries, enabling real-world widget reuse across pages.
 - **Allowed Imports Deprecation (`streak:S701`)**:
@@ -35,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.9.0] - 2026-08-23
 
 ### Beta Release (Milestone 16)
+
 - **SonarQube Regex Complexity in `allowedImportsRule.ts`**:
   - Replaced the 23-alternation regular expression with an $O(1)$ `Set` lookup of path prefixes (`COMMON_PATH_PREFIXES`), reducing complexity to 0 and eliminating the SonarQube rule warning.
 - **Data Handler Reserved Keys Whitelist (`streak:S204`)**:
@@ -43,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.8.2] - 2026-08-23
 
 ### Added
+
 - **Allowed Imports (`streak:S701`) Enhancements & Quick Fix**:
   - **Path Alias Support (`@` and `~` Aliases)**: Configured `streak:S701` to recognize internal path aliases (`@/`, `~/`, `#`, and common project prefixes like `@components/`, `@layouts/`, `@widgets/`, `@utils/`, `@lib/`, `@app/`, `@src/`, etc.) as internal project files and ignore them, just like relative `.` imports.
   - **Quick Fix to Add Approved Imports**: Implemented a `Ctrl + .` Quick Fix for `streak:S701` diagnostics (e.g. `import lodash from "lodash"` -> **"Add 'lodash' to approved imports (streak.rules.allowedImports)"**).
@@ -51,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.8.1] - 2026-08-21
 
 ### Hardened & Security
+
 - **Phase 15 Production Readiness Audit & Hardening**:
   - **Memory & AST Lifecycle Management**: Secured in-memory `ts-morph` AST cleanup with `try ... finally` guarantees across definition and hover providers to eliminate resource leaks.
   - **Security & Path Traversal Guard**: Added path sanitization on `<Preload href="..." />` definition resolution to prevent path traversal outside the project `public/` directory.
@@ -61,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.8.0] - 2026-08-20
 
 ### Added
+
 - **Layout & Handler `<WidgetPlaceholder />` Navigation & Diagnostics**:
   - **Go to Definition in Layouts & Data Handlers**: Enabled Ctrl+Click / F12 on `<WidgetPlaceholder type="..." />` / `id="..."` in layouts AND returned widget keys (e.g. `HelloBanner: { ... }`) in data handler files to jump directly to the widget source (`src/widgets/<Type>.tsx`).
   - **Missing Widget Warning (`streak:S902`)**: Added warning diagnostics on `<WidgetPlaceholder type="..." />` if the referenced widget `.tsx` file is missing in `src/widgets/`, complete with fuzzy "Did you mean?" suggestions.
@@ -70,6 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `"wheel"`, `"mousewheel"`, and `"pointermove"` to the targeted high-frequency scrolling events.
 
 ### Fixed
+
 - **Definition Provider Lifecycle & Concurrent AST Invalidation**:
   - Fixed `Attempted to get information from a node that was removed or forgotten` error during Go to Definition in data handler files by eliminating the asynchronous IPC gap before AST node resolution.
 - **Subproject & Monorepo Project Root Resolution**:
@@ -88,6 +103,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.7.0] - 2026-08-19
 
 ### Added
+
 - **Layout Constraints, Strict Case Sensitivity & Best Practices (Phase 15)**:
   - **Merged `<WidgetPlaceholder>` Rule (`streak:S101`)**: Unified missing `id` and `type` attributes into a single comprehensive error rule.
   - **Layout Location Restriction (`streak:S102`)**: Enforced error diagnostic restricting `<WidgetPlaceholder>` usage strictly to layout files (`src/layout/` or `src/layouts/`).
@@ -103,6 +119,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.0] - 2026-08-08
 
 ### Added
+
 - **Sitemap Awareness & Relation Graph (Phase 14)**:
   - Added JSON location parser for indexing `streak.sitemap.json` elements across both top-level and nested `renderConfig` properties.
   - Enabled JSON document support in client `documentSelector` and `activationEvents` for `streak.sitemap.json`.
@@ -118,6 +135,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.0] - 2026-08-08
 
 ### Added
+
 - **Widget Intelligence Extension (Phase 13)**:
   - Enabled widget detection criteria (`src/widgets/*.tsx`) inside AST analysis.
   - Implemented S801 rule enforcing match between widget filename and component name.
@@ -127,9 +145,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.1] - 2026-08-08
 
 ### Changed
+
 - Reorganized documentation files (`RULES.md`, `vscode_language_support_roadmap.md`) into a dedicated `/docs` folder for better repository structure.
 
 ### Fixed
+
 - Achieved complete `strict-mode` TypeScript ESLint compliance (`tseslint.configs.recommendedTypeChecked`) across client, server, and test suites.
 - Resolved zero-tolerance type bypasses, migrating `as any` casts to formally verified `Hover` and `Diagnostic` models within test logic.
 - Remediated SonarQube cognitive complexity and style warnings (`unicorn/prefer-at`, forbidden non-null assertions).
@@ -137,19 +157,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.0] - 2026-08-05
 
 ### Added
+
 - Documented S601-S702 rules details inside `RULES.md` catalog.
 - Added walkthrough guidelines for Phase 13 engineering updates.
 
 ### Changed
+
 - Refactored `getJsxAttributeCompletions` to resolve SonarQube Cognitive Complexity.
 - Upgraded core library imports to use Node `node:` namespace prefix.
 
 ### Fixed
+
 - Fixed packaging warning by introducing `repository` field to `package.json`.
 
 ## [0.3.5] - 2026-08-05
 
 ### Added
+
 - **Production Release Preparation (Phase 12)**: Release packaging:
   - Created developer workflow and contribution guidelines inside `CONTRIBUTING.md`.
   - Added issue templates for structuring project bug reports and feature requests.
@@ -158,6 +182,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.0] - 2026-08-05
 
 ### Added
+
 - **Developer Experience Features (Phase 11)**: Polished workflow integrations inside the VS Code editor UI:
   - Live **VS Code Status Bar** item showing the count of widgets indexed in the registry database.
   - Interactive **streak.createWidget** command that prompts, validates, scaffolds, and opens new widgets.
@@ -165,6 +190,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.5] - 2026-08-05
 
 ### Added
+
 - **Configuration & Extensibility (Phase 10)**: Implemented advanced customization capabilities via workspace settings:
   - Custom scanner target folder paths for widgets (`streak.snippets.widgetDirectory`), pages (`streak.snippets.pageDirectory`), and assets (`streak.snippets.publicDirectory`).
   - `streak:S701` (Import Whitelist Rule): Warns if imports pull unapproved third-party modules.
@@ -173,6 +199,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0] - 2026-08-04
 
 ### Added
+
 - **Advanced Static Analysis (Phase 9)**: Developed 3 new validation rules enforcing framework boundaries:
   - `streak:S601` (Duplicated Widget Names): Flags component name collisions inside `src/widgets/` to avoid naming conflicts.
   - `streak:S602` (Component Nesting): Enforces nesting limits (no nested `<Script>` tags, no `<WidgetPlaceholder>` inside `<Script>` tag callback).
@@ -182,6 +209,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.5] - 2026-08-03
 
 ### Added
+
 - **Workspace Widget Registry & Suggestions (Phase 8)**: Implemented an AST-based workspace scanner and registry for custom components under `src/widgets/` and `src/components/`:
   - Dynamically extracts component descriptions, JSDoc headers, and full props type specifications.
   - Integrates registry metadata inside `<WidgetPlaceholder type="..." />` autocomplete details, showing property names, types, optionality indicators, and property JSDoc comments.
@@ -190,6 +218,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.2] - 2026-08-03
 
 ### Added
+
 - **Quick Fixes & Code Actions (Phase 7)**: Implemented code action provider `resolveCodeActions` suggesting quick fixes (`Ctrl+.`) for common diagnostics:
   - Add missing `id` attribute on `<Script />`, `<WidgetPlaceholder />`, and `<Dynamic />` tags.
   - Add missing `type` attribute on `<WidgetPlaceholder />`.
@@ -199,6 +228,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.1] - 2026-07-30
 
 ### Added
+
 - **Go to Definition & Navigation (Phase 6)**: Implemented complete definition provider (`connection.onDefinition`) enabling quick jump-to-definition (F12) for:
   - Widget type attribute values to their matching source widget files.
   - Preload href paths to local static files inside `/public`.
@@ -207,12 +237,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2026-07-30
 
 ### Added
+
 - **Hover Help & Documentation (Phase 5)**: Developed complete LSP hover help mapping for all built-in Streak components (`<WidgetPlaceholder />`, `<Preload />`, `<Dynamic />`, `<Script />`) and all their JSX attributes (`id`, `type`, `href`, `as`, `options`).
 - **LSP Architecture Refactoring**: Extracted resolveHover logical handler to a dedicated, unit-testable module.
 
 ## [0.0.3] - 2026-07-28
 
 ### Added
+
 - **Streak `<Script />` component support**:
   - Full autocomplete with automatic import and multi-line clean import merging.
   - Diagnostic warning `streak:S405` for missing/empty `<Script>` `id` with a VS Code Quick Fix to insert it automatically.
@@ -223,12 +255,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.0.2] - 2026-07-28
 
 ### Removed
+
 - **Scaffolding & Snippet List Commands**: Removed `Streak: Show Snippet List` and `Streak: Create Component` command utilities to focus extension capabilities on core language features.
 - **Unused Workspace Configurations**: Removed directory paths configurations (`streak.snippets.pageDirectory`, `streak.snippets.componentDirectory`, `streak.snippets.widgetDirectory`).
 
 ## [0.0.1] - 2026-07-28
 
 ### Added
+
 - **Intelligent Autocomplete & Code Completion (LSP)**: Context-aware suggestions for all built-in Streak Forge components (`WidgetPlaceholder`, `Script`, `Preload`, `Dynamic`).
 - **Auto-Import Insertion**: Automates imports management (appends or merges component imports from `"streak-forge/components"`).
 - **JSX Attribute Recommendations**: Auto-suggests type values based on `src/widgets/` content, and recursively scans `/public` to suggest resource paths for `<Preload href="...">`.
@@ -238,6 +272,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.0.0] - 2026-07-23
 
 ### Added
+
 - **Streak Forge Snippets**: `.tsx` import shortcuts (`imWP`, `imS`, `imPre`, `imDy`), JSX scaffolds (`sfWp`, `sfPre`), and `.ts` data handler template (`sfDH`).
 - **Commands**: `Streak: Show Snippet List` quick-pick menu and `Streak: Create Component` interactive scaffolding command.
 - **Language Server Architecture (LSP)**: Client/Server architecture split using Node IPC and real-time `ts-morph` AST analysis pipeline.

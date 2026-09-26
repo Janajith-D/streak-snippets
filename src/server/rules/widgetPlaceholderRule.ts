@@ -25,14 +25,10 @@ function getWidgetPlaceholderAttrs(attributes: Node[]): {
     if (!Node.isJsxAttribute(attr)) {
       continue;
     }
-    const attrName = attr.getNameNode()?.getText();
+    const attrName = attr.getNameNode().getText();
     const value = getJsxAttrValue(attr);
-    const cleaned = value?.trim();
-    const isNonEmpty =
-      cleaned !== undefined &&
-      cleaned !== "" &&
-      cleaned !== '""' &&
-      cleaned !== "''";
+    const cleaned = value.trim();
+    const isNonEmpty = cleaned !== "" && cleaned !== '""' && cleaned !== "''";
 
     if (attrName === "id" && isNonEmpty) {
       id = cleaned.replace(/^["']|["']$/g, "");
@@ -51,14 +47,10 @@ export const widgetPlaceholderRule: Rule = {
     "Ensures <WidgetPlaceholder> elements have valid 'id' and 'type' props and are used inside layouts.",
   defaultSeverity: DiagnosticSeverity.Error,
 
-  run(
-    sourceFile: SourceFile,
-    _analysis: AnalysisResult,
-    options?: RuleOptions,
-  ): RuleDiagnostic[] {
+  run(sourceFile: SourceFile, _analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
-    const rawPath = _analysis?.uri ?? sourceFile.getFilePath();
+    const rawPath = _analysis.uri;
     const filePath = decodeURIComponent(rawPath).replaceAll("\\", "/");
     const isLayoutFile =
       /(?:^|\/)src\/layouts?\//i.test(filePath) ||

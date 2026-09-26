@@ -28,7 +28,7 @@ async function findFiles(dir: string, ext: string): Promise<string[]> {
     for (const file of list) {
       const filePath = path.join(dir, file);
       const stat = await fs.promises.stat(filePath);
-      if (stat?.isDirectory()) {
+      if (stat.isDirectory()) {
         if (
           file !== "node_modules" &&
           file !== ".git" &&
@@ -61,8 +61,7 @@ function isLoadDynamicComponentCall(parent: Node | undefined): boolean {
     return false;
   }
   return (
-    callExpr.getExpression().getText() === "gDom" &&
-    callExpr.getName() === "loadDynamicComponent"
+    callExpr.getExpression().getText() === "gDom" && callExpr.getName() === "loadDynamicComponent"
   );
 }
 
@@ -70,10 +69,7 @@ function isLoadDynamicComponentCall(parent: Node | undefined): boolean {
  * Scans one file for a `<Dynamic id="value">` tag and returns its LSP Location.
  * Extracted to reduce cognitive complexity of resolveLoadDynamicDefinition.
  */
-async function findDynamicTagLocation(
-  filePath: string,
-  value: string,
-): Promise<Location | null> {
+async function findDynamicTagLocation(filePath: string, value: string): Promise<Location | null> {
   try {
     const content = await fs.promises.readFile(filePath, "utf-8");
     if (!content.includes("Dynamic") || !content.includes(value)) {
@@ -87,10 +83,7 @@ async function findDynamicTagLocation(
 
     try {
       tempFile.forEachDescendant((child) => {
-        if (
-          !Node.isJsxOpeningElement(child) &&
-          !Node.isJsxSelfClosingElement(child)
-        ) {
+        if (!Node.isJsxOpeningElement(child) && !Node.isJsxSelfClosingElement(child)) {
           return;
         }
         if (child.getTagNameNode().getText() !== "Dynamic") {
@@ -173,17 +166,11 @@ function resolveWidgetTypeDefinition(
   const dir = path.join(workspaceRoot, customWidgetDir);
   if (fileExistsStrictCase(dir, `${value}.tsx`)) {
     const fullPath = path.join(dir, `${value}.tsx`);
-    return Location.create(
-      pathToFileURL(fullPath).toString(),
-      Range.create(0, 0, 0, 0),
-    );
+    return Location.create(pathToFileURL(fullPath).toString(), Range.create(0, 0, 0, 0));
   }
   const registered = widgetRegistry.get(value);
   if (registered && fs.existsSync(registered.filePath)) {
-    return Location.create(
-      pathToFileURL(registered.filePath).toString(),
-      Range.create(0, 0, 0, 0),
-    );
+    return Location.create(pathToFileURL(registered.filePath).toString(), Range.create(0, 0, 0, 0));
   }
   return null;
 }
@@ -207,10 +194,7 @@ function resolvePreloadHrefDefinition(
   }
 
   if (fs.existsSync(fullPath)) {
-    return Location.create(
-      pathToFileURL(fullPath).toString(),
-      Range.create(0, 0, 0, 0),
-    );
+    return Location.create(pathToFileURL(fullPath).toString(), Range.create(0, 0, 0, 0));
   }
   return null;
 }
@@ -241,14 +225,10 @@ function resolveJsxAttrDefinition(
 
   const attributeName = jsxAttr.getNameNode().getText();
   let tagNode: Node | undefined = jsxAttr.getParent();
-  if (tagNode?.getKindName() === "JsxAttributes") {
+  if (tagNode.getKindName() === "JsxAttributes") {
     tagNode = tagNode.getParent();
   }
-  if (
-    !tagNode ||
-    (!Node.isJsxOpeningElement(tagNode) &&
-      !Node.isJsxSelfClosingElement(tagNode))
-  ) {
+  if (!tagNode || (!Node.isJsxOpeningElement(tagNode) && !Node.isJsxSelfClosingElement(tagNode))) {
     return null;
   }
 
@@ -296,10 +276,7 @@ export async function resolveDefinition(
   }
 
   let value: string;
-  if (
-    Node.isStringLiteral(node) ||
-    Node.isNoSubstitutionTemplateLiteral(node)
-  ) {
+  if (Node.isStringLiteral(node) || Node.isNoSubstitutionTemplateLiteral(node)) {
     value = node.getLiteralValue();
   } else if (Node.isIdentifier(node)) {
     value = node.getText();
@@ -374,10 +351,7 @@ function findSitemapHandlerDefinition(
     for (const dir of candidateDirs) {
       if (fileExistsStrictCase(dir, `${page.handler}.ts`)) {
         const fullPath = path.join(dir, `${page.handler}.ts`);
-        return Location.create(
-          pathToFileURL(fullPath).toString(),
-          Range.create(0, 0, 0, 0),
-        );
+        return Location.create(pathToFileURL(fullPath).toString(), Range.create(0, 0, 0, 0));
       }
     }
   }
@@ -403,10 +377,7 @@ function findSitemapLayoutDefinition(
     for (const dir of candidateDirs) {
       if (fileExistsStrictCase(dir, `${page.layout}.tsx`)) {
         const fullPath = path.join(dir, `${page.layout}.tsx`);
-        return Location.create(
-          pathToFileURL(fullPath).toString(),
-          Range.create(0, 0, 0, 0),
-        );
+        return Location.create(pathToFileURL(fullPath).toString(), Range.create(0, 0, 0, 0));
       }
     }
   }

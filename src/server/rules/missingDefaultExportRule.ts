@@ -11,14 +11,19 @@ export const missingDefaultExportRule: Rule = {
 
   run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
-    const rawPath = decodeURIComponent(analysis.uri || sourceFile.getFilePath()).replaceAll("\\", "/");
+    const rawPath = decodeURIComponent(analysis.uri || sourceFile.getFilePath()).replaceAll(
+      "\\",
+      "/",
+    );
     const isFrameworkFile = /(?:^|\/)src\/(?:handlers?|layouts?|widgets?|pages?)\//i.test(rawPath);
 
     if (!isFrameworkFile) {
       return diagnostics;
     }
 
-    const severity = analysis.isWidget ? DiagnosticSeverity.Error : (options?.severity ?? this.defaultSeverity);
+    const severity = analysis.isWidget
+      ? DiagnosticSeverity.Error
+      : (options?.severity ?? this.defaultSeverity);
     const message = analysis.isWidget
       ? "Widgets must use a default export."
       : "File is missing a default export (export default ...).";

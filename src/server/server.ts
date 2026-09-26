@@ -12,16 +12,18 @@ import {
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import {
-  analyzeAndParseDocument,
-  cleanupDocumentSourceFile,
-} from "./parser/analyzer";
+import { analyzeAndParseDocument, cleanupDocumentSourceFile } from "./parser/analyzer";
 import { runRules } from "./rules/runner";
 import { getCompletions } from "./completion/provider";
 import { resolveHover, resolveSitemapHover } from "./hover/provider";
 import { resolveDefinition, resolveSitemapDefinition } from "./definition/provider";
 import { resolveCodeActions } from "./codeaction/provider";
-import { scanWorkspace, scanFile, resolveProjectRoot, findStreakProjectRoot } from "./registry/scanner";
+import {
+  scanWorkspace,
+  scanFile,
+  resolveProjectRoot,
+  findStreakProjectRoot,
+} from "./registry/scanner";
 import { widgetRegistry } from "./registry/widgets";
 import { sitemapRegistry } from "./registry/sitemaps";
 import { validateSitemap } from "./rules/sitemapRules";
@@ -29,12 +31,19 @@ import { Node } from "ts-morph";
 import * as fs from "node:fs";
 
 // Define strict typing for configuration to satisfy ESLint
+interface RuleConfig {
+  severity?: string;
+}
+
 interface StreakSettings {
   snippets?: {
     widgetDirectory?: string;
     publicDirectory?: string;
   };
-  rules?: Record<string, { severity?: string; forbiddenPatterns?: string[] }>;
+  rules?: {
+    [key: string]: RuleConfig | string[] | undefined;
+    forbiddenPatterns?: string[] | (RuleConfig & { patterns?: string[] });
+  };
 }
 
 // Create a connection for the server, using Node's IPC / stdio communication
@@ -78,14 +87,15 @@ connection.onInitialized(async () => {
   if (workspaceRoot) {
     let customWidgetDir: string | undefined;
     try {
-      const streakSettings =
-        (await connection.workspace.getConfiguration("streak")) as StreakSettings;
-      customWidgetDir = streakSettings?.snippets?.widgetDirectory;
+      const streakSettings = (await connection.workspace.getConfiguration(
+        "streak",
+      )) as StreakSettings;
+      customWidgetDir = streakSettings.snippets?.widgetDirectory;
     } catch {
       /* ignore */
     }
     await scanWorkspace(workspaceRoot, customWidgetDir);
-    
+
     await connection.sendNotification("streak/didIndexWidgets", {
       count: widgetRegistry.getAll().length,
     });
@@ -119,10 +129,11 @@ connection.onCompletion(async (params) => {
   let customWidgetDir: string | undefined;
   let customPublicDir: string | undefined;
   try {
-    const streakSettings =
-      (await connection.workspace.getConfiguration("streak")) as StreakSettings;
-    customWidgetDir = streakSettings?.snippets?.widgetDirectory;
-    customPublicDir = streakSettings?.snippets?.publicDirectory;
+    const streakSettings = (await connection.workspace.getConfiguration(
+      "streak",
+    )) as StreakSettings;
+    customWidgetDir = streakSettings.snippets?.widgetDirectory;
+    customPublicDir = streakSettings.snippets?.publicDirectory;
   } catch {
     /* ignore */
   }
@@ -198,10 +209,11 @@ connection.onDefinition(async (params) => {
     let customWidgetDir: string | undefined;
     let customPublicDir: string | undefined;
     try {
-      const streakSettings =
-        (await connection.workspace.getConfiguration("streak")) as StreakSettings;
-      customWidgetDir = streakSettings?.snippets?.widgetDirectory;
-      customPublicDir = streakSettings?.snippets?.publicDirectory;
+      const streakSettings = (await connection.workspace.getConfiguration(
+        "streak",
+      )) as StreakSettings;
+      customWidgetDir = streakSettings.snippets?.widgetDirectory;
+      customPublicDir = streakSettings.snippets?.publicDirectory;
     } catch {
       /* ignore */
     }
@@ -221,12 +233,7 @@ connection.onDefinition(async (params) => {
       return null;
     }
 
-    return await resolveDefinition(
-      node,
-      projectRoot,
-      customWidgetDir,
-      customPublicDir,
-    );
+    return await resolveDefinition(node, projectRoot, customWidgetDir, customPublicDir);
   } catch (err) {
     connection.console.log(
       `[Definition] Error resolving definition: ${err instanceof Error ? err.message : String(err)}`,
@@ -282,10 +289,7 @@ function findWidgetReferencesInSitemap(wName: string): Location[] {
         locations.push(
           Location.create(
             sitemapUri,
-            Range.create(
-              sitemapDoc.positionAt(w.start),
-              sitemapDoc.positionAt(w.end),
-            ),
+            Range.create(sitemapDoc.positionAt(w.start), sitemapDoc.positionAt(w.end)),
           ),
         );
       }
@@ -323,10 +327,7 @@ function findWidgetRenameChangesInSitemap(
     for (const w of page.widgets) {
       if (w.type === wName) {
         changes[sitemapUri].push({
-          range: Range.create(
-            sitemapDoc.positionAt(w.start),
-            sitemapDoc.positionAt(w.end),
-          ),
+          range: Range.create(sitemapDoc.positionAt(w.start), sitemapDoc.positionAt(w.end)),
           newText: newName,
         });
       }
@@ -409,13 +410,15 @@ function buildRuleConfiguration(streakSettings: StreakSettings | undefined): {
     };
 
     for (const [settingsKey, ruleId] of Object.entries(settingsMap)) {
-      if (streakSettings.rules[settingsKey]?.severity) {
-        ruleSeverities[ruleId] = streakSettings.rules[settingsKey].severity;
+      const ruleConf = streakSettings.rules[settingsKey];
+      if (ruleConf && !Array.isArray(ruleConf) && ruleConf.severity) {
+        ruleSeverities[ruleId] = ruleConf.severity;
       }
     }
 
-    if (streakSettings.rules.forbiddenPatterns) {
-      ruleOptions.forbiddenPatterns = streakSettings.rules.forbiddenPatterns;
+    const fbPatterns = streakSettings.rules.forbiddenPatterns;
+    if (Array.isArray(fbPatterns)) {
+      ruleOptions.forbiddenPatterns = fbPatterns;
     }
   }
 
@@ -427,9 +430,10 @@ async function indexWidgetFile(uri: string): Promise<void> {
     const filePath = fileURLToPath(uri);
     let customWidgetDir = "src/widgets";
     try {
-      const streakSettings =
-        (await connection.workspace.getConfiguration("streak")) as StreakSettings;
-      if (streakSettings?.snippets?.widgetDirectory) {
+      const streakSettings = (await connection.workspace.getConfiguration(
+        "streak",
+      )) as StreakSettings;
+      if (streakSettings.snippets?.widgetDirectory) {
         customWidgetDir = streakSettings.snippets.widgetDirectory;
       }
     } catch {
@@ -439,10 +443,7 @@ async function indexWidgetFile(uri: string): Promise<void> {
     const normalizedPath = filePath.replaceAll("\\", "/");
     const normalizedWidgetDir = customWidgetDir.replaceAll("\\", "/");
 
-    if (
-      normalizedPath.includes(normalizedWidgetDir) ||
-      normalizedPath.includes("src/components")
-    ) {
+    if (normalizedPath.includes(normalizedWidgetDir) || normalizedPath.includes("src/components")) {
       await scanFile(filePath);
       await connection.sendNotification("streak/didIndexWidgets", {
         count: widgetRegistry.getAll().length,
@@ -458,8 +459,9 @@ async function fetchRuleConfiguration(): Promise<{
   ruleOptions: Record<string, unknown>;
 }> {
   try {
-    const streakSettings =
-      (await connection.workspace.getConfiguration("streak")) as StreakSettings;
+    const streakSettings = (await connection.workspace.getConfiguration(
+      "streak",
+    )) as StreakSettings;
     return buildRuleConfiguration(streakSettings);
   } catch (err) {
     connection.console.log(
@@ -522,9 +524,7 @@ async function validateDocument(document: TextDocument): Promise<void> {
     ruleOptions: config.ruleOptions,
   });
 
-  connection.console.log(
-    `[Validation] Found ${diagnostics.length} diagnostic(s) for ${uri}`,
-  );
+  connection.console.log(`[Validation] Found ${diagnostics.length} diagnostic(s) for ${uri}`);
 
   // Send the computed diagnostics to VS Code
   await connection.sendDiagnostics({ uri, diagnostics });

@@ -22,16 +22,16 @@ export function isStreakProjectDirectory(dirPath: string): boolean {
     if (fs.existsSync(pkgPath)) {
       const raw = fs.readFileSync(pkgPath, "utf-8");
       const pkg = JSON.parse(raw) as PackageManifest;
-      const allDeps: Record<string, string> = {
-        ...(pkg.dependencies ?? {}),
-        ...(pkg.devDependencies ?? {}),
-        ...(pkg.peerDependencies ?? {}),
-        ...(pkg.optionalDependencies ?? {}),
+      const allDeps: Record<string, string | undefined> = {
+        ...pkg.dependencies,
+        ...pkg.devDependencies,
+        ...pkg.peerDependencies,
+        ...pkg.optionalDependencies,
       };
 
       if (
-        allDeps["streak-forge"] !== undefined ||
-        allDeps["streakjs"] !== undefined ||
+        "streak-forge" in allDeps ||
+        "streakjs" in allDeps ||
         Object.keys(allDeps).some((d) => d.startsWith("@streakjs/")) ||
         pkg.streak !== undefined
       ) {
@@ -79,10 +79,7 @@ export function isStreakProjectDirectory(dirPath: string): boolean {
  * Resolves the root directory of the Streak.js subproject containing the given document URI or path.
  * Traverses parent directories upwards. Returns null if the file does not belong to any Streak project.
  */
-export function findStreakProjectRoot(
-  uriOrPath: string,
-  workspaceRoot?: string,
-): string | null {
+export function findStreakProjectRoot(uriOrPath: string, workspaceRoot?: string): string | null {
   try {
     let filePath = uriOrPath;
     if (uriOrPath.startsWith("file://")) {

@@ -10,17 +10,12 @@ import * as path from "node:path";
 // ── Private helpers ───────────────────────────────────────────────────────────
 
 /** Walks from a JSX attribute node up to the enclosing tag name, or undefined. */
-function getTagNameFromAttrNode(
-  attrParent: Node | undefined,
-): string | undefined {
+function getTagNameFromAttrNode(attrParent: Node | undefined): string | undefined {
   let tagNode: Node | undefined = attrParent;
   if (tagNode?.getKindName() === "JsxAttributes") {
     tagNode = tagNode.getParent();
   }
-  if (
-    tagNode &&
-    (Node.isJsxOpeningElement(tagNode) || Node.isJsxSelfClosingElement(tagNode))
-  ) {
+  if (tagNode && (Node.isJsxOpeningElement(tagNode) || Node.isJsxSelfClosingElement(tagNode))) {
     return tagNode.getTagNameNode().getText();
   }
   return undefined;
@@ -40,7 +35,7 @@ function buildWidgetHoverText(widget: WidgetMetadata): string {
   if (widget.docComment) {
     hoverText += `${widget.docComment}\n\n`;
   }
-  if (widget.props && widget.props.length > 0) {
+  if (widget.props.length > 0) {
     hoverText += `**Props:**\n`;
     for (const prop of widget.props) {
       const optional = prop.isOptional ? "?" : "";
@@ -91,10 +86,9 @@ function resolveTagNameHover(node: Node): Hover | null {
   const tagName = node.getText();
   const parent = node.getParent();
   if (
-    !parent ||
-    (!Node.isJsxOpeningElement(parent) &&
-      !Node.isJsxClosingElement(parent) &&
-      !Node.isJsxSelfClosingElement(parent))
+    !Node.isJsxOpeningElement(parent) &&
+    !Node.isJsxClosingElement(parent) &&
+    !Node.isJsxSelfClosingElement(parent)
   ) {
     return null;
   }
@@ -215,7 +209,7 @@ function resolveAttributeHover(node: Node): Hover | null {
     return null;
   }
   const parent = node.getParent();
-  if (!parent || !Node.isJsxAttribute(parent)) {
+  if (!Node.isJsxAttribute(parent)) {
     return null;
   }
   const attributeName = node.getText();
@@ -275,7 +269,7 @@ function resolveGDomMethodHover(node: Node): Hover | null {
     return null;
   }
   const parent = node.getParent();
-  if (!parent || !Node.isPropertyAccessExpression(parent)) {
+  if (!Node.isPropertyAccessExpression(parent)) {
     return null;
   }
   if (parent.getExpression().getText() !== "gDom") {
@@ -310,10 +304,6 @@ function resolvePropsDataHover(node: Node): Hover | null {
   }
 
   const parent = node.getParent();
-  if (!parent) {
-    return null;
-  }
-
   let isPropsData = false;
 
   // Case 1: Hovering over 'data' in 'props.data' or 'props.data.foo'
@@ -396,7 +386,7 @@ function getFallbackWidgetDataFields(widgetName: string): string[] {
   if (!dataProp) {
     return [];
   }
-  const fields = dataProp.type.match(/\b\w+\b/g) || [];
+  const fields = dataProp.type.match(/\b\w+\b/g) ?? [];
   const stopWords = new Set([
     "string",
     "number",
@@ -421,15 +411,12 @@ function findHandlerPath(handlerName: string, workspaceRoot: string): string {
   return "";
 }
 
-function findFuncNodeFromDefaultExport(
-  decl: Node,
-  sourceFile: SourceFile,
-): Node | undefined {
+function findFuncNodeFromDefaultExport(decl: Node, sourceFile: SourceFile): Node | undefined {
   if (!Node.isExportAssignment(decl)) {
     return decl;
   }
   const expr = decl.getExpression();
-  if (expr && Node.isIdentifier(expr)) {
+  if (Node.isIdentifier(expr)) {
     const varDecl = sourceFile.getVariableDeclaration(expr.getText());
     const init = varDecl?.getInitializer();
     if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
@@ -479,9 +466,9 @@ function extractFieldsFromHandlerFile(handlerPath: string, widgetName: string): 
       let fields: string[] = [];
       const defaultExport = sourceFile.getDefaultExportSymbol();
       if (defaultExport) {
-        const decl = defaultExport.getDeclarations()[0];
-        if (decl) {
-          const funcNode = findFuncNodeFromDefaultExport(decl, sourceFile);
+        const decls = defaultExport.getDeclarations();
+        if (decls.length > 0) {
+          const funcNode = findFuncNodeFromDefaultExport(decls[0], sourceFile);
           if (funcNode) {
             fields = extractPropertiesFromReturnStatements(funcNode, widgetName);
           }
@@ -525,7 +512,7 @@ function resolveSitemapWidgetHover(
         p.widgets.some((pw: { type: string }) => pw.type === w.type),
       ).length;
       const scriptsCount = widget ? getScriptsCount(widget.filePath) : 0;
-      const handlerName = page.handler || "";
+      const handlerName = page.handler ?? "";
       const handlerData = getHandlerDataFields(handlerName, w.type, workspaceRoot);
 
       const hoverLines = [
@@ -557,7 +544,7 @@ function resolveSitemapPageHover(page: SitemapPage, offset: number): Hover | nul
   if (offset >= page.start && offset <= page.end) {
     const hoverLines = [
       `Route:`,
-      `${page.url || "None"}`,
+      `${page.url ?? "None"}`,
       "",
       `Widgets:`,
       page.widgets.length > 0
@@ -565,7 +552,7 @@ function resolveSitemapPageHover(page: SitemapPage, offset: number): Hover | nul
         : "None",
       "",
       `Handler:`,
-      `${page.handler || "None"}`,
+      `${page.handler ?? "None"}`,
       "",
       `Total Widgets:`,
       `${page.widgets.length}`,

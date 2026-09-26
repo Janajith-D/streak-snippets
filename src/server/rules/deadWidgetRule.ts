@@ -9,13 +9,14 @@ function getComponentDefaultName(sourceFile: SourceFile): string | undefined {
   if (!defaultExportSymbol) {
     return undefined;
   }
-  const decl = defaultExportSymbol.getDeclarations()[0];
-  if (!decl) {
+  const decls = defaultExportSymbol.getDeclarations();
+  if (decls.length === 0) {
     return undefined;
   }
+  const decl = decls[0];
   if (Node.isExportAssignment(decl)) {
     const expr = decl.getExpression();
-    if (expr && Node.isIdentifier(expr)) {
+    if (Node.isIdentifier(expr)) {
       return expr.getText();
     }
   } else if (Node.isFunctionDeclaration(decl) || Node.isClassDeclaration(decl)) {
@@ -27,15 +28,10 @@ function getComponentDefaultName(sourceFile: SourceFile): string | undefined {
 export const deadWidgetRule: Rule = {
   id: "streak:dead-widget",
   name: "Dead Widget Rule",
-  description:
-    "Ensures custom widgets are referenced by at least one page in the sitemap.",
+  description: "Ensures custom widgets are referenced by at least one page in the sitemap.",
   defaultSeverity: DiagnosticSeverity.Warning,
 
-  run(
-    sourceFile: SourceFile,
-    analysis: AnalysisResult,
-    options?: RuleOptions,
-  ): RuleDiagnostic[] {
+  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
@@ -53,9 +49,7 @@ export const deadWidgetRule: Rule = {
       return diagnostics;
     }
 
-    const isReferenced = pages.some((p) =>
-      p.widgets.some((w) => w.type === componentName),
-    );
+    const isReferenced = pages.some((p) => p.widgets.some((w) => w.type === componentName));
 
     if (!isReferenced) {
       diagnostics.push({

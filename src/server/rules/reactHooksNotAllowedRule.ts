@@ -1,12 +1,7 @@
 import { SyntaxKind, type SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
 import type { AnalysisResult } from "../../shared/types";
-import {
-  getRangeFromNode,
-  type Rule,
-  type RuleDiagnostic,
-  type RuleOptions,
-} from "./types";
+import { getRangeFromNode, type Rule, type RuleDiagnostic, type RuleOptions } from "./types";
 
 const DISALLOWED_HOOKS = new Set([
   "useState",
@@ -28,29 +23,23 @@ export const reactHooksNotAllowedRule: Rule = {
     "Ensures Streak static widgets do not use React runtime hooks (useState, useEffect, etc.).",
   defaultSeverity: DiagnosticSeverity.Error,
 
-  run(
-    sourceFile: SourceFile,
-    analysis: AnalysisResult,
-    options?: RuleOptions,
-  ): RuleDiagnostic[] {
+  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
-    const severity = analysis.isWidget ? DiagnosticSeverity.Error : (options?.severity ?? this.defaultSeverity);
+    const severity = analysis.isWidget
+      ? DiagnosticSeverity.Error
+      : (options?.severity ?? this.defaultSeverity);
 
     if (!analysis.uri.endsWith(".tsx")) {
       return diagnostics;
     }
 
-    const callExprs = sourceFile.getDescendantsOfKind(
-      SyntaxKind.CallExpression,
-    );
+    const callExprs = sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression);
     for (const call of callExprs) {
       const expression = call.getExpression();
       const calleeText = expression.getText();
 
       // Check if call is useXxx(...) or React.useXxx(...)
-      const hookName = calleeText.startsWith("React.")
-        ? calleeText.slice(6)
-        : calleeText;
+      const hookName = calleeText.startsWith("React.") ? calleeText.slice(6) : calleeText;
 
       if (DISALLOWED_HOOKS.has(hookName)) {
         const range = getRangeFromNode(sourceFile, call);

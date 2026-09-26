@@ -1,9 +1,5 @@
 import { Node, SyntaxKind, type SourceFile } from "ts-morph";
-import {
-  type CodeAction,
-  CodeActionKind,
-  type Diagnostic,
-} from "vscode-languageserver/node";
+import { type CodeAction, CodeActionKind, type Diagnostic } from "vscode-languageserver/node";
 import { type TextDocument } from "vscode-languageserver-textdocument";
 import { fileURLToPath } from "node:url";
 import * as path from "node:path";
@@ -117,9 +113,7 @@ function buildAsyncHandlerAction(
 
   let insertOffset = fnNode.getStart();
   if (Node.isFunctionDeclaration(fnNode)) {
-    const functionKeyword = fnNode.getFirstChildByKind(
-      SyntaxKind.FunctionKeyword,
-    );
+    const functionKeyword = fnNode.getFirstChildByKind(SyntaxKind.FunctionKeyword);
     if (functionKeyword) {
       insertOffset = functionKeyword.getStart();
     }
@@ -180,7 +174,6 @@ function buildDefaultExportAction(
   };
 }
 
-/** Dispatches a single diagnostic to the appropriate code action builders. */
 function buildCodeActionsForDiag(
   diag: Diagnostic,
   document: TextDocument,
@@ -193,11 +186,9 @@ function buildCodeActionsForDiag(
       actions.push(buildScriptIdAction(diag, uri));
       break;
     case "streak:S101": {
-      const rawMsg =
-        typeof diag.message === "string"
-          ? diag.message
-          : (diag.message as { value: string }).value ?? "";
-      const msg = rawMsg.toLowerCase();
+      const msg = (
+        typeof diag.message === "string" ? diag.message : diag.message.value
+      ).toLowerCase();
       if (msg.includes("id") || msg.includes("attributes")) {
         actions.push(buildWidgetIdAction(diag, uri));
       }
@@ -223,6 +214,7 @@ function buildCodeActionsForDiag(
       }
       break;
     }
+    case undefined:
     default:
       break;
   }

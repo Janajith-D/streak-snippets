@@ -1,4 +1,9 @@
-import { type Hover, type MarkupContent, type Diagnostic, DiagnosticSeverity } from "vscode-languageserver/node";
+import {
+  type Hover,
+  type MarkupContent,
+  type Diagnostic,
+  DiagnosticSeverity,
+} from "vscode-languageserver/node";
 import * as assert from "assert";
 import * as path from "node:path";
 import * as fs from "node:fs";
@@ -37,11 +42,20 @@ import { resolveHover, resolveSitemapHover } from "../server/hover/provider";
 import { resolveDefinition, resolveSitemapDefinition } from "../server/definition/provider";
 import { resolveCodeActions } from "../server/codeaction/provider";
 import { widgetRegistry } from "../server/registry/widgets";
-import { scanWorkspace, resolveProjectRoot, findStreakProjectRoot, isStreakProjectDirectory, isStreakFile } from "../server/registry/scanner";
+import {
+  scanWorkspace,
+  resolveProjectRoot,
+  findStreakProjectRoot,
+  isStreakProjectDirectory,
+  isStreakFile,
+} from "../server/registry/scanner";
 import { getCompletions } from "../server/completion/provider";
 import { getJsxContext } from "../server/completion/jsxAttributeCompletions";
 import { getAutoImportEdit } from "../server/completion/frameworkCompletions";
-import { isInsideLoadDynamicComponent, getGDomCompletions } from "../server/completion/scriptCompletions";
+import {
+  isInsideLoadDynamicComponent,
+  getGDomCompletions,
+} from "../server/completion/scriptCompletions";
 import { gdomRegistry, scanGDomTypes } from "../server/registry/gdomTypeScanner";
 import { TextDocument } from "vscode-languageserver-textdocument";
 
@@ -65,16 +79,10 @@ suite("Extension Test Suite", () => {
       
       export default getData;
     `;
-    const { analysis } = analyzeAndParseDocument(
-      "file:///test/handler.ts",
-      code,
-    );
+    const { analysis } = analyzeAndParseDocument("file:///test/handler.ts", code);
     assert.strictEqual(analysis.errors.length, 0);
     assert.strictEqual(analysis.imports.length, 1);
-    assert.strictEqual(
-      analysis.imports[0].moduleSpecifier,
-      "streak-forge/components",
-    );
+    assert.strictEqual(analysis.imports[0].moduleSpecifier, "streak-forge/components");
     assert.ok(analysis.imports[0].namedImports.includes("WidgetPlaceholder"));
     assert.ok(analysis.exports.some((e) => e.isDefault));
   });
@@ -155,10 +163,7 @@ suite("Extension Test Suite", () => {
         return <div>{count}</div>;
       }
     `;
-    const { analysis, sourceFile } = analyzeAndParseDocument(
-      "file:///test/Comp.tsx",
-      code,
-    );
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/Comp.tsx", code);
     const diags = reactHooksNotAllowedRule.run(sourceFile, analysis);
     assert.strictEqual(diags.length, 1);
     assert.strictEqual(diags[0].code, "streak:S302");
@@ -170,10 +175,7 @@ suite("Extension Test Suite", () => {
         return <h1>{props.data.title}</h1>;
       }
     `;
-    const { analysis, sourceFile } = analyzeAndParseDocument(
-      "file:///test/Widget.tsx",
-      code,
-    );
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/Widget.tsx", code);
     const diags = unsafeWidgetDataAccessRule.run(sourceFile, analysis);
     assert.strictEqual(diags.length, 1);
     assert.strictEqual(diags[0].code, "streak:S303");
@@ -188,10 +190,7 @@ suite("Extension Test Suite", () => {
         return <h1>{props.data?.title}</h1>;
       }
     `;
-    const { analysis, sourceFile } = analyzeAndParseDocument(
-      "file:///test/Widget.tsx",
-      code,
-    );
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/Widget.tsx", code);
     const diags = invalidWidgetPropsContractRule.run(sourceFile, analysis);
     assert.strictEqual(diags.length, 1);
     assert.strictEqual(diags[0].code, "streak:S304");
@@ -210,10 +209,7 @@ suite("Extension Test Suite", () => {
         );
       }
     `;
-    const { analysis, sourceFile } = analyzeAndParseDocument(
-      "file:///test/ScriptComp.tsx",
-      code,
-    );
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/ScriptComp.tsx", code);
     const diags = scriptClosureCaptureRule.run(sourceFile, analysis);
     assert.strictEqual(diags.length, 1);
     assert.strictEqual(diags[0].code, "streak:S401");
@@ -232,10 +228,7 @@ suite("Extension Test Suite", () => {
         );
       }
     `;
-    const { analysis, sourceFile } = analyzeAndParseDocument(
-      "file:///test/ScriptAsync.tsx",
-      code,
-    );
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/ScriptAsync.tsx", code);
     const diags = asyncScriptCallbackRule.run(sourceFile, analysis);
     assert.strictEqual(diags.length, 1);
     assert.strictEqual(diags[0].code, "streak:S404");
@@ -248,10 +241,7 @@ suite("Extension Test Suite", () => {
         return <Dynamic id="" />;
       }
     `;
-    const { analysis, sourceFile } = analyzeAndParseDocument(
-      "file:///test/DynamicComp.tsx",
-      code,
-    );
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/DynamicComp.tsx", code);
     const diags = dynamicComponentIdRule.run(sourceFile, analysis);
     assert.strictEqual(diags.length, 1);
     assert.strictEqual(diags[0].code, "streak:S501");
@@ -265,10 +255,7 @@ suite("Extension Test Suite", () => {
         return <WidgetPlaceholder id="" type="" />;
       }
     `;
-    const { analysis, sourceFile } = analyzeAndParseDocument(
-      "file:///test/Incomplete.tsx",
-      code,
-    );
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/Incomplete.tsx", code);
     const lspDiagnostics = runRules(sourceFile, analysis);
     assert.ok(lspDiagnostics.length >= 2);
     assert.ok(lspDiagnostics.some((d) => d.code === "streak:S101"));
@@ -294,10 +281,7 @@ suite("Extension Test Suite", () => {
       assert.doesNotThrow(() => {
         parsed = JSON.parse(content);
       }, `${file} is not valid JSON`);
-      assert.ok(
-        typeof parsed === "object" && parsed !== null,
-        `${file} must be a JSON object`,
-      );
+      assert.ok(typeof parsed === "object" && parsed !== null, `${file} must be a JSON object`);
     });
 
     test(`Snippet file ${file} entries have required fields`, () => {
@@ -413,22 +397,12 @@ suite("Extension Test Suite", () => {
         return <div>Hello</div>;
       }
     `;
-    const { sourceFile } = analyzeAndParseDocument(
-      "file:///test/comp1.tsx",
-      code1,
-    );
-    const doc1 = TextDocument.create(
-      "file:///test/comp1.tsx",
-      "typescriptreact",
-      1,
-      code1,
-    );
+    const { sourceFile } = analyzeAndParseDocument("file:///test/comp1.tsx", code1);
+    const doc1 = TextDocument.create("file:///test/comp1.tsx", "typescriptreact", 1, code1);
     const edits1 = getAutoImportEdit(doc1, sourceFile, "WidgetPlaceholder");
     assert.strictEqual(edits1.length, 1);
     assert.ok(
-      edits1[0].newText.includes(
-        'import { WidgetPlaceholder } from "streak-forge/components";',
-      ),
+      edits1[0].newText.includes('import { WidgetPlaceholder } from "streak-forge/components";'),
     );
 
     const code2 = `
@@ -437,16 +411,8 @@ suite("Extension Test Suite", () => {
         return <Preload href="/a" as="style" />;
       }
     `;
-    const { sourceFile: sf2 } = analyzeAndParseDocument(
-      "file:///test/comp2.tsx",
-      code2,
-    );
-    const doc2 = TextDocument.create(
-      "file:///test/comp2.tsx",
-      "typescriptreact",
-      1,
-      code2,
-    );
+    const { sourceFile: sf2 } = analyzeAndParseDocument("file:///test/comp2.tsx", code2);
+    const doc2 = TextDocument.create("file:///test/comp2.tsx", "typescriptreact", 1, code2);
     const edits2 = getAutoImportEdit(doc2, sf2, "WidgetPlaceholder");
     assert.strictEqual(edits2.length, 1);
     assert.ok(edits2[0].newText.includes("Preload"));
@@ -461,16 +427,8 @@ suite("Extension Test Suite", () => {
       const a = <
     `;
     const offset1 = code1.indexOf("<") + 1;
-    const { sourceFile: sf1 } = analyzeAndParseDocument(
-      "file:///test/comp1.tsx",
-      code1,
-    );
-    const doc1 = TextDocument.create(
-      "file:///test/comp1.tsx",
-      "typescriptreact",
-      1,
-      code1,
-    );
+    const { sourceFile: sf1 } = analyzeAndParseDocument("file:///test/comp1.tsx", code1);
+    const doc1 = TextDocument.create("file:///test/comp1.tsx", "typescriptreact", 1, code1);
 
     const items1 = getCompletions(
       {
@@ -506,18 +464,9 @@ suite("Extension Test Suite", () => {
         );
       }
     `;
-    const offset2 =
-      code2.indexOf('loadDynamicComponent("') + 'loadDynamicComponent("'.length;
-    const { sourceFile: sf2 } = analyzeAndParseDocument(
-      "file:///test/comp2.tsx",
-      code2,
-    );
-    const doc2 = TextDocument.create(
-      "file:///test/comp2.tsx",
-      "typescriptreact",
-      1,
-      code2,
-    );
+    const offset2 = code2.indexOf('loadDynamicComponent("') + 'loadDynamicComponent("'.length;
+    const { sourceFile: sf2 } = analyzeAndParseDocument("file:///test/comp2.tsx", code2);
+    const doc2 = TextDocument.create("file:///test/comp2.tsx", "typescriptreact", 1, code2);
 
     const items2 = getCompletions(
       {
@@ -548,10 +497,7 @@ suite("Extension Test Suite", () => {
         );
       }
     `;
-    const { sourceFile, analysis } = analyzeAndParseDocument(
-      "file:///test/scriptId.tsx",
-      code,
-    );
+    const { sourceFile, analysis } = analyzeAndParseDocument("file:///test/scriptId.tsx", code);
     const diagnostics = scriptRequiredIdRule.run(sourceFile, analysis);
     assert.strictEqual(diagnostics.length, 2);
     assert.strictEqual(diagnostics[0].code, "streak:S405");
@@ -560,18 +506,9 @@ suite("Extension Test Suite", () => {
   });
 
   test("getAutoImportEdit formats multi-line merging", () => {
-    const code =
-      'import { WidgetPlaceholder } from "streak-forge/components";\n';
-    const { sourceFile } = analyzeAndParseDocument(
-      "file:///test/importMerge.tsx",
-      code,
-    );
-    const doc = TextDocument.create(
-      "file:///test/importMerge.tsx",
-      "typescriptreact",
-      1,
-      code,
-    );
+    const code = 'import { WidgetPlaceholder } from "streak-forge/components";\n';
+    const { sourceFile } = analyzeAndParseDocument("file:///test/importMerge.tsx", code);
+    const doc = TextDocument.create("file:///test/importMerge.tsx", "typescriptreact", 1, code);
     const edits = getAutoImportEdit(doc, sourceFile, "Script");
     assert.strictEqual(edits.length, 1);
     assert.ok(edits[0].newText.includes("WidgetPlaceholder"));
@@ -593,16 +530,8 @@ suite("Extension Test Suite", () => {
       }
     `;
     const offset = code.indexOf("gDom.") + "gDom.".length;
-    const { sourceFile } = analyzeAndParseDocument(
-      "file:///test/gdomComp.tsx",
-      code,
-    );
-    const doc = TextDocument.create(
-      "file:///test/gdomComp.tsx",
-      "typescriptreact",
-      1,
-      code,
-    );
+    const { sourceFile } = analyzeAndParseDocument("file:///test/gdomComp.tsx", code);
+    const doc = TextDocument.create("file:///test/gdomComp.tsx", "typescriptreact", 1, code);
     const items = getCompletions(
       {
         text: code,
@@ -634,16 +563,8 @@ suite("Extension Test Suite", () => {
       }
     `;
     const offset = code.indexOf("sf") + "sf".length;
-    const { sourceFile } = analyzeAndParseDocument(
-      "file:///test/sfComp.tsx",
-      code,
-    );
-    const doc = TextDocument.create(
-      "file:///test/sfComp.tsx",
-      "typescriptreact",
-      1,
-      code,
-    );
+    const { sourceFile } = analyzeAndParseDocument("file:///test/sfComp.tsx", code);
+    const doc = TextDocument.create("file:///test/sfComp.tsx", "typescriptreact", 1, code);
     const items = getCompletions(
       {
         text: code,
@@ -662,10 +583,7 @@ suite("Extension Test Suite", () => {
 
   test("sfWid and sfWidE snippet completions suggest scaffolding in widgets/ directory", () => {
     const code = "sf";
-    const { sourceFile } = analyzeAndParseDocument(
-      "file:///test/widgets/HelloPager.tsx",
-      code,
-    );
+    const { sourceFile } = analyzeAndParseDocument("file:///test/widgets/HelloPager.tsx", code);
     const doc = TextDocument.create(
       "file:///test/widgets/HelloPager.tsx",
       "typescriptreact",
@@ -700,9 +618,7 @@ suite("Extension Test Suite", () => {
       "sfWidE should define HelloPagerProps",
     );
     assert.ok(
-      sfWidEItem.insertText?.includes(
-        "const HelloPager = (props: HelloPagerProps) => {",
-      ),
+      sfWidEItem.insertText?.includes("const HelloPager = (props: HelloPagerProps) => {"),
       "sfWidE should define HelloPager with props",
     );
   });
@@ -725,34 +641,23 @@ suite("Extension Test Suite", () => {
         );
       }
     `;
-    const { sourceFile } = analyzeAndParseDocument(
-      "file:///test/hoverComp.tsx",
-      code,
-    );
+    const { sourceFile } = analyzeAndParseDocument("file:///test/hoverComp.tsx", code);
 
     // 1. Test WidgetPlaceholder
-    const wpNode = sourceFile.getDescendantAtPos(
-      code.indexOf("<WidgetPlaceholder") + 1,
-    );
+    const wpNode = sourceFile.getDescendantAtPos(code.indexOf("<WidgetPlaceholder") + 1);
     assert.ok(wpNode);
     const wpResult = resolveHover(wpNode) as Hover;
     assert.ok(wpResult);
     assert.ok(
-      (wpResult.contents as MarkupContent).value.includes(
-        "Streak `<WidgetPlaceholder>` Component",
-      ),
+      (wpResult.contents as MarkupContent).value.includes("Streak `<WidgetPlaceholder>` Component"),
     );
 
     // 2. Test Preload
-    const preNode = sourceFile.getDescendantAtPos(
-      code.indexOf("<Preload") + 1,
-    );
+    const preNode = sourceFile.getDescendantAtPos(code.indexOf("<Preload") + 1);
     assert.ok(preNode);
     const preResult = resolveHover(preNode) as Hover;
     assert.ok(preResult);
-    assert.ok(
-      (preResult.contents as MarkupContent).value.includes("Streak `<Preload>` Component"),
-    );
+    assert.ok((preResult.contents as MarkupContent).value.includes("Streak `<Preload>` Component"));
 
     // 3. Test Dynamic
     const dyNode = sourceFile.getDescendantAtPos(code.indexOf("<Dynamic") + 1);
@@ -786,10 +691,7 @@ suite("Extension Test Suite", () => {
         );
       }
     `;
-    const { sourceFile } = analyzeAndParseDocument(
-      "file:///test/hoverAttr.tsx",
-      code,
-    );
+    const { sourceFile } = analyzeAndParseDocument("file:///test/hoverAttr.tsx", code);
 
     // 1. Test WidgetPlaceholder type attribute
     const typeOffset = code.indexOf('type="Banner"') + 1;
@@ -870,10 +772,7 @@ suite("Extension Test Suite", () => {
       }
     `;
 
-    const { sourceFile } = analyzeAndParseDocument(
-      "file:///test/defTest.tsx",
-      code,
-    );
+    const { sourceFile } = analyzeAndParseDocument("file:///test/defTest.tsx", code);
 
     // 1. Test WidgetPlaceholder type
     const typeOffset = code.indexOf("HomeBanner");
@@ -919,16 +818,8 @@ suite("Extension Test Suite", () => {
         );
       }
     `;
-    const { sourceFile } = analyzeAndParseDocument(
-      "file:///test/codeActionJsx.tsx",
-      code,
-    );
-    const doc = TextDocument.create(
-      "file:///test/codeActionJsx.tsx",
-      "typescriptreact",
-      1,
-      code,
-    );
+    const { sourceFile } = analyzeAndParseDocument("file:///test/codeActionJsx.tsx", code);
+    const doc = TextDocument.create("file:///test/codeActionJsx.tsx", "typescriptreact", 1, code);
 
     // 1. Script missing id (S405)
     const scriptIndex = code.indexOf("<Script>");
@@ -943,8 +834,7 @@ suite("Extension Test Suite", () => {
     assert.strictEqual(actionsS405.length, 1);
     assert.strictEqual(actionsS405[0].title, "Add id attribute to <Script>");
     assert.strictEqual(
-      actionsS405[0].edit?.changes?.["file:///test/codeActionJsx.tsx"]?.[0]
-        ?.newText,
+      actionsS405[0].edit?.changes?.["file:///test/codeActionJsx.tsx"]?.[0]?.newText,
       ' id="my-script"',
     );
 
@@ -959,10 +849,7 @@ suite("Extension Test Suite", () => {
 
     const actionsS101 = resolveCodeActions([diagS101], doc, sourceFile);
     assert.strictEqual(actionsS101.length, 1);
-    assert.strictEqual(
-      actionsS101[0].title,
-      "Add id attribute to <WidgetPlaceholder>",
-    );
+    assert.strictEqual(actionsS101[0].title, "Add id attribute to <WidgetPlaceholder>");
 
     // 3. WidgetPlaceholder missing type (S101 with 'type')
     const diagS101Type = {
@@ -973,10 +860,7 @@ suite("Extension Test Suite", () => {
 
     const actionsS101Type = resolveCodeActions([diagS101Type], doc, sourceFile);
     assert.strictEqual(actionsS101Type.length, 1);
-    assert.strictEqual(
-      actionsS101Type[0].title,
-      "Add type attribute to <WidgetPlaceholder>",
-    );
+    assert.strictEqual(actionsS101Type[0].title, "Add type attribute to <WidgetPlaceholder>");
 
     // 4. Dynamic missing id (S501)
     const dyIndex = code.indexOf("<Dynamic />");
@@ -997,16 +881,8 @@ suite("Extension Test Suite", () => {
       export function myHandler() {}
       export const myArrow = () => {};
     `;
-    const { sourceFile } = analyzeAndParseDocument(
-      "file:///test/codeActionAsync.ts",
-      code,
-    );
-    const doc = TextDocument.create(
-      "file:///test/codeActionAsync.ts",
-      "typescript",
-      1,
-      code,
-    );
+    const { sourceFile } = analyzeAndParseDocument("file:///test/codeActionAsync.ts", code);
+    const doc = TextDocument.create("file:///test/codeActionAsync.ts", "typescript", 1, code);
 
     // 1. Function declaration
     const fnPos = doc.positionAt(code.indexOf("function myHandler"));
@@ -1020,8 +896,7 @@ suite("Extension Test Suite", () => {
     assert.strictEqual(actionsS202_1.length, 1);
     assert.strictEqual(actionsS202_1[0].title, "Make handler async");
     assert.strictEqual(
-      actionsS202_1[0].edit?.changes?.["file:///test/codeActionAsync.ts"]?.[0]
-        ?.newText,
+      actionsS202_1[0].edit?.changes?.["file:///test/codeActionAsync.ts"]?.[0]?.newText,
       "async ",
     );
 
@@ -1042,16 +917,8 @@ suite("Extension Test Suite", () => {
     const code = `
       export const myComponent = () => {};
     `;
-    const { sourceFile } = analyzeAndParseDocument(
-      "file:///test/AboutData.tsx",
-      code,
-    );
-    const doc = TextDocument.create(
-      "file:///test/AboutData.tsx",
-      "typescriptreact",
-      1,
-      code,
-    );
+    const { sourceFile } = analyzeAndParseDocument("file:///test/AboutData.tsx", code);
+    const doc = TextDocument.create("file:///test/AboutData.tsx", "typescriptreact", 1, code);
 
     const startPos = doc.positionAt(0);
     const diagS301 = {
@@ -1062,14 +929,11 @@ suite("Extension Test Suite", () => {
 
     const actionsS301 = resolveCodeActions([diagS301], doc, sourceFile);
     assert.strictEqual(actionsS301.length, 1);
-    assert.strictEqual(
-      actionsS301[0].title,
-      "Add default export for AboutData",
-    );
+    assert.strictEqual(actionsS301[0].title, "Add default export for AboutData");
     assert.ok(
-      actionsS301[0].edit?.changes?.[
-        "file:///test/AboutData.tsx"
-      ]?.[0]?.newText.includes("export default AboutData;"),
+      actionsS301[0].edit?.changes?.["file:///test/AboutData.tsx"]?.[0]?.newText.includes(
+        "export default AboutData;",
+      ),
     );
   });
 
@@ -1115,29 +979,20 @@ suite("Extension Test Suite", () => {
     const meta = widgetRegistry.get("ProductCard");
     assert.ok(meta);
     assert.strictEqual(meta.name, "ProductCard");
-    assert.strictEqual(
-      meta.docComment,
-      "Renders a customizable product item card display.",
-    );
+    assert.strictEqual(meta.docComment, "Renders a customizable product item card display.");
     assert.strictEqual(meta.props.length, 2);
 
     const titleProp = meta.props.find((p) => p.name === "title");
     assert.ok(titleProp);
     assert.strictEqual(titleProp.type, "string");
     assert.strictEqual(titleProp.isOptional, false);
-    assert.strictEqual(
-      titleProp.docComment,
-      "The display label name of the product item.",
-    );
+    assert.strictEqual(titleProp.docComment, "The display label name of the product item.");
 
     const priceProp = meta.props.find((p) => p.name === "price");
     assert.ok(priceProp);
     assert.strictEqual(priceProp.type, "number");
     assert.strictEqual(priceProp.isOptional, true);
-    assert.strictEqual(
-      priceProp.docComment,
-      "Optional price label tag format.",
-    );
+    assert.strictEqual(priceProp.docComment, "Optional price label tag format.");
 
     // 2. Assert autocomplete includes rich documentation for ProductCard
     const autocompleteCode = `
@@ -1154,14 +1009,8 @@ suite("Extension Test Suite", () => {
         line: 2,
         character: offset,
       },
-      TextDocument.create(
-        "file:///test/main.tsx",
-        "typescriptreact",
-        1,
-        autocompleteCode,
-      ),
-      analyzeAndParseDocument("file:///test/main.tsx", autocompleteCode)
-        .sourceFile,
+      TextDocument.create("file:///test/main.tsx", "typescriptreact", 1, autocompleteCode),
+      analyzeAndParseDocument("file:///test/main.tsx", autocompleteCode).sourceFile,
       tempRoot,
     );
 
@@ -1170,26 +1019,19 @@ suite("Extension Test Suite", () => {
     assert.strictEqual(compItem.detail, "Custom Project Widget");
     assert.ok(compItem.documentation);
     const docValue = (compItem.documentation as MarkupContent).value;
-    assert.ok(
-      docValue.includes("Renders a customizable product item card display."),
-    );
+    assert.ok(docValue.includes("Renders a customizable product item card display."));
     assert.ok(docValue.includes("title: string"));
     assert.ok(docValue.includes("price?: number"));
 
     // 3. Assert Hover over type value resolves custom properties documentation
     const hoverOffset = autocompleteCode.indexOf("ProductCard");
-    const { sourceFile } = analyzeAndParseDocument(
-      "file:///test/main.tsx",
-      autocompleteCode,
-    );
+    const { sourceFile } = analyzeAndParseDocument("file:///test/main.tsx", autocompleteCode);
     const hoverNode = sourceFile.getDescendantAtPos(hoverOffset);
     assert.ok(hoverNode);
     const hoverResult = resolveHover(hoverNode);
     assert.ok(hoverResult);
     const hoverVal = (hoverResult.contents as MarkupContent).value;
-    assert.ok(
-      hoverVal.includes("Renders a customizable product item card display."),
-    );
+    assert.ok(hoverVal.includes("Renders a customizable product item card display."));
     assert.ok(hoverVal.includes("title: string"));
     assert.ok(hoverVal.includes("price?: number"));
 
@@ -1209,10 +1051,7 @@ suite("Extension Test Suite", () => {
     const code = `
       export default function HeaderWidget() { return <div />; }
     `;
-    const { sourceFile } = analyzeAndParseDocument(
-      "c:/project/src/widgets/HeaderWidget.tsx",
-      code,
-    );
+    const { sourceFile } = analyzeAndParseDocument("c:/project/src/widgets/HeaderWidget.tsx", code);
     const diags = duplicatedWidgetRule.run(sourceFile, {
       uri: "c:/project/src/widgets/HeaderWidget.tsx",
       exports: [],
@@ -1223,11 +1062,7 @@ suite("Extension Test Suite", () => {
     });
     assert.strictEqual(diags.length, 1);
     assert.strictEqual(diags[0].code, "streak:S601");
-    assert.ok(
-      diags[0].message.includes(
-        "Duplicated widget component name 'HeaderWidget'",
-      ),
-    );
+    assert.ok(diags[0].message.includes("Duplicated widget component name 'HeaderWidget'"));
 
     widgetRegistry.clear();
   });
@@ -1252,10 +1087,7 @@ suite("Extension Test Suite", () => {
         );
       }
     `;
-    const { sourceFile } = analyzeAndParseDocument(
-      "file:///test/nested.tsx",
-      code,
-    );
+    const { sourceFile } = analyzeAndParseDocument("file:///test/nested.tsx", code);
     const diags = componentNestingRule.run(sourceFile, {
       uri: "file:///test/nested.tsx",
       exports: [],
@@ -1296,10 +1128,7 @@ suite("Extension Test Suite", () => {
         );
       }
     `;
-    const { sourceFile } = analyzeAndParseDocument(
-      "file:///test/struct.tsx",
-      code,
-    );
+    const { sourceFile } = analyzeAndParseDocument("file:///test/struct.tsx", code);
     const diags = scriptStructureRule.run(sourceFile, {
       uri: "file:///test/struct.tsx",
       exports: [],
@@ -1310,15 +1139,11 @@ suite("Extension Test Suite", () => {
     });
     assert.strictEqual(diags.length, 3);
     assert.strictEqual(diags[0].code, "streak:S603");
-    assert.ok(
-      diags[0].message.includes("requires an inline execution callback"),
-    );
+    assert.ok(diags[0].message.includes("requires an inline execution callback"));
     assert.strictEqual(diags[1].code, "streak:S603");
     assert.ok(diags[1].message.includes("must be wrapped in a JSX expression"));
     assert.strictEqual(diags[2].code, "streak:S603");
-    assert.ok(
-      diags[2].message.includes("must be a client-side function expression"),
-    );
+    assert.ok(diags[2].message.includes("must be a client-side function expression"));
   });
 
   test("streak:S702 flags banned patterns matched by regular expressions", () => {
@@ -1327,10 +1152,7 @@ suite("Extension Test Suite", () => {
       const y = setTimeout(() => {}, 100);
       console.log("hello");
     `;
-    const { sourceFile } = analyzeAndParseDocument(
-      "file:///test/patterns.ts",
-      code,
-    );
+    const { sourceFile } = analyzeAndParseDocument("file:///test/patterns.ts", code);
 
     // Test with eval and setTimeout banned
     const diags = forbiddenPatternsRule.run(
@@ -1359,7 +1181,8 @@ suite("Extension Test Suite", () => {
     process.env.STREAK_TEST_ENVIRONMENT = "1";
     const originalShowInputBox = vscode.window.showInputBox;
     // eslint-disable-next-line @typescript-eslint/require-await
-    (vscode.window as unknown as { showInputBox: () => Promise<string> }).showInputBox = async () => "MyScaffoldedWidget";
+    (vscode.window as unknown as { showInputBox: () => Promise<string> }).showInputBox = async () =>
+      "MyScaffoldedWidget";
 
     const tempDir = path.join(__dirname, "..", "..", "test-scaffold-temp");
     fs.mkdirSync(tempDir, { recursive: true });
@@ -1388,9 +1211,7 @@ suite("Extension Test Suite", () => {
       assert.ok(fs.existsSync(testFile));
       const content = fs.readFileSync(testFile, "utf-8");
       assert.ok(
-        content.includes(
-          "const MyScaffoldedWidget = (props: MyScaffoldedWidgetProps) => {",
-        ),
+        content.includes("const MyScaffoldedWidget = (props: MyScaffoldedWidgetProps) => {"),
       );
     } finally {
       delete process.env.STREAK_TEST_ENVIRONMENT;
@@ -1413,10 +1234,16 @@ suite("Extension Test Suite", () => {
     const widgetRes = analyzeAndParseDocument("file:///workspace/src/widgets/MyWidget.tsx", code);
     assert.strictEqual(widgetRes.analysis.isWidget, true);
 
-    const nonWidgetRes = analyzeAndParseDocument("file:///workspace/src/components/MyWidget.tsx", code);
+    const nonWidgetRes = analyzeAndParseDocument(
+      "file:///workspace/src/components/MyWidget.tsx",
+      code,
+    );
     assert.strictEqual(nonWidgetRes.analysis.isWidget, false);
 
-    const nonWidgetTsRes = analyzeAndParseDocument("file:///workspace/src/widgets/MyWidget.ts", code);
+    const nonWidgetTsRes = analyzeAndParseDocument(
+      "file:///workspace/src/widgets/MyWidget.ts",
+      code,
+    );
     assert.strictEqual(nonWidgetTsRes.analysis.isWidget, false);
   });
 
@@ -1426,8 +1253,14 @@ suite("Extension Test Suite", () => {
       const MyBanner = () => { return <div />; };
       export default MyBanner;
     `;
-    const resValid = analyzeAndParseDocument("file:///workspace/src/widgets/MyBanner.tsx", codeValid);
-    const diagsValid = widgetFilenameMatchesComponentRule.run(resValid.sourceFile, resValid.analysis);
+    const resValid = analyzeAndParseDocument(
+      "file:///workspace/src/widgets/MyBanner.tsx",
+      codeValid,
+    );
+    const diagsValid = widgetFilenameMatchesComponentRule.run(
+      resValid.sourceFile,
+      resValid.analysis,
+    );
     assert.strictEqual(diagsValid.length, 0);
 
     // Invalid: filename does not match component name
@@ -1435,8 +1268,14 @@ suite("Extension Test Suite", () => {
       const HeroBanner = () => { return <div />; };
       export default HeroBanner;
     `;
-    const resInvalid = analyzeAndParseDocument("file:///workspace/src/widgets/MyBanner.tsx", codeInvalid);
-    const diagsInvalid = widgetFilenameMatchesComponentRule.run(resInvalid.sourceFile, resInvalid.analysis);
+    const resInvalid = analyzeAndParseDocument(
+      "file:///workspace/src/widgets/MyBanner.tsx",
+      codeInvalid,
+    );
+    const diagsInvalid = widgetFilenameMatchesComponentRule.run(
+      resInvalid.sourceFile,
+      resInvalid.analysis,
+    );
     assert.strictEqual(diagsInvalid.length, 1);
     assert.strictEqual(diagsInvalid[0].code, "streak:S801");
     assert.strictEqual(diagsInvalid[0].message, "Widget filename and component name must match.");
@@ -1466,7 +1305,10 @@ suite("Extension Test Suite", () => {
     assert.strictEqual(diags.length, 1);
     assert.strictEqual(diags[0].code, "streak:S302");
     assert.strictEqual(diags[0].severity, 1); // DiagnosticSeverity.Error
-    assert.strictEqual(diags[0].message, "Widgets must remain stateless. Use Script components for client-side behavior.");
+    assert.strictEqual(
+      diags[0].message,
+      "Widgets must remain stateless. Use Script components for client-side behavior.",
+    );
   });
 
   test("streak:S303 rule uses custom warning for direct props.data access in widgets", () => {
@@ -1492,7 +1334,10 @@ suite("Extension Test Suite", () => {
       };
       export default MyBanner;
     `;
-    const { sourceFile } = analyzeAndParseDocument("file:///workspace/src/widgets/MyBanner.tsx", code);
+    const { sourceFile } = analyzeAndParseDocument(
+      "file:///workspace/src/widgets/MyBanner.tsx",
+      code,
+    );
 
     // Hover over "data" in "props.data"
     const dataOffset = code.indexOf("props.data") + "props.".length;
@@ -1573,12 +1418,24 @@ suite("Extension Test Suite", () => {
 
     // S901 (duplicate route "/"), S905 (duplicate renderId "homeRenderId"), S902 (missing widget warning), S903 (missing handler warning), S906 (missing layout warning), S907 (invalid loadingStrategy warning)
     assert.ok(diags.length >= 7);
-    assert.ok(diags.some((d) => d.code === "streak:S901" && d.severity === DiagnosticSeverity.Error));
-    assert.ok(diags.some((d) => d.code === "streak:S905" && d.severity === DiagnosticSeverity.Error));
-    assert.ok(diags.some((d) => d.code === "streak:S902" && d.severity === DiagnosticSeverity.Warning));
-    assert.ok(diags.some((d) => d.code === "streak:S903" && d.severity === DiagnosticSeverity.Warning));
-    assert.ok(diags.some((d) => d.code === "streak:S906" && d.severity === DiagnosticSeverity.Warning));
-    assert.ok(diags.some((d) => d.code === "streak:S907" && d.severity === DiagnosticSeverity.Warning));
+    assert.ok(
+      diags.some((d) => d.code === "streak:S901" && d.severity === DiagnosticSeverity.Error),
+    );
+    assert.ok(
+      diags.some((d) => d.code === "streak:S905" && d.severity === DiagnosticSeverity.Error),
+    );
+    assert.ok(
+      diags.some((d) => d.code === "streak:S902" && d.severity === DiagnosticSeverity.Warning),
+    );
+    assert.ok(
+      diags.some((d) => d.code === "streak:S903" && d.severity === DiagnosticSeverity.Warning),
+    );
+    assert.ok(
+      diags.some((d) => d.code === "streak:S906" && d.severity === DiagnosticSeverity.Warning),
+    );
+    assert.ok(
+      diags.some((d) => d.code === "streak:S907" && d.severity === DiagnosticSeverity.Warning),
+    );
   });
 
   test("resolveSitemapDefinition navigates to widget, handler (.ts in src/handler), and layout (.tsx in src/layout) files", () => {
@@ -1606,9 +1463,18 @@ suite("Extension Test Suite", () => {
     fs.mkdirSync(handlerDir, { recursive: true });
     fs.mkdirSync(layoutDir, { recursive: true });
 
-    fs.writeFileSync(path.join(widgetsDir, "HelloBanner.tsx"), "export default function HelloBanner() {}");
-    fs.writeFileSync(path.join(handlerDir, "HomeDataHandler.ts"), "export default async function HomeDataHandler() { return { status: 200 }; }");
-    fs.writeFileSync(path.join(layoutDir, "MainLayout.tsx"), "export default function MainLayout() { return <div />; }");
+    fs.writeFileSync(
+      path.join(widgetsDir, "HelloBanner.tsx"),
+      "export default function HelloBanner() {}",
+    );
+    fs.writeFileSync(
+      path.join(handlerDir, "HomeDataHandler.ts"),
+      "export default async function HomeDataHandler() { return { status: 200 }; }",
+    );
+    fs.writeFileSync(
+      path.join(layoutDir, "MainLayout.tsx"),
+      "export default function MainLayout() { return <div />; }",
+    );
 
     try {
       const sitemapPath = path.join(tempRoot, "streak.sitemap.json");
@@ -1660,7 +1526,11 @@ suite("Extension Test Suite", () => {
     assert.ok((hoverSummary.contents as MarkupContent).value.includes("/about"));
 
     // Hover on widget type
-    const hoverWidget = resolveSitemapHover(doc, json.indexOf("HelloBanner") + 2, "/workspace") as Hover;
+    const hoverWidget = resolveSitemapHover(
+      doc,
+      json.indexOf("HelloBanner") + 2,
+      "/workspace",
+    ) as Hover;
     assert.ok(hoverWidget);
     assert.ok((hoverWidget.contents as MarkupContent).value.includes("Widget: HelloBanner"));
   });
@@ -1674,7 +1544,10 @@ suite("Extension Test Suite", () => {
 
     const json = `"type": "`;
     const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
-    const { sourceFile } = analyzeAndParseDocument("file:///test/dummy_completions.ts", "export default {}");
+    const { sourceFile } = analyzeAndParseDocument(
+      "file:///test/dummy_completions.ts",
+      "export default {}",
+    );
 
     const items = getCompletions(
       {
@@ -1693,7 +1566,12 @@ suite("Extension Test Suite", () => {
 
     // Check sf-widget snippet
     const jsonWidgetSnippet = "sf-w";
-    const docWidgetSnippet = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, jsonWidgetSnippet);
+    const docWidgetSnippet = TextDocument.create(
+      "file:///test/streak.sitemap.json",
+      "json",
+      1,
+      jsonWidgetSnippet,
+    );
     const itemsWidget = getCompletions(
       {
         text: jsonWidgetSnippet,
@@ -1706,11 +1584,18 @@ suite("Extension Test Suite", () => {
       sourceFile,
       "/workspace",
     );
-    assert.ok(itemsWidget.some((i) => i.label === "sf-widget" && i.detail === "Streak Widget entry"));
+    assert.ok(
+      itemsWidget.some((i) => i.label === "sf-widget" && i.detail === "Streak Widget entry"),
+    );
 
     // Check sf-sitemap snippet
     const jsonSitemapSnippet = "sf-s";
-    const docSitemapSnippet = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, jsonSitemapSnippet);
+    const docSitemapSnippet = TextDocument.create(
+      "file:///test/streak.sitemap.json",
+      "json",
+      1,
+      jsonSitemapSnippet,
+    );
     const itemsSitemap = getCompletions(
       {
         text: jsonSitemapSnippet,
@@ -1731,8 +1616,11 @@ suite("Extension Test Suite", () => {
       const UnusedWidget = () => { return <div />; };
       export default UnusedWidget;
     `;
-    const { sourceFile, analysis } = analyzeAndParseDocument("file:///workspace/src/widgets/UnusedWidget.tsx", code);
-    
+    const { sourceFile, analysis } = analyzeAndParseDocument(
+      "file:///workspace/src/widgets/UnusedWidget.tsx",
+      code,
+    );
+
     // Set sitemap pages to HelloBanner only, so UnusedWidget is dead
     sitemapRegistry.setPages("file:///test/streak.sitemap.json", [
       {
@@ -1740,7 +1628,7 @@ suite("Extension Test Suite", () => {
         widgets: [{ type: "HelloBanner", start: 0, end: 10 }],
         start: 0,
         end: 100,
-      }
+      },
     ]);
 
     const diags = deadWidgetRule.run(sourceFile, analysis);
@@ -1755,10 +1643,7 @@ suite("Extension Test Suite", () => {
       window.addEventListener("mousemove", () => {}, false);
       window.addEventListener("touchmove", () => {}, { passive: true });
     `;
-    const { analysis, sourceFile } = analyzeAndParseDocument(
-      "file:///test/events.tsx",
-      code,
-    );
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/events.tsx", code);
     const diags = passiveEventListenerRule.run(sourceFile, analysis);
     assert.strictEqual(diags.length, 2);
     assert.strictEqual(diags[0].code, "streak:S406");
@@ -1788,8 +1673,14 @@ suite("Extension Test Suite", () => {
     fs.mkdirSync(layoutDir, { recursive: true });
 
     // Exact casing on disk is HomeDataHandler.ts and MainLayout.tsx
-    fs.writeFileSync(path.join(handlerDir, "HomeDataHandler.ts"), "export default async function HomeDataHandler() { return { status: 200 }; }");
-    fs.writeFileSync(path.join(layoutDir, "MainLayout.tsx"), "export default function MainLayout() { return <div />; }");
+    fs.writeFileSync(
+      path.join(handlerDir, "HomeDataHandler.ts"),
+      "export default async function HomeDataHandler() { return { status: 200 }; }",
+    );
+    fs.writeFileSync(
+      path.join(layoutDir, "MainLayout.tsx"),
+      "export default function MainLayout() { return <div />; }",
+    );
 
     try {
       const diags = validateSitemap(doc, tempRoot);
@@ -1923,7 +1814,10 @@ suite("Extension Test Suite", () => {
     const widgetsDir = path.join(tmpDir, "src", "widgets");
     fs.mkdirSync(widgetsDir, { recursive: true });
     const widgetFilePath = path.join(widgetsDir, "HelloBanner.tsx");
-    fs.writeFileSync(widgetFilePath, "export default function HelloBanner() { return <div>Banner</div>; }");
+    fs.writeFileSync(
+      widgetFilePath,
+      "export default function HelloBanner() { return <div>Banner</div>; }",
+    );
 
     try {
       const code = `
@@ -2103,7 +1997,10 @@ suite("Extension Test Suite", () => {
         };
       }
     `;
-    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/src/handlers/HomeDataHandler.ts", code);
+    const { analysis, sourceFile } = analyzeAndParseDocument(
+      "file:///test/src/handlers/HomeDataHandler.ts",
+      code,
+    );
     const diags = dataHandlerWidgetKeyRule.run(sourceFile, analysis);
     assert.strictEqual(diags.length, 0);
   });
@@ -2118,7 +2015,10 @@ suite("Extension Test Suite", () => {
         return <div>{props.data.isEnabled}</div>;
       }
     `;
-    const { analysis: invalidAnalysis, sourceFile: invalidSource } = analyzeAndParseDocument("file:///test/src/widgets/AnnouncementBanner.tsx", invalidCode);
+    const { analysis: invalidAnalysis, sourceFile: invalidSource } = analyzeAndParseDocument(
+      "file:///test/src/widgets/AnnouncementBanner.tsx",
+      invalidCode,
+    );
     const invalidDiags = invalidWidgetPropsContractRule.run(invalidSource, invalidAnalysis);
     assert.strictEqual(invalidDiags.length, 1);
     assert.strictEqual(invalidDiags[0].code, "streak:S304");
@@ -2132,7 +2032,10 @@ suite("Extension Test Suite", () => {
         return <div>{props.data?.isEnabled}</div>;
       }
     `;
-    const { analysis: validAnalysis, sourceFile: validSource } = analyzeAndParseDocument("file:///test/src/widgets/AnnouncementBanner.tsx", validCode);
+    const { analysis: validAnalysis, sourceFile: validSource } = analyzeAndParseDocument(
+      "file:///test/src/widgets/AnnouncementBanner.tsx",
+      validCode,
+    );
     const validDiags = invalidWidgetPropsContractRule.run(validSource, validAnalysis);
     assert.strictEqual(validDiags.length, 0);
   });
@@ -2158,7 +2061,10 @@ suite("Extension Test Suite", () => {
         );
       }
     `;
-    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/src/widgets/TestWidget.tsx", code);
+    const { analysis, sourceFile } = analyzeAndParseDocument(
+      "file:///test/src/widgets/TestWidget.tsx",
+      code,
+    );
     const diags = scriptClosureCaptureRule.run(sourceFile, analysis);
     assert.strictEqual(diags.length, 0);
   });
@@ -2182,12 +2088,23 @@ suite("Extension Test Suite", () => {
 
       export default HomeDataHandler;
     `;
-    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/src/handlers/HomeDataHandler.ts", code);
+    const { analysis, sourceFile } = analyzeAndParseDocument(
+      "file:///test/src/handlers/HomeDataHandler.ts",
+      code,
+    );
     const statusDiags = dataHandlerStatusRule.run(sourceFile, analysis);
     const asyncDiags = dataHandlerAsyncRule.run(sourceFile, analysis);
 
-    assert.strictEqual(statusDiags.length, 0, "S201 should not flag utility helpers when default handler returns status");
-    assert.strictEqual(asyncDiags.length, 0, "S202 should not flag synchronous utility helpers when default handler is async");
+    assert.strictEqual(
+      statusDiags.length,
+      0,
+      "S201 should not flag utility helpers when default handler returns status",
+    );
+    assert.strictEqual(
+      asyncDiags.length,
+      0,
+      "S202 should not flag synchronous utility helpers when default handler is async",
+    );
   });
 
   test("streak:S201 and S202 flag invalid default export handler function declaration", () => {
@@ -2201,7 +2118,10 @@ suite("Extension Test Suite", () => {
         return { message: "no status" };
       }
     `;
-    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/src/handlers/HomeDataHandler.ts", code);
+    const { analysis, sourceFile } = analyzeAndParseDocument(
+      "file:///test/src/handlers/HomeDataHandler.ts",
+      code,
+    );
     const statusDiags = dataHandlerStatusRule.run(sourceFile, analysis);
     const asyncDiags = dataHandlerAsyncRule.run(sourceFile, analysis);
 
@@ -2347,5 +2267,3 @@ suite("Extension Test Suite", () => {
     }
   });
 });
-
-

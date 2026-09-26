@@ -1,9 +1,5 @@
 import { Node, Project, ScriptTarget, type SourceFile } from "ts-morph";
-import type {
-  AnalysisResult,
-  ExportInfo,
-  ImportInfo,
-} from "../../shared/types";
+import type { AnalysisResult, ExportInfo, ImportInfo } from "../../shared/types";
 
 // Create a single ts-morph Project instance for in-memory AST parsing
 const project = new Project({
@@ -39,10 +35,7 @@ function collectImports(sourceFile: SourceFile): ImportInfo[] {
   return imports;
 }
 
-function collectFunctionExports(
-  sourceFile: SourceFile,
-  components: string[],
-): ExportInfo[] {
+function collectFunctionExports(sourceFile: SourceFile, components: string[]): ExportInfo[] {
   const exports: ExportInfo[] = [];
   for (const func of sourceFile.getFunctions()) {
     const isDefault = func.isDefaultExport();
@@ -62,10 +55,7 @@ function collectFunctionExports(
   return exports;
 }
 
-function collectVariableExports(
-  sourceFile: SourceFile,
-  components: string[],
-): ExportInfo[] {
+function collectVariableExports(sourceFile: SourceFile, components: string[]): ExportInfo[] {
   const exports: ExportInfo[] = [];
   for (const varDecl of sourceFile.getVariableDeclarations()) {
     const name = varDecl.getName();
@@ -85,10 +75,7 @@ function collectVariableExports(
   return exports;
 }
 
-function collectExports(
-  sourceFile: SourceFile,
-  components: string[],
-): ExportInfo[] {
+function collectExports(sourceFile: SourceFile, components: string[]): ExportInfo[] {
   const exports: ExportInfo[] = [
     ...collectFunctionExports(sourceFile, components),
     ...collectVariableExports(sourceFile, components),
@@ -96,7 +83,7 @@ function collectExports(
 
   for (const exportAssign of sourceFile.getExportAssignments()) {
     if (!exportAssign.isExportEquals()) {
-      const exprText = exportAssign.getExpression()?.getText() ?? "default";
+      const exprText = exportAssign.getExpression().getText();
       exports.push({
         name: exprText,
         isDefault: true,
@@ -136,10 +123,7 @@ function collectJsxElements(sourceFile: SourceFile): string[] {
   return Array.from(jsxElementsSet);
 }
 
-export function analyzeAndParseDocument(
-  uri: string,
-  content: string,
-): ParseOutput {
+export function analyzeAndParseDocument(uri: string, content: string): ParseOutput {
   const suffix = uri.endsWith(".tsx") ? ".tsx" : ".ts";
   const uniqueName = encodeURIComponent(uri) + suffix;
 

@@ -171,24 +171,39 @@ function extractLoadingStrategy(loadingStrategyNode: JSONNode | undefined): stri
   if (typeof loadingStrategyNode.value === "string") {
     return loadingStrategyNode.value;
   }
-  if (typeof loadingStrategyNode.value === "number" || typeof loadingStrategyNode.value === "boolean") {
+  if (
+    typeof loadingStrategyNode.value === "number" ||
+    typeof loadingStrategyNode.value === "boolean"
+  ) {
     return String(loadingStrategyNode.value);
   }
   return loadingStrategyNode.type;
 }
 
+type PropsMap = Record<string, { keyNode: JSONNode; valNode: JSONNode } | undefined>;
+
+function getValNode(props: PropsMap, ...keys: string[]): JSONNode | undefined {
+  for (const key of keys) {
+    const entry = props[key];
+    if (entry?.valNode) {
+      return entry.valNode;
+    }
+  }
+  return undefined;
+}
+
 function parseSingleWidget(wNode: JSONNode): SitemapPageWidget | null {
-  if (wNode?.type !== "object") {
+  if (wNode.type !== "object") {
     return null;
   }
-  const wProps = wNode.value as Record<string, { keyNode: JSONNode; valNode: JSONNode }>;
-  const typeNode = wProps["type"]?.valNode;
+  const wProps = wNode.value as PropsMap;
+  const typeNode = getValNode(wProps, "type");
   if (typeNode?.type !== "string") {
     return null;
   }
 
-  const idNode = wProps["id"]?.valNode;
-  const loadingStrategyNode = wProps["loadingStrategy"]?.valNode;
+  const idNode = getValNode(wProps, "id");
+  const loadingStrategyNode = getValNode(wProps, "loadingStrategy");
 
   return {
     id: idNode?.type === "string" ? (idNode.value as string) : undefined,
@@ -230,16 +245,16 @@ interface ParsedRenderConfig {
   widgets?: SitemapPageWidget[];
 }
 
-function parseRenderConfig(props: Record<string, { keyNode: JSONNode; valNode: JSONNode }>): ParsedRenderConfig {
-  const renderConfigNode = props["renderConfig"]?.valNode;
+function parseRenderConfig(props: PropsMap): ParsedRenderConfig {
+  const renderConfigNode = getValNode(props, "renderConfig");
   if (renderConfigNode?.type !== "object") {
     return {};
   }
-  const subProps = renderConfigNode.value as Record<string, { keyNode: JSONNode; valNode: JSONNode }>;
-  const renderIdNode = subProps["renderId"]?.valNode || subProps["renderConfigID"]?.valNode || subProps["renderConfigId"]?.valNode;
-  const handlerNode = subProps["dataHandler"]?.valNode || subProps["handler"]?.valNode;
-  const layoutNode = subProps["rootLayout"]?.valNode || subProps["layout"]?.valNode;
-  const widgetsNode = subProps["widgets"]?.valNode;
+  const subProps = renderConfigNode.value as PropsMap;
+  const renderIdNode = getValNode(subProps, "renderId", "renderConfigID", "renderConfigId");
+  const handlerNode = getValNode(subProps, "dataHandler", "handler");
+  const layoutNode = getValNode(subProps, "rootLayout", "layout");
+  const widgetsNode = getValNode(subProps, "widgets");
 
   return {
     renderId: renderIdNode?.type === "string" ? (renderIdNode.value as string) : undefined,
@@ -259,25 +274,27 @@ function parsePageNode(pageNode: JSONNode): SitemapPage | null {
   if (pageNode.type !== "object") {
     return null;
   }
-  const props = pageNode.value as Record<string, { keyNode: JSONNode; valNode: JSONNode }>;
-  const urlNode = props["url"]?.valNode;
-  
+  const props = pageNode.value as PropsMap;
+  const urlNode = getValNode(props, "url");
+
   // Try top-level properties first
-  const topHandlerNode = props["dataHandler"]?.valNode || props["handler"]?.valNode;
-  const topLayoutNode = props["rootLayout"]?.valNode || props["layout"]?.valNode;
-  const topWidgetsNode = props["widgets"]?.valNode;
-  const renderConfigIdNode = props["renderId"]?.valNode || props["renderConfigID"]?.valNode || props["renderConfigId"]?.valNode;
+  const topHandlerNode = getValNode(props, "dataHandler", "handler");
+  const topLayoutNode = getValNode(props, "rootLayout", "layout");
+  const topWidgetsNode = getValNode(props, "widgets");
+  const renderConfigIdNode = getValNode(props, "renderId", "renderConfigID", "renderConfigId");
 
   const topWidgets = parseWidgets(topWidgetsNode);
 
   // Try nested renderConfig properties
   const config = parseRenderConfig(props);
 
-  const renderId = renderConfigIdNode?.type === "string" ? (renderConfigIdNode.value as string) : config.renderId;
+  const renderId =
+    renderConfigIdNode?.type === "string" ? (renderConfigIdNode.value as string) : config.renderId;
   const renderIdStart = renderConfigIdNode ? renderConfigIdNode.start : config.renderIdStart;
   const renderIdEnd = renderConfigIdNode ? renderConfigIdNode.end : config.renderIdEnd;
 
-  const handler = topHandlerNode?.type === "string" ? (topHandlerNode.value as string) : config.handler;
+  const handler =
+    topHandlerNode?.type === "string" ? (topHandlerNode.value as string) : config.handler;
   const handlerStart = topHandlerNode ? topHandlerNode.start : config.handlerStart;
   const handlerEnd = topHandlerNode ? topHandlerNode.end : config.handlerEnd;
 
@@ -285,7 +302,7 @@ function parsePageNode(pageNode: JSONNode): SitemapPage | null {
   const layoutStart = topLayoutNode ? topLayoutNode.start : config.layoutStart;
   const layoutEnd = topLayoutNode ? topLayoutNode.end : config.layoutEnd;
 
-  const widgets = topWidgets.length > 0 ? topWidgets : (config.widgets || []);
+  const widgets = topWidgets.length > 0 ? topWidgets : (config.widgets ?? []);
 
   return {
     url: urlNode?.type === "string" ? (urlNode.value as string) : undefined,
@@ -314,8 +331,8 @@ function extractRawPages(root: JSONNode | null): JSONNode[] {
     return root.value as JSONNode[];
   }
   if (root.type === "object") {
-    const props = root.value as Record<string, { keyNode: JSONNode; valNode: JSONNode }>;
-    const pagesNode = props["pages"]?.valNode;
+    const props = root.value as PropsMap;
+    const pagesNode = getValNode(props, "pages");
     if (pagesNode?.type === "array") {
       return pagesNode.value as JSONNode[];
     }
@@ -324,7 +341,7 @@ function extractRawPages(root: JSONNode | null): JSONNode[] {
 }
 
 export class SitemapRegistry {
-  private static instance: SitemapRegistry;
+  private static instance: SitemapRegistry | undefined;
   private sitemapPath = "";
   private pages: SitemapPage[] = [];
 
@@ -333,9 +350,7 @@ export class SitemapRegistry {
   }
 
   public static getInstance(): SitemapRegistry {
-    if (!SitemapRegistry.instance) {
-      SitemapRegistry.instance = new SitemapRegistry();
-    }
+    SitemapRegistry.instance ??= new SitemapRegistry();
     return SitemapRegistry.instance;
   }
 

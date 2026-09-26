@@ -1,7 +1,4 @@
-import {
-  type CompletionItem,
-  CompletionItemKind,
-} from "vscode-languageserver/node";
+import { type CompletionItem, CompletionItemKind } from "vscode-languageserver/node";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type CompletionContext } from "./types";
@@ -20,12 +17,7 @@ export interface JsxContext {
 const TAG_RE = /^(\w+)/;
 
 /** The JSX tags this extension provides completions for. */
-const SUPPORTED_TAGS = new Set([
-  "WidgetPlaceholder",
-  "Preload",
-  "Dynamic",
-  "Script",
-]);
+const SUPPORTED_TAGS = new Set(["WidgetPlaceholder", "Preload", "Dynamic", "Script"]);
 
 /** Matches object key lines inside return { ... } blocks, e.g. `  myKey:`. */
 const KEY_RE = /^\s*(\w[\w-]*)\s*:/;
@@ -48,11 +40,7 @@ const EXCLUDED_KEYS = new Set([
  * supported tags, or `undefined` otherwise.
  * Extracted to reduce cognitive complexity of getJsxContext.
  */
-function parseTagName(
-  text: string,
-  from: number,
-  to: number,
-): string | undefined {
+function parseTagName(text: string, from: number, to: number): string | undefined {
   const m = TAG_RE.exec(text.slice(from, to));
   return m && SUPPORTED_TAGS.has(m[1]) ? m[1] : undefined;
 }
@@ -66,9 +54,7 @@ function parseTagName(
  *
  * Returns `{ name, value }` if inside an open attribute value, or `undefined`.
  */
-function parseAttrSection(
-  attrSection: string,
-): { name: string; value: string } | undefined {
+function parseAttrSection(attrSection: string): { name: string; value: string } | undefined {
   // Find the last unmatched quote (the one opening the current value)
   const lastDq = attrSection.lastIndexOf('"');
   const lastSq = attrSection.lastIndexOf("'");
@@ -153,10 +139,7 @@ function buildWidgetDocumentation(
 /**
  * Parses backwards from cursor offset to see if we are inside a relevant JSX opening tag.
  */
-export function getJsxContext(
-  text: string,
-  offset: number,
-): JsxContext | undefined {
+export function getJsxContext(text: string, offset: number): JsxContext | undefined {
   let tagStart = -1;
   let tagName = "";
 
@@ -268,9 +251,7 @@ export function getPublicAssets(
 /**
  * Scans pages or handlers in src/pages directory and collects return keys as Widget IDs.
  */
-export function getWidgetIdsFromDataHandlers(
-  workspaceRoot: string | undefined,
-): string[] {
+export function getWidgetIdsFromDataHandlers(workspaceRoot: string | undefined): string[] {
   if (!workspaceRoot) {
     return [];
   }
@@ -335,9 +316,7 @@ export function getDynamicComponentIds(
             } else if (file.endsWith(".tsx")) {
               const content = fs.readFileSync(fullPath, "utf-8");
               if (content.includes("<Dynamic")) {
-                for (const m of content.matchAll(
-                  /<Dynamic\b[^>]*?\bid=["']([^"']+)["']/g,
-                )) {
+                for (const m of content.matchAll(/<Dynamic\b[^>]*?\bid=["']([^"']+)["']/g)) {
                   ids.add(m[1]);
                 }
               }
@@ -412,10 +391,7 @@ function getAttributeValueCompletions(
 ): CompletionItem[] {
   if (tagName === "WidgetPlaceholder") {
     if (attributeName === "type") {
-      return getWidgetPlaceholderTypeCompletions(
-        workspaceRoot,
-        customWidgetDir,
-      );
+      return getWidgetPlaceholderTypeCompletions(workspaceRoot, customWidgetDir);
     }
     if (attributeName === "id") {
       return getWidgetPlaceholderIdCompletions(workspaceRoot);
@@ -454,16 +430,12 @@ function getWidgetPlaceholderTypeCompletions(
       kind: CompletionItemKind.Value,
       insertText: type,
       detail,
-      documentation: documentation
-        ? { kind: "markdown", value: documentation }
-        : undefined,
+      documentation: documentation ? { kind: "markdown", value: documentation } : undefined,
     };
   });
 }
 
-function getWidgetPlaceholderIdCompletions(
-  workspaceRoot: string | undefined,
-): CompletionItem[] {
+function getWidgetPlaceholderIdCompletions(workspaceRoot: string | undefined): CompletionItem[] {
   const widgetIds = getWidgetIdsFromDataHandlers(workspaceRoot);
   return widgetIds.map((id) => ({
     label: id,

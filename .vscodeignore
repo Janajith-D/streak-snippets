@@ -6,7 +6,7 @@ src/**
 .gitignore
 .yarnrc
 webpack.config.js
-vsc-extension-quickstart.md
+.prettierignore
 **/tsconfig.json
 **/eslint.config.mjs
 **/*.map
@@ -14,7 +14,10 @@ vsc-extension-quickstart.md
 **/.vscode-test.*
 .github/**
 CONTRIBUTING.md
-vscode_language_support_roadmap.md
 test-registry-temp/**
 test-scaffold-temp/**
 test-workspace-temp/**
+docs/**
+.agents/**
+AGENTS.md
+

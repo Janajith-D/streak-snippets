@@ -2,23 +2,15 @@ import { Node, SyntaxKind, type SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
 import type { AnalysisResult } from "../../shared/types";
 import { getDefaultExportedHandler, isDataHandlerFile } from "./dataHandlerUtils";
-import {
-  getRangeFromNode,
-  type Rule,
-  type RuleDiagnostic,
-  type RuleOptions,
-} from "./types";
+import { getRangeFromNode, type Rule, type RuleDiagnostic, type RuleOptions } from "./types";
 
 function returnsStatus(fn: Node): boolean {
-  const objectLiterals = fn.getDescendantsOfKind(
-    SyntaxKind.ObjectLiteralExpression,
-  );
+  const objectLiterals = fn.getDescendantsOfKind(SyntaxKind.ObjectLiteralExpression);
   for (const obj of objectLiterals) {
     const properties = obj.getProperties();
     for (const prop of properties) {
       const propName =
-        Node.isPropertyAssignment(prop) ||
-        Node.isShorthandPropertyAssignment(prop)
+        Node.isPropertyAssignment(prop) || Node.isShorthandPropertyAssignment(prop)
           ? prop.getName()
           : prop.getText();
       if (propName === "status") {
@@ -36,11 +28,7 @@ export const dataHandlerStatusRule: Rule = {
     "Ensures Streak default-exported data handler function returns an object with a 'status' property (e.g. status: 200).",
   defaultSeverity: DiagnosticSeverity.Warning,
 
-  run(
-    sourceFile: SourceFile,
-    analysis: AnalysisResult,
-    options?: RuleOptions,
-  ): RuleDiagnostic[] {
+  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
