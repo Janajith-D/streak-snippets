@@ -34,17 +34,8 @@ export class GDomRegistry {
 
 export const gdomRegistry = new GDomRegistry();
 
-/**
- * Extracts method signatures and property function signatures from an interface declaration.
- */
-function extractMethodsFromInterface(interfaceDecl: Node): RuntimeMethod[] {
-  if (!Node.isInterfaceDeclaration(interfaceDecl)) {
-    return [];
-  }
-
+function extractMethodSignatures(interfaceDecl: InterfaceDeclaration): RuntimeMethod[] {
   const results: RuntimeMethod[] = [];
-
-  // 1. Regular interface methods: foo(x: number): void;
   for (const method of interfaceDecl.getMethods()) {
     const name = method.getName();
     const returnType = method.getReturnTypeNode()?.getText() ?? "void";
@@ -61,8 +52,11 @@ function extractMethodsFromInterface(interfaceDecl: Node): RuntimeMethod[] {
       returnType,
     });
   }
+  return results;
+}
 
-  // 2. Property signatures with function types: foo: (x: number) => void;
+function extractPropertyFunctionSignatures(interfaceDecl: InterfaceDeclaration): RuntimeMethod[] {
+  const results: RuntimeMethod[] = [];
   for (const prop of interfaceDecl.getProperties()) {
     const name = prop.getName();
     const typeNode = prop.getTypeNode();
@@ -84,8 +78,20 @@ function extractMethodsFromInterface(interfaceDecl: Node): RuntimeMethod[] {
       });
     }
   }
-
   return results;
+}
+
+/**
+ * Extracts method signatures and property function signatures from an interface declaration.
+ */
+function extractMethodsFromInterface(interfaceDecl: Node): RuntimeMethod[] {
+  if (!Node.isInterfaceDeclaration(interfaceDecl)) {
+    return [];
+  }
+  return [
+    ...extractMethodSignatures(interfaceDecl),
+    ...extractPropertyFunctionSignatures(interfaceDecl),
+  ];
 }
 
 function extractWindowGDomTargetNames(

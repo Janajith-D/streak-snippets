@@ -13,9 +13,11 @@ globs: src/**/*.ts, src/**/*.tsx
 - **Control Flow & Conditionals**:
   - **No Unnecessary Conditionals**: Do not check truthiness of AST nodes or expressions whose TypeScript type is non-nullish (e.g. `node.getExpression()`, `attr.getNameNode()`, `fs.promises.stat()`).
   - **Array Bounds Check**: In TypeScript without `noUncheckedIndexedAccess`, `array[0]` is typed as `T`, not `T | undefined`. Check `if (array.length === 0)` before indexing to avoid Sonar warning "Unnecessary conditional, value is always falsy" on `if (!array[0])`.
-  - **No Nested Ternaries**: Avoid nested ternary expressions (`a ? b ? c : d : e`). Extract nested logic into standalone statements or helper functions.
+  - **No Nested Ternaries**: Avoid nested ternary expressions (`a ? b ? c : d : e`). Never embed ternary interpolations inside template strings within an outer ternary (e.g. `val > 0 ? \`...\${n === 1 ? "" : "s"}\` : ""`). Extract nested logic into standalone `if` blocks or helper functions.
+  - **Default Parameters over Reassignment**: Always prefer ES6 default parameter syntax `(param = defaultValue)` over internal fallback assignment (`const target = param ?? defaultValue`).
   - **Single Array Push**: Do not call `arr.push()` repeatedly in consecutive statements; pass multiple arguments (`arr.push(a, b)`) or spread elements (`arr.push(...items)`).
   - **Nullish Assignment**: Prefer logical nullish assignment (`??=`) for singleton instances or caching instead of `if (!instance) { instance = ... }`.
+  - **AST Loop & Member Decomposition**: When inspecting or extracting multiple structures from an AST node (e.g. method signatures vs property signatures, or type nodes vs JSDoc comments), extract dedicated helper functions (`extractMethodSignatures`, `extractPropertyFunctionSignatures`, `extractPropTypeText`) to keep cognitive complexity $\le 10$.
 - **Regular Expression Complexity**:
   - Never use complex regular expressions with massive alternations (e.g. 20+ path prefixes).
   - Prefer $O(1)$ lookups via a `Set` or `.some(prefix => path.startsWith(prefix))` over monolithic regular expressions.

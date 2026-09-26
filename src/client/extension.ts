@@ -99,8 +99,13 @@ function renderStatusBar(
   widgetCount: number,
 ): void {
   if (errors > 0) {
-    const warningText = warnings > 0 ? `, ${warnings} warning${warnings === 1 ? "" : "s"}` : "";
-    item.text = `$(error) Streak: ${errors} error${errors === 1 ? "" : "s"}${warningText}`;
+    let warningText = "";
+    if (warnings > 0) {
+      const warningSuffix = warnings === 1 ? "" : "s";
+      warningText = `, ${warnings} warning${warningSuffix}`;
+    }
+    const errorSuffix = errors === 1 ? "" : "s";
+    item.text = `$(error) Streak: ${errors} error${errorSuffix}${warningText}`;
     item.backgroundColor = new vscode.ThemeColor("statusBarItem.errorBackground");
     item.tooltip = `Streak Engine Issues: ${errors} error(s), ${warnings} warning(s). Click to view Problems.`;
   } else if (warnings > 0) {
