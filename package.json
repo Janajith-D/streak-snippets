@@ -2,7 +2,7 @@
   "name": "streak-snippets",
   "displayName": "Streak Snippets (Beta)",
   "description": "Snippets, commands, and developer productivity tools for the Streak.js framework",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "publisher": "Streak",
   "license": "MIT",
   "homepage": "https://github.com/Janajith-D/streak-snippets#readme",
@@ -33,11 +33,6 @@
       {
         "command": "streak.createWidget",
         "title": "Create New Widget Component",
-        "category": "Streak"
-      },
-      {
-        "command": "streak.addAllowedImport",
-        "title": "Add Module to Approved Imports",
         "category": "Streak"
       }
     ],
@@ -251,17 +246,6 @@
           "default": "error",
           "description": "Severity for Script callback children structure rule (streak:S603)"
         },
-        "streak.rules.allowedImports.severity": {
-          "type": "string",
-          "enum": [
-            "error",
-            "warning",
-            "info",
-            "off"
-          ],
-          "default": "off",
-          "description": "Severity for allowed imports validation rule (streak:S701). Deprecated: disabled by default."
-        },
         "streak.rules.forbiddenPatterns.severity": {
           "type": "string",
           "enum": [
@@ -272,17 +256,6 @@
           ],
           "default": "error",
           "description": "Severity for forbidden code patterns linter rule (streak:S702)"
-        },
-        "streak.rules.allowedImports": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            "streak-forge/components",
-            "bun:test"
-          ],
-          "description": "List of approved module import specifiers inside project source files."
         },
         "streak.rules.forbiddenPatterns": {
           "type": "array",
