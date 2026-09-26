@@ -5,6 +5,18 @@ All notable changes to the "streak-snippets" extension will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3] - 2026-09-26
+
+### Improvements & Fixes
+- **Full Removal of `streak:S701` (Allowed Imports)**:
+  - Completely removed rule `streak:S701`, associated configuration settings (`streak.rules.allowedImports`), quick fixes, and commands, eliminating import whitelisting overhead across projects.
+- **Narrowed Scope for `streak:S204` (Widget Key Match)**:
+  - Restricted return property key validation strictly to the default-exported handler function, allowing internal utility, helper, and data-fetching functions to return arbitrary properties (e.g. `{ heading: "Title" }`) without false-positive widget key errors.
+- **Monorepo-Aware Streak.js Project Identification**:
+  - Implemented automatic Streak.js project detection based on `streak-forge` dependencies in `package.json`, `streak.sitemap.json`, and project structure. Unrelated projects in a monorepo workspace no longer trigger Streak diagnostics, hovers, completions, or background AST parsing.
+- **Interactive Streak Engine Issues Status Bar**:
+  - Upgraded the status bar item to actively display Streak Engine errors and warnings (`$(error) Streak: {E} error(s)` / `$(warning) Streak: {W} warning(s)` / `$(pass) Streak: All Clean ({N} widgets)`). Clicking the status bar opens the Problems panel. Non-Streak files in monorepos automatically hide the status bar item.
+
 ## [0.9.2] - 2026-09-26
 
 ### Improvements & Fixes

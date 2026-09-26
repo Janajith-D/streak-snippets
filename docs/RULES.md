@@ -29,7 +29,6 @@ This document provides detailed SonarQube-style descriptions, rationale, and com
 | [`streak:S601`](#streaks601---duplicated-widget) | Workspace Registry | Error | Custom widget names must be unique across all widget source files. |
 | [`streak:S602`](#streaks602---component-nesting) | Jsx Nesting | Error | Nested `<Script>` tags or `<WidgetPlaceholder>` inside scripts are not allowed. |
 | [`streak:S603`](#streaks603---script-structure) | Script Component | Error | `<Script>` tags must contain exactly one child wrapping the client callback. |
-| [`streak:S701`](#streaks701---allowed-imports-deprecated) | Imports Control | Off *(Deprecated)* | Imports validation against approved whitelist (deprecated and disabled by default). |
 | [`streak:S702`](#streaks702---forbidden-patterns) | Security / Code Smell | Error | Banned code patterns matched by forbidden regular expressions. |
 | [`streak:S801`](#streaks801---widget-filename-matches-component) | Widget Component | Error | Widget filename and declared default component name must match. |
 | [`streak:S901`](#streaks901---duplicate-route-detected) | Sitemap / Routes | Error | Sitemap page routes (`url` values) must be unique. |
@@ -211,7 +210,9 @@ export default getData;
 - **Source**: `Streak Engine`
 
 #### Description
-In data handler functions (`src/handler/*.ts`), each top-level object key returned (other than metadata properties like `status`, `metadata`, `headers`) supplies data to a corresponding widget and must match a registered `.tsx` widget in `src/widgets/`.
+In data handler files (`src/handler/*.ts` or `src/handlers/*.ts`), each top-level object key returned by the **default-exported handler function** (other than metadata properties like `status`, `common`, `global`, `metadata`, `headers`) supplies data to a corresponding widget and must match a registered `.tsx` widget in `src/widgets/`.
+
+Internal helper or utility functions defined in the file are excluded from this rule.
 
 #### Non-compliant Code ❌
 ```ts
@@ -226,6 +227,11 @@ export default getHomeData;
 
 #### Compliant Code ✅
 ```ts
+// Helper utilities returning non-widget keys are allowed and ignored by S204
+export function formatHeading(title: string) {
+  return { heading: title.toUpperCase() };
+}
+
 const getHomeData = async () => {
   return {
     status: 200,
@@ -604,31 +610,6 @@ export default function ProductListItem() { return <div>Item</div>; }
     console.log("Correct execution callback");
   }}
 </Script>
-```
-
----
-
-### `streak:S701` — Allowed Imports *(Deprecated)*
-
-- **Category**: Imports Control
-- **Severity**: `Off` (Default changed from `Warning` to `Off` in v0.9.2; deprecated)
-- **Source**: `Streak Engine`
-
-#### Description
-> [!WARNING]
-> This rule is **deprecated in v0.9.2** and disabled (`off`) by default. As Streak.js projects dynamically introduce third-party packages depending on application requirements, maintaining a static approved imports whitelist creates unnecessary maintenance overhead across projects. Teams wishing to enforce strict import governance can still opt-in by setting `"streak.rules.allowedImports.severity": "warning"` or `"error"`.
-
-Restricts file imports to a whitelisted set of approved modules (default: `["streak-forge/components", "bun:test"]`). Unapproved module imports are flagged when enabled.
-
-#### Non-compliant Code ❌
-```tsx
-import { someFunc } from "lodash";
-```
-
-#### Compliant Code ✅
-```tsx
-import { WidgetPlaceholder } from "streak-forge/components";
-import { describe, test, expect } from "bun:test";
 ```
 
 ---
