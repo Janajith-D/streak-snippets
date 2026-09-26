@@ -7,11 +7,13 @@ Thank you for contributing to Streak Snippets! This guide explains how to set up
 ## 1. Getting Started
 
 ### Prerequisites
+
 - [Node.js](https://nodejs.org) (v18 or higher)
 - [npm](https://www.npmjs.com/) package manager
 - [Visual Studio Code](https://code.visualstudio.com) (v1.107 or higher)
 
 ### Repository Setup
+
 1. Clone the repository:
    ```bash
    git clone https://github.com/Streak/streak-snippets.git
@@ -27,19 +29,20 @@ Thank you for contributing to Streak Snippets! This guide explains how to set up
 ## 2. Development Workflow
 
 ### Running the Extension Locally
+
 1. Open the project folder in VS Code.
 2. Press `F5` (or select **Run > Start Debugging**) to launch an **Extension Development Host** window.
 3. In the new window, open any workspace containing `.ts`, `.tsx`, or `streak.sitemap.json` files to test diagnostics, autocomplete, hovers, and commands in real time.
 
 ### Build Scripts
 
-| Command | Description |
-|---|---|
-| `npm run compile` | Builds client (`dist/extension.js`) and server (`dist/server.js`) via Webpack. |
-| `npm run watch` | Runs Webpack in watch mode for auto-recompilation on code edits. |
-| `npm run compile-tests` | Compiles TypeScript test files with `tsc` to `out/`. |
-| `npm run lint` | Runs ESLint across all TypeScript sources. |
-| `npm test` | Runs the full integration test suite via the VS Code extension test runner. |
+| Command                 | Description                                                                    |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| `npm run compile`       | Builds client (`dist/extension.js`) and server (`dist/server.js`) via Webpack. |
+| `npm run watch`         | Runs Webpack in watch mode for auto-recompilation on code edits.               |
+| `npm run compile-tests` | Compiles TypeScript test files with `tsc` to `out/`.                           |
+| `npm run lint`          | Runs ESLint across all TypeScript sources.                                     |
+| `npm test`              | Runs the full integration test suite via the VS Code extension test runner.    |
 
 ---
 

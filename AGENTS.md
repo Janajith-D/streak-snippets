@@ -8,13 +8,13 @@ Welcome to the **Streak Snippets** extension repository. This document serves as
 
 Always consult the appropriate references rather than guessing or searching blindly:
 
-| Purpose | Location | Description |
-|---|---|---|
-| **System Architecture** | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Client/Server lifecycle, `ts-morph` AST management, in-memory registries, and monorepos. |
-| **Agent Coding Rules** | [`.agents/rules/`](.agents/rules/) | Modular standards for architecture, diagnostics, performance, testing, and clean code. |
-| **Agent Workflows** | [`.agents/skills/`](.agents/skills/) | Executable workflows (`add-diagnostic-rule`, `run-and-verify`, `audit-code-quality`, `ast-query-guide`). |
-| **Framework User Rules** | [`docs/RULES.md`](docs/RULES.md) | **Target: Streak app developers**. User catalog of framework diagnostics (S101–S907). *Not agent coding rules*. |
-| **Changelog** | [`CHANGELOG.md`](CHANGELOG.md) | Version history, recent deprecations, and release notes. |
+| Purpose                  | Location                                       | Description                                                                                                     |
+| ------------------------ | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **System Architecture**  | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Client/Server lifecycle, `ts-morph` AST management, in-memory registries, and monorepos.                        |
+| **Agent Coding Rules**   | [`.agents/rules/`](.agents/rules/)             | Modular standards for architecture, diagnostics, performance, testing, and clean code.                          |
+| **Agent Workflows**      | [`.agents/skills/`](.agents/skills/)           | Executable workflows (`add-diagnostic-rule`, `run-and-verify`, `audit-code-quality`, `ast-query-guide`).        |
+| **Framework User Rules** | [`docs/RULES.md`](docs/RULES.md)               | **Target: Streak app developers**. User catalog of framework diagnostics (S101–S907). _Not agent coding rules_. |
+| **Changelog**            | [`CHANGELOG.md`](CHANGELOG.md)                 | Version history, recent deprecations, and release notes.                                                        |
 
 ---
 
@@ -31,7 +31,9 @@ Always consult the appropriate references rather than guessing or searching blin
 ## 3. Quality Verification Gate
 
 Before completing any task, execute:
+
 ```bash
 cmd.exe /c "npm run compile-tests && npm run compile && npm run lint && npm test"
 ```
+
 Ensure all 78+ unit and integration tests pass with 0 errors.

@@ -29,7 +29,12 @@ cmd.exe /c "npm run lint"
 
 ### 3. SonarQube & Complexity Check
 Review modified functions for clean code principles:
-- **Cognitive Complexity**: If a function has nested `for`, `if`, or `switch` blocks, split it into smaller single-purpose private helper functions.
+- **Cognitive Complexity**: If a function has nested `for`, `if`, or `switch` blocks, split it into smaller single-purpose private helper functions ($\le 15$).
+- **Clean Conditionals**: Avoid checking truthiness on non-nullish types; check `.length === 0` instead of `!arr[0]`.
+- **Formatting**: Run Prettier formatting check:
+  ```bash
+  cmd.exe /c "npm run format:check"
+  ```
 - **Regular Expressions**: Verify regexes do not have redundant alternations or potential ReDoS vulnerabilities.
 - **AST Cleanup**: Ensure any transient `SourceFile` is cleaned up with `.delete()`.
 
