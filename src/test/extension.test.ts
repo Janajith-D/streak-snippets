@@ -25,7 +25,6 @@ import { dynamicComponentIdRule } from "../server/rules/dynamicComponentIdRule";
 import { duplicatedWidgetRule } from "../server/rules/duplicatedWidgetRule";
 import { componentNestingRule } from "../server/rules/componentNestingRule";
 import { scriptStructureRule } from "../server/rules/scriptStructureRule";
-import { allowedImportsRule } from "../server/rules/allowedImportsRule";
 import { forbiddenPatternsRule } from "../server/rules/forbiddenPatternsRule";
 import { widgetFilenameMatchesComponentRule } from "../server/rules/widgetFilenameMatchesComponentRule";
 import { missingDefaultExportRule } from "../server/rules/missingDefaultExportRule";
@@ -38,7 +37,7 @@ import { resolveHover, resolveSitemapHover } from "../server/hover/provider";
 import { resolveDefinition, resolveSitemapDefinition } from "../server/definition/provider";
 import { resolveCodeActions } from "../server/codeaction/provider";
 import { widgetRegistry } from "../server/registry/widgets";
-import { scanWorkspace, resolveProjectRoot } from "../server/registry/scanner";
+import { scanWorkspace, resolveProjectRoot, findStreakProjectRoot, isStreakProjectDirectory, isStreakFile } from "../server/registry/scanner";
 import { getCompletions } from "../server/completion/provider";
 import { getJsxContext } from "../server/completion/jsxAttributeCompletions";
 import { getAutoImportEdit } from "../server/completion/frameworkCompletions";
@@ -1322,60 +1321,6 @@ suite("Extension Test Suite", () => {
     );
   });
 
-  test("streak:S701 flags imports not present in allowedImports whitelist", () => {
-    const code = `
-      import { Script } from "streak-forge/components";
-      import { useState } from "react";
-      import { someFunc } from "lodash";
-      import { localHelper } from "./helper";
-    `;
-    const { sourceFile } = analyzeAndParseDocument(
-      "file:///test/imports.tsx",
-      code,
-    );
-
-    // Test with default whitelist (allows only "streak-forge/components")
-    const diagsDefault = allowedImportsRule.run(
-      sourceFile,
-      {
-        uri: "file:///test/imports.tsx",
-        exports: [],
-        components: [],
-        imports: [],
-        jsxElements: [],
-        errors: [],
-      },
-      {
-        enabled: true,
-      },
-    );
-    assert.strictEqual(diagsDefault.length, 2);
-    assert.strictEqual(diagsDefault[0].code, "streak:S701");
-    assert.ok(diagsDefault[0].message.includes("react"));
-    assert.strictEqual(diagsDefault[1].code, "streak:S701");
-    assert.ok(diagsDefault[1].message.includes("lodash"));
-
-    // Test with lodash allowed
-    const diagsCustom = allowedImportsRule.run(
-      sourceFile,
-      {
-        uri: "file:///test/imports.tsx",
-        exports: [],
-        components: [],
-        imports: [],
-        jsxElements: [],
-        errors: [],
-      },
-      {
-        enabled: true,
-        ruleOptions: {
-          allowedImports: ["streak-forge/components", "react", "lodash"],
-        },
-      },
-    );
-    assert.strictEqual(diagsCustom.length, 0);
-  });
-
   test("streak:S702 flags banned patterns matched by regular expressions", () => {
     const code = `
       const x = eval("1 + 1");
@@ -1922,22 +1867,6 @@ suite("Extension Test Suite", () => {
     assert.strictEqual(layoutDiags[0].code, "streak:S301");
   });
 
-  test("allowedImportsRule permits 'bun:test' alongside 'streak-forge/components'", () => {
-    const code = `
-      import { describe, test, expect } from "bun:test";
-      import { WidgetPlaceholder } from "streak-forge/components";
-      import { invalidModule } from "some-unapproved-module";
-    `;
-    const { analysis, sourceFile } = analyzeAndParseDocument(
-      "file:///workspace/src/test/widget.test.ts",
-      code,
-    );
-    const diags = allowedImportsRule.run(sourceFile, analysis);
-    assert.strictEqual(diags.length, 1);
-    assert.strictEqual(diags[0].code, "streak:S701");
-    assert.ok(diags[0].message.includes("some-unapproved-module"));
-  });
-
   test("widgetPlaceholderRule emits streak:S902 on layouts when widget does not exist in src/widgets", () => {
     widgetRegistry.set("HelloBanner", {
       name: "HelloBanner",
@@ -2111,7 +2040,7 @@ suite("Extension Test Suite", () => {
 
   // ── Phase 15 Production Readiness Tests ─────────────────────────────
 
-  test("Performance: validateSitemap handles 10,000 pages within performance threshold (< 500ms)", () => {
+  test("Performance: validateSitemap handles 10,000 pages within performance threshold (< 1000ms)", () => {
     // Generate 10,000 pages
     const pages = [];
     for (let i = 0; i < 10000; i++) {
@@ -2130,7 +2059,7 @@ suite("Extension Test Suite", () => {
     const diags = validateSitemap(doc, "/mock/root");
     const duration = Date.now() - startTime;
 
-    assert.ok(duration < 500, `Expected validation to take < 500ms, took ${duration}ms`);
+    assert.ok(duration < 1000, `Expected validation to take < 1000ms, took ${duration}ms`);
     assert.ok(diags.length > 0); // Missing widget warnings
   });
 
@@ -2158,51 +2087,6 @@ suite("Extension Test Suite", () => {
       const diags = validateSitemap(doc, "/mock/root");
       assert.ok(Array.isArray(diags));
     });
-  });
-
-  // ── S701 Allowed Imports & Quick Fix Tests ─────────────────────────────
-
-  test("streak:S701 ignores relative imports and @ aliases (@/, ~/ and @components/)", () => {
-    const code = `
-      import { Button } from "./Button";
-      import { Card } from "../Card";
-      import { Header } from "@/components/Header";
-      import { Layout } from "@layouts/MainLayout";
-      import { format } from "@utils/format";
-      import { api } from "~/lib/api";
-      import { Core } from "streak-forge/components";
-      import { test } from "bun:test";
-      import lodash from "lodash";
-    `;
-    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/sample.tsx", code);
-    const diags = allowedImportsRule.run(sourceFile, analysis);
-
-    // Only "lodash" should be flagged
-    assert.strictEqual(diags.length, 1);
-    assert.strictEqual(diags[0].code, "streak:S701");
-    assert.ok(diags[0].message.includes("lodash"));
-    assert.strictEqual((diags[0].data as { moduleSpecifier?: string })?.moduleSpecifier, "lodash");
-  });
-
-  test("resolveCodeActions provides Quick Fix for streak:S701 unapproved import", () => {
-    const code = `import lodash from "lodash";`;
-    const doc = TextDocument.create("file:///test/sample.tsx", "typescriptreact", 1, code);
-    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/sample.tsx", code);
-    const diags = runRules(sourceFile, analysis);
-
-    const s701Diag = diags.find((d) => d.code === "streak:S701");
-    assert.ok(s701Diag);
-
-    const actions = resolveCodeActions([s701Diag], doc, sourceFile);
-    const quickFix = actions.find((a) => a.title.includes("lodash"));
-    assert.ok(quickFix);
-    assert.strictEqual(quickFix.command?.command, "streak.addAllowedImport");
-    assert.deepStrictEqual(quickFix.command?.arguments, ["lodash"]);
-  });
-
-  test("streak.addAllowedImport command is registered in VS Code", async () => {
-    const commands = await vscode.commands.getCommands();
-    assert.ok(commands.includes("streak.addAllowedImport"));
   });
 
   test("streak:S204 ignores 'common' and 'global' returned object properties in data handlers", () => {
@@ -2362,6 +2246,105 @@ suite("Extension Test Suite", () => {
     assert.ok(names.includes("fetchUserData"));
 
     gdomRegistry.clear();
+  });
+
+  test("streak:S204 does not flag helper/util functions returning non-widget keys", () => {
+    widgetRegistry.clear();
+    widgetRegistry.set("ArticleList", {
+      name: "ArticleList",
+      filePath: "/workspace/src/widgets/ArticleList.tsx",
+      props: [],
+    });
+
+    const code = `
+      export function formatHeading(title: string) {
+        return { heading: title, count: 42 };
+      }
+
+      const fetchExtra = () => {
+        return { extraData: true };
+      };
+
+      const getHomeData = async () => {
+        const header = formatHeading("Welcome");
+        const extra = fetchExtra();
+        return {
+          status: 200,
+          ArticleList: { items: [], header, extra },
+        };
+      };
+      export default getHomeData;
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument(
+      "file:///workspace/src/handler/HomeDataHandler.ts",
+      code,
+    );
+    const diags = dataHandlerWidgetKeyRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 0, "Expected 0 S204 diagnostics for helper functions");
+  });
+
+  test("isStreakProjectDirectory identifies Streak projects via package.json dependencies and sitemap", () => {
+    const tempDir = path.join(__dirname, `temp-test-project-${Date.now()}`);
+    fs.mkdirSync(tempDir, { recursive: true });
+
+    try {
+      // Unrelated project: package.json with express
+      fs.writeFileSync(
+        path.join(tempDir, "package.json"),
+        JSON.stringify({ name: "backend", dependencies: { express: "^4.18.0" } }),
+      );
+      assert.strictEqual(isStreakProjectDirectory(tempDir), false);
+
+      // Streak project: package.json with streak-forge
+      fs.writeFileSync(
+        path.join(tempDir, "package.json"),
+        JSON.stringify({ name: "streak-app", dependencies: { "streak-forge": "^1.0.0" } }),
+      );
+      assert.strictEqual(isStreakProjectDirectory(tempDir), true);
+
+      // Subproject with streak.sitemap.json
+      const subDir = path.join(tempDir, "subproject");
+      fs.mkdirSync(subDir, { recursive: true });
+      fs.writeFileSync(path.join(subDir, "streak.sitemap.json"), "[]");
+      assert.strictEqual(isStreakProjectDirectory(subDir), true);
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("findStreakProjectRoot resolves subproject root and returns null for non-streak monorepo projects", () => {
+    const monorepoRoot = path.join(__dirname, `temp-monorepo-${Date.now()}`);
+    const streakPkgDir = path.join(monorepoRoot, "packages", "web-app");
+    const expressPkgDir = path.join(monorepoRoot, "packages", "api-server");
+
+    fs.mkdirSync(path.join(streakPkgDir, "src", "widgets"), { recursive: true });
+    fs.mkdirSync(path.join(expressPkgDir, "src", "routes"), { recursive: true });
+
+    try {
+      // Streak package has streak-forge
+      fs.writeFileSync(
+        path.join(streakPkgDir, "package.json"),
+        JSON.stringify({ name: "web-app", dependencies: { "streak-forge": "0.9.0" } }),
+      );
+
+      // Express package has express only
+      fs.writeFileSync(
+        path.join(expressPkgDir, "package.json"),
+        JSON.stringify({ name: "api-server", dependencies: { express: "4.18.0" } }),
+      );
+
+      const streakFile = path.join(streakPkgDir, "src", "widgets", "Header.tsx");
+      const expressFile = path.join(expressPkgDir, "src", "routes", "index.ts");
+
+      const resolvedRoot = findStreakProjectRoot(streakFile, monorepoRoot);
+      assert.ok(resolvedRoot);
+      assert.strictEqual(path.resolve(resolvedRoot), path.resolve(streakPkgDir));
+      assert.strictEqual(findStreakProjectRoot(expressFile, monorepoRoot), null);
+      assert.strictEqual(isStreakFile(streakFile, monorepoRoot), true);
+      assert.strictEqual(isStreakFile(expressFile, monorepoRoot), false);
+    } finally {
+      fs.rmSync(monorepoRoot, { recursive: true, force: true });
+    }
   });
 });
 

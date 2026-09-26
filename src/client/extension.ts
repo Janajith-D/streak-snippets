@@ -7,6 +7,7 @@ import {
   type LanguageClientOptions,
   type ServerOptions,
 } from "vscode-languageclient/node";
+import { findStreakProjectRoot } from "../server/registry/projectDetector";
 
 /** Output channel for extension logging. */
 let outputChannel: vscode.OutputChannel;
@@ -54,15 +55,78 @@ function startLanguageServer(context: vscode.ExtensionContext) {
   outputChannel.appendLine("Streak Language Server client started");
 
   client.onNotification("streak/didIndexWidgets", (data: { count: number }) => {
-    if (statusBarItem) {
-      statusBarItem.text = `$(project) Streak: ${data.count} widget${data.count === 1 ? "" : "s"}`;
-    }
+    indexedWidgetCount = data.count;
+    updateStreakStatusBar();
   });
 }
 
 // ── Lifecycle ───────────────────────────────────────────────────────────
 
 let statusBarItem: vscode.StatusBarItem | undefined;
+let indexedWidgetCount = 0;
+
+function updateStreakStatusBar() {
+  if (!statusBarItem) {
+    return;
+  }
+
+  const activeEditor = vscode.window.activeTextEditor;
+  if (!activeEditor) {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    const hasStreakWorkspace = workspaceFolders?.some((f) =>
+      findStreakProjectRoot(f.uri.fsPath),
+    );
+    if (!hasStreakWorkspace) {
+      statusBarItem.hide();
+      return;
+    }
+  } else {
+    const filePath = activeEditor.document.uri.fsPath;
+    if (!findStreakProjectRoot(filePath)) {
+      statusBarItem.hide();
+      return;
+    }
+  }
+
+  let streakErrors = 0;
+  let streakWarnings = 0;
+
+  const allDiagnostics = vscode.languages.getDiagnostics();
+  for (const [, diags] of allDiagnostics) {
+    for (const diag of diags) {
+      if (diag.source === "Streak Engine") {
+        if (diag.severity === vscode.DiagnosticSeverity.Error) {
+          streakErrors++;
+        } else if (diag.severity === vscode.DiagnosticSeverity.Warning) {
+          streakWarnings++;
+        }
+      }
+    }
+  }
+
+  if (streakErrors > 0) {
+    statusBarItem.text = `$(error) Streak: ${streakErrors} error${streakErrors === 1 ? "" : "s"}${
+      streakWarnings > 0 ? `, ${streakWarnings} warning${streakWarnings === 1 ? "" : "s"}` : ""
+    }`;
+    statusBarItem.backgroundColor = new vscode.ThemeColor(
+      "statusBarItem.errorBackground",
+    );
+    statusBarItem.tooltip = `Streak Engine Issues: ${streakErrors} error(s), ${streakWarnings} warning(s). Click to view Problems.`;
+  } else if (streakWarnings > 0) {
+    statusBarItem.text = `$(warning) Streak: ${streakWarnings} warning${streakWarnings === 1 ? "" : "s"}`;
+    statusBarItem.backgroundColor = new vscode.ThemeColor(
+      "statusBarItem.warningBackground",
+    );
+    statusBarItem.tooltip = `Streak Engine Issues: ${streakWarnings} warning(s). Click to view Problems.`;
+  } else {
+    statusBarItem.text = `$(pass) Streak: All Clean (${indexedWidgetCount} widget${indexedWidgetCount === 1 ? "" : "s"})`;
+    statusBarItem.backgroundColor = undefined;
+    statusBarItem.tooltip = `Streak: All checks passed. ${indexedWidgetCount} widget(s) indexed. Click to view Problems.`;
+  }
+
+  statusBarItem.command = "workbench.actions.view.problems";
+  statusBarItem.show();
+}
 
 /**
  * Called when the extension is activated.
@@ -78,10 +142,22 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.StatusBarAlignment.Right,
     100,
   );
-  statusBarItem.text = "$(project) Streak: 0 widgets";
-  statusBarItem.tooltip = "Streak Workspace Widget Registry";
-  statusBarItem.show();
+  statusBarItem.command = "workbench.actions.view.problems";
   context.subscriptions.push(statusBarItem);
+
+  context.subscriptions.push(
+    vscode.languages.onDidChangeDiagnostics(() => {
+      updateStreakStatusBar();
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor(() => {
+      updateStreakStatusBar();
+    }),
+  );
+
+  updateStreakStatusBar();
 
   // Register Scaffolder Command
   const scaffoldCmd = vscode.commands.registerCommand(
@@ -157,35 +233,6 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(scaffoldCmd);
-
-  // Register Add Allowed Import Command
-  const addImportCmd = vscode.commands.registerCommand(
-    "streak.addAllowedImport",
-    async (moduleSpecifier: string) => {
-      if (!moduleSpecifier) {
-        return;
-      }
-      const config = vscode.workspace.getConfiguration("streak");
-      const current = config.get<string[]>("rules.allowedImports") || [
-        "streak-forge/components",
-        "bun:test",
-      ];
-      if (!current.includes(moduleSpecifier)) {
-        const updated = [...current, moduleSpecifier];
-        const target =
-          vscode.workspace.workspaceFolders &&
-          vscode.workspace.workspaceFolders.length > 0
-            ? vscode.ConfigurationTarget.Workspace
-            : vscode.ConfigurationTarget.Global;
-        await config.update("rules.allowedImports", updated, target);
-        vscode.window.showInformationMessage(
-          `Added '${moduleSpecifier}' to Streak approved imports.`,
-        );
-      }
-    },
-  );
-
-  context.subscriptions.push(addImportCmd);
 
   // Start the Language Server
   startLanguageServer(context);

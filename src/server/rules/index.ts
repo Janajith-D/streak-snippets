@@ -18,7 +18,6 @@ import { dynamicComponentIdRule } from "./dynamicComponentIdRule";
 import { duplicatedWidgetRule } from "./duplicatedWidgetRule";
 import { componentNestingRule } from "./componentNestingRule";
 import { scriptStructureRule } from "./scriptStructureRule";
-import { allowedImportsRule } from "./allowedImportsRule";
 import { forbiddenPatternsRule } from "./forbiddenPatternsRule";
 import { widgetFilenameMatchesComponentRule } from "./widgetFilenameMatchesComponentRule";
 import { deadWidgetRule } from "./deadWidgetRule";
@@ -39,7 +38,6 @@ export * from "./dynamicComponentIdRule";
 export * from "./duplicatedWidgetRule";
 export * from "./componentNestingRule";
 export * from "./scriptStructureRule";
-export * from "./allowedImportsRule";
 export * from "./forbiddenPatternsRule";
 export * from "./widgetFilenameMatchesComponentRule";
 export * from "./deadWidgetRule";
@@ -64,7 +62,6 @@ export const allRules: Rule[] = [
   duplicatedWidgetRule,
   componentNestingRule,
   scriptStructureRule,
-  allowedImportsRule,
   forbiddenPatternsRule,
   widgetFilenameMatchesComponentRule,
   deadWidgetRule,

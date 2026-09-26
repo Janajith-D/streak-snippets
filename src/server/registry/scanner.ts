@@ -1,10 +1,16 @@
 import { Node, Project, ScriptTarget, SyntaxKind } from "ts-morph";
 import * as path from "node:path";
 import * as fs from "node:fs";
-import { fileURLToPath } from "node:url";
 import { type WidgetProp, widgetRegistry } from "./widgets";
 import { sitemapRegistry } from "./sitemaps";
 import { gdomRegistry, scanGDomTypes } from "./gdomTypeScanner";
+import {
+  findStreakProjectRoot,
+  isStreakProjectDirectory,
+  isStreakFile,
+} from "./projectDetector";
+
+export { findStreakProjectRoot, isStreakProjectDirectory, isStreakFile };
 
 // Single shared compiler project instance to avoid redundant instantiation overhead
 const scanProject = new Project({
@@ -216,28 +222,9 @@ function extractProps(componentNode: Node): WidgetProp[] {
 
 export function resolveProjectRoot(uri: string, workspaceRoot?: string): string {
   try {
-    let filePath = uri;
-    if (uri.startsWith("file://")) {
-      filePath = fileURLToPath(uri);
-    }
-    let currentDir = fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()
-      ? filePath
-      : path.dirname(filePath);
-
-    while (currentDir && currentDir !== path.dirname(currentDir)) {
-      if (
-        fs.existsSync(path.join(currentDir, "streak.sitemap.json")) ||
-        fs.existsSync(path.join(currentDir, "sitemap.json")) ||
-        fs.existsSync(path.join(currentDir, "src", "widgets")) ||
-        fs.existsSync(path.join(currentDir, "src", "layouts")) ||
-        fs.existsSync(path.join(currentDir, "src", "layout"))
-      ) {
-        return currentDir;
-      }
-      if (workspaceRoot && path.resolve(currentDir) === path.resolve(workspaceRoot)) {
-        break;
-      }
-      currentDir = path.dirname(currentDir);
+    const detected = findStreakProjectRoot(uri, workspaceRoot);
+    if (detected) {
+      return detected;
     }
   } catch {
     /* ignore */
@@ -294,7 +281,7 @@ async function findWidgetDirectories(root: string, customWidgetDir?: string): Pr
     dirs.push(directPath);
   }
   const directFallback = path.join(root, "src", "components");
-  if (fs.existsSync(directFallback) && !dirs.includes(directFallback)) {
+  if (fs.existsSync(directFallback) && !dirs.includes(directFallback) && isStreakProjectDirectory(root)) {
     dirs.push(directFallback);
   }
 
@@ -321,7 +308,8 @@ async function findWidgetDirectories(root: string, customWidgetDir?: string): Pr
             (item === "widgets" || item === "components") &&
             path.basename(path.dirname(full)) === "src"
           ) {
-            if (!dirs.includes(full)) {
+            const projectRoot = findStreakProjectRoot(full, root);
+            if (projectRoot && !dirs.includes(full)) {
               dirs.push(full);
             }
           } else {
@@ -361,7 +349,9 @@ async function findSitemapFiles(root: string): Promise<string[]> {
         if (stat.isDirectory()) {
           await search(full, depth + 1);
         } else if (item === "streak.sitemap.json" || item === "sitemap.json") {
-          sitemaps.push(full);
+          if (item === "streak.sitemap.json" || findStreakProjectRoot(full, root) !== null) {
+            sitemaps.push(full);
+          }
         }
       }
     } catch {
@@ -398,7 +388,9 @@ async function findDeclarationFiles(root: string): Promise<string[]> {
         if (stat.isDirectory()) {
           await search(full, depth + 1);
         } else if (item.endsWith(".d.ts")) {
-          dtsFiles.push(full);
+          if (findStreakProjectRoot(full, root) !== null) {
+            dtsFiles.push(full);
+          }
         }
       }
     } catch {

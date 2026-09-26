@@ -2,6 +2,7 @@ import { Node, SyntaxKind, type SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
 import type { AnalysisResult } from "../../shared/types";
 import { widgetRegistry } from "../registry/widgets";
+import { getDefaultExportedHandler, isDataHandlerFile } from "./dataHandlerUtils";
 import {
   getRangeFromNode,
   type Rule,
@@ -22,41 +23,6 @@ const IGNORED_RETURN_KEYS = new Set([
   "version",
   "props",
 ]);
-
-function getCandidateHandlers(sourceFile: SourceFile): Node[] {
-  const functions = sourceFile.getFunctions();
-  const arrowFuncs = sourceFile.getDescendantsOfKind(SyntaxKind.ArrowFunction);
-  const candidateFuncs: Node[] = [];
-
-  for (const fn of functions) {
-    if (
-      fn.isDefaultExport() ||
-      fn.isExported() ||
-      /Data|Handler/.test(fn.getName() ?? "")
-    ) {
-      candidateFuncs.push(fn);
-    }
-  }
-
-  for (const arrowFn of arrowFuncs) {
-    const parent = arrowFn.getParent();
-    let parentName = "";
-    if (parent && Node.isVariableDeclaration(parent)) {
-      parentName = parent.getName();
-    }
-    const isExported =
-      parent?.getParent()?.getParent()?.getKind() ===
-        SyntaxKind.ExportAssignment ||
-      parent?.getParent()?.getParent()?.getKind() ===
-        SyntaxKind.VariableStatement;
-
-    if (isExported || /Data|Handler/.test(parentName)) {
-      candidateFuncs.push(arrowFn);
-    }
-  }
-
-  return candidateFuncs;
-}
 
 function unwrapObjectLiteral(expr: Node | undefined): Node | null {
   if (!expr) {
@@ -134,27 +100,11 @@ function validateReturnObjectProperties(
   return diagnostics;
 }
 
-function isDataHandlerFile(uriOrPath: string): boolean {
-  const norm = decodeURIComponent(uriOrPath).replaceAll("\\", "/").toLowerCase();
-  if (norm.endsWith(".tsx")) {
-    return false;
-  }
-  if (
-    norm.includes("/test/") ||
-    norm.includes("/tests/") ||
-    norm.endsWith(".test.ts") ||
-    norm.endsWith(".spec.ts")
-  ) {
-    return norm.includes("datahandler");
-  }
-  return /(?:^|\/)src\/handlers?\//.test(norm) || /(?:^|\/)handlers?\//.test(norm);
-}
-
 export const dataHandlerWidgetKeyRule: Rule = {
   id: "streak:data-handler-widget-key",
   name: "Data Handler Widget Key Check",
   description:
-    "Ensures top-level return object keys in data handlers match valid registered widgets in src/widgets.",
+    "Ensures top-level return object keys in default-exported data handler match valid registered widgets in src/widgets.",
   defaultSeverity: DiagnosticSeverity.Warning,
 
   run(
@@ -170,23 +120,25 @@ export const dataHandlerWidgetKeyRule: Rule = {
       return diagnostics;
     }
 
-    const candidateFuncs = getCandidateHandlers(sourceFile);
+    const handler = getDefaultExportedHandler(sourceFile);
+    if (!handler) {
+      return diagnostics;
+    }
+
     const registeredWidgets = new Set(
       widgetRegistry.getAll().map((w) => w.name),
     );
 
-    for (const fn of candidateFuncs) {
-      const returnedObjects = getReturnedObjectLiterals(fn);
-      for (const obj of returnedObjects) {
-        diagnostics.push(
-          ...validateReturnObjectProperties(
-            obj,
-            sourceFile,
-            registeredWidgets,
-            severity,
-          ),
-        );
-      }
+    const returnedObjects = getReturnedObjectLiterals(handler);
+    for (const obj of returnedObjects) {
+      diagnostics.push(
+        ...validateReturnObjectProperties(
+          obj,
+          sourceFile,
+          registeredWidgets,
+          severity,
+        ),
+      );
     }
 
     return diagnostics;
