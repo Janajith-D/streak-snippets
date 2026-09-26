@@ -5,6 +5,21 @@ All notable changes to the "streak-snippets" extension will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2] - 2026-09-26
+
+### Improvements & Fixes
+- **Descoped `streak:S103` (`id === type` check)**:
+  - Removed strict identity enforcement between `<WidgetPlaceholder>` `id` and `type` attributes in layouts and sitemap entries, enabling real-world widget reuse across pages.
+- **Allowed Imports Deprecation (`streak:S701`)**:
+  - Changed default severity from `"warning"` to `"off"` and marked rule as deprecated to eliminate configuration overhead for third-party packages.
+- **Enhanced `gDom` Runtime API Completions & Custom Type Scanner**:
+  - Updated built-in completions to the 4 official runtime methods (`addResourceToBody`, `loadPackage`, `loadDynamicComponent`, `addWidgetToBody`).
+  - Added declaration file scanner supporting `global.d.ts` with `declare global` interfaces extending `GDom` or `Window` to provide smart completions for custom extended `gDom` methods.
+- **Scoped Data Handler Validation (`streak:S201` & `streak:S202`)**:
+  - Restricted status return and async checks strictly to the default-exported handler function, allowing arbitrary synchronous utility and helper functions in handler files without false diagnostics.
+- **Expanded `<Script>` Allowed Browser & ECMAScript Globals (`streak:S401`)**:
+  - Added standard ES and Web globals (`Set`, `Map`, `WeakSet`, `WeakMap`, `Promise`, `parseInt`, `parseFloat`, `encodeURIComponent`, `decodeURIComponent`, `structuredClone`, `queueMicrotask`, `TypeError`, `RangeError`, typed arrays, etc.) to prevent false-positive closure capture errors.
+
 ## [0.9.0] - 2026-08-23
 
 ### Beta Release (Milestone 16)

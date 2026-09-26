@@ -103,7 +103,7 @@ Hovering over any supported JSX attribute on built-in elements reveals its purpo
 - **`options` on `<Script />`**: Forwards data to the browser execution thread callback.
 
 #### 3. Client API Documentation
-Hovering over `gDom` methods (like `loadDynamicComponent`, `getElement`, `updateOptions`) shows signatures, return types, and descriptions of client-side DOM scripting interfaces.
+Hovering over `gDom` methods (such as `loadDynamicComponent`, `loadPackage`, `addResourceToBody`, `addWidgetToBody`, and custom methods declared in `global.d.ts`) shows signatures, return types, and descriptions of client-side DOM scripting interfaces.
 
 
 ### Go to Definition & Navigation (LSP Engine)
@@ -181,7 +181,7 @@ Configure rule severities and diagnostics in VS Code settings:
 | `streak.rules.duplicatedWidget.severity` | `string` | `"error"` | Severity for `streak:S601` |
 | `streak.rules.componentNesting.severity` | `string` | `"error"` | Severity for `streak:S602` |
 | `streak.rules.scriptStructure.severity` | `string` | `"error"` | Severity for `streak:S603` |
-| `streak.rules.allowedImports.severity` | `string` | `"warning"` | Severity for `streak:S701` |
+| `streak.rules.allowedImports.severity` | `string` | `"off"` | Severity for `streak:S701` (Deprecated) |
 | `streak.rules.forbiddenPatterns.severity` | `string` | `"error"` | Severity for `streak:S702` |
 
 ---

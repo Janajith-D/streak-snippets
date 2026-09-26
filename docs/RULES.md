@@ -10,8 +10,8 @@ This document provides detailed SonarQube-style descriptions, rationale, and com
 |---|---|---|---|
 | [`streak:S101`](#streaks101---widgetplaceholder-missing-id-or-type-attribute) | Widget Component | Error | `<WidgetPlaceholder>` elements must have non-empty `id` and `type` attributes. |
 | [`streak:S102`](#streaks102---widgetplaceholder-layout-location-only) | Widget Component | Error | `<WidgetPlaceholder>` can only be used inside layout files (`src/layout` or `src/layouts`). |
-| [`streak:S103`](#streaks103---widgetplaceholder-id-type-exact-match) | Widget / Sitemap | Error | Widget `id` and `type` values must match exactly in layouts and sitemap entries. |
-| [`streak:S201`](#streaks201---data-handler-missing-status-property) | Data Handler | Warning | Data handler functions must return an object containing a `status` property. |
+| [`streak:S103`](#streaks103---widgetplaceholder-id-type-exact-match-descoped) | Widget / Sitemap | Removed | *(Descoped in v0.9.2)* Widgets are reusable across multiple placeholders with different IDs. |
+| [`streak:S201`](#streaks201---data-handler-missing-status-property) | Data Handler | Warning | Data handler default export must return an object containing a `status` property. |
 | [`streak:S202`](#streaks202---data-handler-must-be-async) | Data Handler | Error | Data handlers must default-export an `async` function. |
 | [`streak:S203`](#streaks203---invalid-handler-status) | Data Handler | Warning | Data handler `status` should be a valid numeric HTTP status code (100–599). |
 | [`streak:S204`](#streaks204---data-handler-return-widget-key-match) | Data Handler | Warning | Data handler return object keys must match registered widget components in `src/widgets/`. |
@@ -29,7 +29,7 @@ This document provides detailed SonarQube-style descriptions, rationale, and com
 | [`streak:S601`](#streaks601---duplicated-widget) | Workspace Registry | Error | Custom widget names must be unique across all widget source files. |
 | [`streak:S602`](#streaks602---component-nesting) | Jsx Nesting | Error | Nested `<Script>` tags or `<WidgetPlaceholder>` inside scripts are not allowed. |
 | [`streak:S603`](#streaks603---script-structure) | Script Component | Error | `<Script>` tags must contain exactly one child wrapping the client callback. |
-| [`streak:S701`](#streaks701---allowed-imports) | Imports Control | Warning | Imports must belong to the approved allowed imports whitelist. |
+| [`streak:S701`](#streaks701---allowed-imports-deprecated) | Imports Control | Off *(Deprecated)* | Imports validation against approved whitelist (deprecated and disabled by default). |
 | [`streak:S702`](#streaks702---forbidden-patterns) | Security / Code Smell | Error | Banned code patterns matched by forbidden regular expressions. |
 | [`streak:S801`](#streaks801---widget-filename-matches-component) | Widget Component | Error | Widget filename and declared default component name must match. |
 | [`streak:S901`](#streaks901---duplicate-route-detected) | Sitemap / Routes | Error | Sitemap page routes (`url` values) must be unique. |
@@ -101,33 +101,15 @@ export default function MainLayout() {
 
 ---
 
-### `streak:S103` — `<WidgetPlaceholder>` `id` and `type` Exact Match
+### `streak:S103` — `<WidgetPlaceholder>` `id` and `type` Exact Match *(Descoped)*
 
-- **Category**: Widget Component
-- **Severity**: `Error`
+- **Category**: Widget Component / Sitemap
+- **Severity**: `Removed` (Descoped in v0.9.2)
 - **Source**: `Streak Engine`
 
 #### Description
-The `id` and `type` attributes on `<WidgetPlaceholder>` must match each other and the sitemap/widget declaration exactly.
-
-| Location | Field |
-|---|---|
-| `streak.sitemap.json` | `widgets[].id` and `widgets[].type` |
-| Layout (`src/layout/`) | `<WidgetPlaceholder id= type= />` |
-| Handler return | Object key |
-| Widget file | Filename (`src/widgets/<Name>.tsx`) |
-
-All four values are case-sensitive and must match exactly.
-
-#### Non-compliant Code ❌
-```tsx
-<WidgetPlaceholder id="hero-banner" type="HelloBanner" />
-```
-
-#### Compliant Code ✅
-```tsx
-<WidgetPlaceholder id="HelloBanner" type="HelloBanner" />
-```
+> [!NOTE]
+> This rule has been **descoped and removed in v0.9.2**. In real-world Streak applications, widgets are reusable components that can appear multiple times across a page layout with distinct placeholder `id`s (e.g., `<WidgetPlaceholder id="topBanner" type="Banner" />` and `<WidgetPlaceholder id="bottomBanner" type="Banner" />`). Enforcing `id === type` prevented widget reuse and led to build errors. Refer to the [Streak WidgetPlaceholder Documentation](https://docs.streakjs.com/components/widget-placeholder).
 
 ---
 
@@ -138,7 +120,7 @@ All four values are case-sensitive and must match exactly.
 - **Source**: `Streak Engine`
 
 #### Description
-Data handlers must return an object containing a `status` property to signal render outcome to the framework.
+The default-exported data handler function must return an object containing a `status` property to signal render outcome to the framework. Non-exported utility and helper functions within the file are excluded from this rule.
 
 #### Non-compliant Code ❌
 ```ts
@@ -150,6 +132,11 @@ export default getData;
 
 #### Compliant Code ✅
 ```ts
+// Helper utilities are not flagged
+export function formatData(raw: any) {
+  return raw.trim();
+}
+
 const getData = async () => {
   return { status: 200, PageHead: { title: "Hello" } };
 };
@@ -165,7 +152,7 @@ export default getData;
 - **Source**: `Streak Engine`
 
 #### Description
-Data handlers fetch asynchronous build/render data and must default-export an `async` function.
+Data handlers fetch asynchronous build/render data and must default-export an `async` function. Non-exported utility and helper functions within the file are excluded from this rule.
 
 #### Non-compliant Code ❌
 ```ts
@@ -177,6 +164,11 @@ export default getData;
 
 #### Compliant Code ✅
 ```ts
+// Synchronous utility helpers within the file are allowed
+export function computeTotal(items: number[]) {
+  return items.reduce((a, b) => a + b, 0);
+}
+
 const getData = async () => {
   return { status: 200 };
 };
@@ -616,14 +608,17 @@ export default function ProductListItem() { return <div>Item</div>; }
 
 ---
 
-### `streak:S701` — Allowed Imports
+### `streak:S701` — Allowed Imports *(Deprecated)*
 
 - **Category**: Imports Control
-- **Severity**: `Warning`
+- **Severity**: `Off` (Default changed from `Warning` to `Off` in v0.9.2; deprecated)
 - **Source**: `Streak Engine`
 
 #### Description
-Restricts file imports to a whitelisted set of approved modules (default: `["streak-forge/components", "bun:test"]`). Unapproved module imports are flagged as warnings.
+> [!WARNING]
+> This rule is **deprecated in v0.9.2** and disabled (`off`) by default. As Streak.js projects dynamically introduce third-party packages depending on application requirements, maintaining a static approved imports whitelist creates unnecessary maintenance overhead across projects. Teams wishing to enforce strict import governance can still opt-in by setting `"streak.rules.allowedImports.severity": "warning"` or `"error"`.
+
+Restricts file imports to a whitelisted set of approved modules (default: `["streak-forge/components", "bun:test"]`). Unapproved module imports are flagged when enabled.
 
 #### Non-compliant Code ❌
 ```tsx

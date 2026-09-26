@@ -2,7 +2,7 @@
   "name": "streak-snippets",
   "displayName": "Streak Snippets (Beta)",
   "description": "Snippets, commands, and developer productivity tools for the Streak.js framework",
-  "version": "0.9.0",
+  "version": "0.9.2",
   "publisher": "Streak",
   "license": "MIT",
   "homepage": "https://github.com/Janajith-D/streak-snippets#readme",
@@ -259,8 +259,8 @@
             "info",
             "off"
           ],
-          "default": "warning",
-          "description": "Severity for allowed imports validation rule (streak:S701)"
+          "default": "off",
+          "description": "Severity for allowed imports validation rule (streak:S701). Deprecated: disabled by default."
         },
         "streak.rules.forbiddenPatterns.severity": {
           "type": "string",

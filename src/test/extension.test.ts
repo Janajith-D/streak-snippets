@@ -618,8 +618,9 @@ suite("Extension Test Suite", () => {
     );
     const labels = items.map((item) => item.label);
     assert.ok(labels.includes("loadDynamicComponent"));
-    assert.ok(labels.includes("getElement"));
-    assert.ok(labels.includes("updateOptions"));
+    assert.ok(labels.includes("addResourceToBody"));
+    assert.ok(labels.includes("loadPackage"));
+    assert.ok(labels.includes("addWidgetToBody"));
   });
 
   test("Autocomplete suggests sfS snippet in JSX body", () => {
@@ -2037,6 +2038,7 @@ suite("Extension Test Suite", () => {
       export const getAuthData = () => {
         return { message: "ok" };
       };
+      export default getAuthData;
     `;
     const { analysis: handlerAnalysis, sourceFile: handlerFile } = analyzeAndParseDocument(
       "file:///workspace/src/handlers/authDataHandler.ts",
