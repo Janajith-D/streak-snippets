@@ -53,11 +53,15 @@ function isInternalPathImport(specifier: string): boolean {
   return false;
 }
 
+/**
+ * @deprecated S701 is deprecated and defaulted to 'off' in v0.9.2+.
+ * Whitelisting imports is impractical across diverse projects.
+ */
 export const allowedImportsRule: Rule = {
   id: "streak:allowed-imports",
   name: "Allowed Imports Rule",
   description:
-    "Ensures files only import approved modules from the allowed imports whitelist.",
+    "[Deprecated] Ensures files only import approved modules from the allowed imports whitelist.",
   defaultSeverity: DiagnosticSeverity.Warning,
 
   run(

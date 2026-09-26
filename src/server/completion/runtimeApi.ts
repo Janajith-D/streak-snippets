@@ -7,22 +7,31 @@ export interface RuntimeMethod {
 
 export const GDOM_METHODS: RuntimeMethod[] = [
   {
-    name: "loadDynamicComponent",
-    signature: "loadDynamicComponent(id: string, callback?: () => void)",
+    name: "addResourceToBody",
+    signature: "addResourceToBody(path: string, callback?: () => void)",
     documentation:
-      "Loads a dynamic component and executes a callback after rendering.",
+      "Appends an external script or stylesheet resource to the document body and executes an optional callback upon loading.",
     returnType: "void",
   },
   {
-    name: "getElement",
-    signature: "getElement()",
-    documentation: "Gets the underlying DOM element for this Script block.",
-    returnType: "HTMLElement",
+    name: "loadPackage",
+    signature: "loadPackage(packageName: string, callback?: () => void)",
+    documentation:
+      "Dynamically loads an external package or library into the page runtime and fires an optional callback when ready.",
+    returnType: "void",
   },
   {
-    name: "updateOptions",
-    signature: "updateOptions(newOptions: Record<string, any>)",
-    documentation: "Updates the options passed to the callback dynamically.",
+    name: "loadDynamicComponent",
+    signature: "loadDynamicComponent(id: string, callback?: () => void)",
+    documentation:
+      "Loads a dynamic component by its placeholder id and executes an optional callback after rendering.",
+    returnType: "void",
+  },
+  {
+    name: "addWidgetToBody",
+    signature: "addWidgetToBody(widgetName: string, props?: Record<string, any>)",
+    documentation:
+      "Dynamically appends a registered widget component to the document body with optional props.",
     returnType: "void",
   },
 ];

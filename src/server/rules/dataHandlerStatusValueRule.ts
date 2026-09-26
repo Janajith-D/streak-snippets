@@ -1,6 +1,7 @@
 import { Node, SyntaxKind, type SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
 import type { AnalysisResult } from "../../shared/types";
+import { isDataHandlerFile } from "./dataHandlerUtils";
 import {
   getRangeFromNode,
   type Rule,
@@ -18,22 +19,6 @@ function validateStatusProperty(prop: Node): boolean {
     return val >= 100 && val <= 599;
   }
   return false;
-}
-
-function isDataHandlerFile(uriOrPath: string): boolean {
-  const norm = decodeURIComponent(uriOrPath).replaceAll("\\", "/").toLowerCase();
-  if (norm.endsWith(".tsx")) {
-    return false;
-  }
-  if (
-    norm.includes("/test/") ||
-    norm.includes("/tests/") ||
-    norm.endsWith(".test.ts") ||
-    norm.endsWith(".spec.ts")
-  ) {
-    return norm.includes("datahandler");
-  }
-  return /(?:^|\/)src\/handlers?\//.test(norm) || /(?:^|\/)handlers?\//.test(norm);
 }
 
 export const dataHandlerStatusValueRule: Rule = {

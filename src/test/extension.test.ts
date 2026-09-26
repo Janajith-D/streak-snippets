@@ -42,7 +42,8 @@ import { scanWorkspace, resolveProjectRoot } from "../server/registry/scanner";
 import { getCompletions } from "../server/completion/provider";
 import { getJsxContext } from "../server/completion/jsxAttributeCompletions";
 import { getAutoImportEdit } from "../server/completion/frameworkCompletions";
-import { isInsideLoadDynamicComponent } from "../server/completion/scriptCompletions";
+import { isInsideLoadDynamicComponent, getGDomCompletions } from "../server/completion/scriptCompletions";
+import { gdomRegistry, scanGDomTypes } from "../server/registry/gdomTypeScanner";
 import { TextDocument } from "vscode-languageserver-textdocument";
 
 suite("Extension Test Suite", () => {
@@ -98,7 +99,7 @@ suite("Extension Test Suite", () => {
     assert.strictEqual(diags[0].code, "streak:S101");
   });
 
-  test("WidgetPlaceholder rule flags non-layout usage (S102) and mismatched id/type (S103)", () => {
+  test("WidgetPlaceholder rule flags non-layout usage (S102) and allows mismatched id/type (S103 descoped)", () => {
     const code = `
       import { WidgetPlaceholder } from "streak-forge/components";
       
@@ -112,7 +113,7 @@ suite("Extension Test Suite", () => {
     );
     const diags = widgetPlaceholderRule.run(sourceFile, analysis);
     assert.ok(diags.some((d) => d.code === "streak:S102"));
-    assert.ok(diags.some((d) => d.code === "streak:S103"));
+    assert.ok(!diags.some((d) => d.code === "streak:S103"));
   });
 
   test("streak:S202 flags non-async data handler functions", () => {
@@ -1854,7 +1855,7 @@ suite("Extension Test Suite", () => {
     }
   });
 
-  test("validateSitemap flags mismatched id and type in widgets[] with streak:S103", () => {
+  test("validateSitemap allows mismatched id and type in widgets[] (S103 descoped)", () => {
     const json = `[
       {
         "url": "/mismatch",
@@ -1870,9 +1871,7 @@ suite("Extension Test Suite", () => {
     const doc = TextDocument.create("file:///test/streak.sitemap.json", "json", 1, json);
     const diags = validateSitemap(doc, "/workspace");
     const s103Diags = diags.filter((d) => d.code === "streak:S103");
-    assert.strictEqual(s103Diags.length, 1);
-    const msg = typeof s103Diags[0].message === "string" ? s103Diags[0].message : s103Diags[0].message.value;
-    assert.ok(msg.includes('Widget \'id\' ("BannerId") and \'type\' ("HeroBanner") must match exactly.'));
+    assert.strictEqual(s103Diags.length, 0);
   });
 
   test("streak:S204 flags data handler return keys that do not match registered widgets", () => {
@@ -2250,6 +2249,117 @@ suite("Extension Test Suite", () => {
     const { analysis: validAnalysis, sourceFile: validSource } = analyzeAndParseDocument("file:///test/src/widgets/AnnouncementBanner.tsx", validCode);
     const validDiags = invalidWidgetPropsContractRule.run(validSource, validAnalysis);
     assert.strictEqual(validDiags.length, 0);
+  });
+
+  // ── v0.9.2 Post-Release Improvements Tests ─────────────────────────
+
+  test("streak:S401 allows standard globals (Set, Map, Promise, parseInt, encodeURIComponent, structuredClone)", () => {
+    const code = `
+      import { Script } from "streak-forge/components";
+      export default function TestWidget() {
+        return (
+          <Script id="test-script">
+            {(gDom, options) => {
+              const mySet = new Set([1, 2, 3]);
+              const myMap = new Map();
+              const p = Promise.resolve(true);
+              const num = parseInt("42", 10);
+              const encoded = encodeURIComponent("hello world");
+              const clone = structuredClone({ a: 1 });
+              queueMicrotask(() => {});
+            }}
+          </Script>
+        );
+      }
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/src/widgets/TestWidget.tsx", code);
+    const diags = scriptClosureCaptureRule.run(sourceFile, analysis);
+    assert.strictEqual(diags.length, 0);
+  });
+
+  test("streak:S201 and S202 only validate default-exported handler function and ignore utility helpers", () => {
+    const code = `
+      // Synchronous utility helpers that do not return status
+      export function formatHandlerData(raw: string) {
+        return raw.toUpperCase();
+      }
+
+      export const parseDataHelper = (x: number) => {
+        return x * 2;
+      };
+
+      // Default exported data handler is valid (async and returns status)
+      const HomeDataHandler = async () => {
+        const transformed = formatHandlerData("test");
+        return { status: 200, count: parseDataHelper(5) };
+      };
+
+      export default HomeDataHandler;
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/src/handlers/HomeDataHandler.ts", code);
+    const statusDiags = dataHandlerStatusRule.run(sourceFile, analysis);
+    const asyncDiags = dataHandlerAsyncRule.run(sourceFile, analysis);
+
+    assert.strictEqual(statusDiags.length, 0, "S201 should not flag utility helpers when default handler returns status");
+    assert.strictEqual(asyncDiags.length, 0, "S202 should not flag synchronous utility helpers when default handler is async");
+  });
+
+  test("streak:S201 and S202 flag invalid default export handler function declaration", () => {
+    const code = `
+      export function helper() {
+        return "ok";
+      }
+
+      // Default export is not async and does not return status
+      export default function HomeDataHandler() {
+        return { message: "no status" };
+      }
+    `;
+    const { analysis, sourceFile } = analyzeAndParseDocument("file:///test/src/handlers/HomeDataHandler.ts", code);
+    const statusDiags = dataHandlerStatusRule.run(sourceFile, analysis);
+    const asyncDiags = dataHandlerAsyncRule.run(sourceFile, analysis);
+
+    assert.strictEqual(statusDiags.length, 1);
+    assert.strictEqual(statusDiags[0].code, "streak:S201");
+    assert.strictEqual(asyncDiags.length, 1);
+    assert.strictEqual(asyncDiags[0].code, "streak:S202");
+  });
+
+  test("gDom completions return 4 official methods and custom methods from global.d.ts", () => {
+    gdomRegistry.clear();
+
+    const dtsContent = `
+      declare global {
+        interface SGDom extends GDom {
+          trackCustomAnalytics(eventName: string): void;
+          fetchUserData(): Promise<any>;
+        }
+        interface Window {
+          gDom: SGDom;
+        }
+      }
+    `;
+    const customMethods = scanGDomTypes(dtsContent, "test_global.d.ts");
+    assert.strictEqual(customMethods.length, 2);
+    assert.ok(customMethods.some((m) => m.name === "trackCustomAnalytics"));
+    assert.ok(customMethods.some((m) => m.name === "fetchUserData"));
+
+    gdomRegistry.registerMethods(customMethods);
+
+    const completions = getGDomCompletions();
+    const names = completions.map((c) => c.label);
+
+    // Official 4 methods
+    assert.ok(names.includes("addResourceToBody"));
+    assert.ok(names.includes("loadPackage"));
+    assert.ok(names.includes("loadDynamicComponent"));
+    assert.ok(names.includes("addWidgetToBody"));
+
+    // Custom methods
+    assert.ok(names.includes("trackCustomAnalytics"));
+    assert.ok(names.includes("fetchUserData"));
+
+    gdomRegistry.clear();
   });
 });
 

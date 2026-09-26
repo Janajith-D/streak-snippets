@@ -4,6 +4,7 @@ import * as fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { type WidgetProp, widgetRegistry } from "./widgets";
 import { sitemapRegistry } from "./sitemaps";
+import { gdomRegistry, scanGDomTypes } from "./gdomTypeScanner";
 
 // Single shared compiler project instance to avoid redundant instantiation overhead
 const scanProject = new Project({
@@ -372,12 +373,50 @@ async function findSitemapFiles(root: string): Promise<string[]> {
   return sitemaps;
 }
 
+async function findDeclarationFiles(root: string): Promise<string[]> {
+  const dtsFiles: string[] = [];
+  const maxDepth = 4;
+
+  async function search(dir: string, depth: number): Promise<void> {
+    if (depth > maxDepth) {
+      return;
+    }
+    try {
+      const items = await fs.promises.readdir(dir);
+      for (const item of items) {
+        if (
+          item === "node_modules" ||
+          item === ".git" ||
+          item === "dist" ||
+          item === "out" ||
+          item === ".vscode"
+        ) {
+          continue;
+        }
+        const full = path.join(dir, item);
+        const stat = await fs.promises.stat(full);
+        if (stat.isDirectory()) {
+          await search(full, depth + 1);
+        } else if (item.endsWith(".d.ts")) {
+          dtsFiles.push(full);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  await search(root, 0);
+  return dtsFiles;
+}
+
 export async function scanWorkspace(
   workspaceRoot: string,
   customWidgetDir?: string,
 ): Promise<void> {
   widgetRegistry.clear();
   sitemapRegistry.clear();
+  gdomRegistry.clear();
 
   const widgetDirs = await findWidgetDirectories(workspaceRoot, customWidgetDir);
   for (const dir of widgetDirs) {
@@ -392,6 +431,17 @@ export async function scanWorkspace(
     try {
       const text = await fs.promises.readFile(sitemapPath, "utf-8");
       sitemapRegistry.parseAndRegister(sitemapPath, text);
+    } catch {
+      // ignore
+    }
+  }
+
+  const dtsFiles = await findDeclarationFiles(workspaceRoot);
+  for (const dtsPath of dtsFiles) {
+    try {
+      const content = await fs.promises.readFile(dtsPath, "utf-8");
+      const methods = scanGDomTypes(content, dtsPath);
+      gdomRegistry.registerMethods(methods);
     } catch {
       // ignore
     }
