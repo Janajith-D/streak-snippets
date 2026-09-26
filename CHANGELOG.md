@@ -17,6 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Implemented automatic Streak.js project detection based on `streak-forge` dependencies in `package.json`, `streak.sitemap.json`, and project structure. Unrelated projects in a monorepo workspace no longer trigger Streak diagnostics, hovers, completions, or background AST parsing.
 - **Interactive Streak Engine Issues Status Bar**:
   - Upgraded the status bar item to actively display Streak Engine errors and warnings (`$(error) Streak: {E} error(s)` / `$(warning) Streak: {W} warning(s)` / `$(pass) Streak: All Clean ({N} widgets)`). Clicking the status bar opens the Problems panel. Non-Streak files in monorepos automatically hide the status bar item.
+- **Codebase Clean Code & SonarQube Compliance**:
+  - Refactored AST scanners and providers (`gdomTypeScanner.ts`, `scanner.ts`, `dataHandlerUtils.ts`, `extension.ts`) to reduce function cognitive complexity well within the allowed threshold ($\le 15$).
+  - Eliminated unnecessary conditionals, optional chains on guaranteed non-nullish types, nested ternaries, and standardized nullish coalescing (`??`) across rules and registries.
+- **Prettier Setup & Formatting Pipeline**:
+  - Configured project-wide Prettier (`.prettierrc.json`, `.prettierignore`) with double quotes, 2-space indentation, and semicolons.
+  - Added `npm run format` and `npm run format:check` scripts to the build and verification gates.
+- **Agentic Development Rules & Quality Audit**:
+  - Added `.agents/rules/05-typescript-clean-code.md` and updated `.agents/skills/audit-code-quality/` with guidelines on cognitive complexity, ES6 default parameters, array bounds checking, and Prettier checks to prevent future regressions.
 
 ## [0.9.2] - 2026-09-26
 
