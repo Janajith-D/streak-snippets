@@ -1,14 +1,17 @@
 # Contributing to Streak Snippets
 
-Thank you for contributing to Streak Snippets! This document provides information on how to build, test, and contribute to the extension.
+Thank you for contributing to Streak Snippets! This guide explains how to set up the development environment, run the extension locally, and contribute code.
 
-## Development Workflow
+---
+
+## 1. Getting Started
 
 ### Prerequisites
-- [Node.js](https://nodejs.org) version 18 or higher.
-- [npm](https://www.npmjs.com/) package manager.
+- [Node.js](https://nodejs.org) (v18 or higher)
+- [npm](https://www.npmjs.com/) package manager
+- [Visual Studio Code](https://code.visualstudio.com) (v1.107 or higher)
 
-### Setup
+### Repository Setup
 1. Clone the repository:
    ```bash
    git clone https://github.com/Streak/streak-snippets.git
@@ -19,53 +22,56 @@ Thank you for contributing to Streak Snippets! This document provides informatio
    npm install
    ```
 
-### Running Locally
-1. Press `F5` in VS Code to launch the Extension Development Host window.
-2. Open a `.ts` or `.tsx` file inside the new window to test diagnostics, autocomplete, hovers, or scaffolding commands.
+---
+
+## 2. Development Workflow
+
+### Running the Extension Locally
+1. Open the project folder in VS Code.
+2. Press `F5` (or select **Run > Start Debugging**) to launch an **Extension Development Host** window.
+3. In the new window, open any workspace containing `.ts`, `.tsx`, or `streak.sitemap.json` files to test diagnostics, autocomplete, hovers, and commands in real time.
+
+### Build Scripts
+
+| Command | Description |
+|---|---|
+| `npm run compile` | Builds client (`dist/extension.js`) and server (`dist/server.js`) via Webpack. |
+| `npm run watch` | Runs Webpack in watch mode for auto-recompilation on code edits. |
+| `npm run compile-tests` | Compiles TypeScript test files with `tsc` to `out/`. |
+| `npm run lint` | Runs ESLint across all TypeScript sources. |
+| `npm test` | Runs the full integration test suite via the VS Code extension test runner. |
 
 ---
 
-## Build Commands
+## 3. Project Structure
 
-We use Webpack to bundle both the Client (Extension) and Server (Language Server) modules:
-- **Compile Client and Server**:
-  ```bash
-  npm run compile
-  ```
-- **Compile and Watch (Auto rebuild on changes)**:
-  ```bash
-  npm run watch
-  ```
-
----
-
-## Testing and Quality Checks
-
-### Linting
-We enforce eslint coding standards:
-```bash
-npm run lint
+```
+streak-snippets/
+├── src/
+│   ├── client/           # VS Code Extension Host (thin client, commands, status bar)
+│   ├── server/           # Language Server Protocol engine
+│   │   ├── completion/   # JSX attribute and callback completion providers
+│   │   ├── definition/   # Go-to-definition resolution
+│   │   ├── hover/        # Hover documentation providers
+│   │   ├── parser/       # ts-morph AST analyzer
+│   │   ├── registry/     # Workspace widget, sitemap, and gDom registries
+│   │   └── rules/        # Streak Engine diagnostic rules (streak:Sxxx)
+│   ├── shared/           # Pure TypeScript models and constants
+│   └── test/             # Mocha unit and integration test suite
+├── snippets/             # Static snippet definitions (.ts and .tsx)
+└── docs/                 # Documentation (Architecture, Rule Catalog, Roadmap)
 ```
 
-### Running Tests
-Unit tests use the VS Code extension test host environment:
-1. Compile the test files first:
-   ```bash
-   npm run compile-tests
-   ```
-2. Run the test suite:
-   ```bash
-   npx vscode-test --code-version 1.130.0
-   ```
+> 📖 For an in-depth explanation of system components and memory lifecycles, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ---
 
-## Code Structure
+## 4. Code & Quality Standards
 
-- **`src/client/`**: Main entry point for the VS Code client wrapper, command registrations, and Status Bar indicator logic.
-- **`src/server/`**: Language Server Protocol engine:
-  - `completion/`: JSX element completion and callback completion engines.
-  - `registry/`: Workspace crawler registry indexing components and JSDocs.
-  - `rules/`: Static analysis validation checkers (diagnostics).
-- **`src/shared/`**: Helper files and typings shared across client and server.
-- **`src/test/`**: Unit and integration test suites.
+1. **Strict Client/Server Separation**: Keep `src/client/` free of heavy compiler tools (`ts-morph`). All AST logic lives in `src/server/`.
+2. **Diagnostic Rules**: Every framework validation check must be a dedicated class in `src/server/rules/` tagged with `source: "Streak Engine"`.
+3. **Quality Gate**: Pull requests must pass:
+   ```bash
+   npm run compile-tests && npm run compile && npm run lint && npm test
+   ```
+4. **License**: By contributing, you agree that your contributions will be licensed under the [Apache 2.0 License](LICENSE).

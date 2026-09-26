@@ -4,7 +4,7 @@
   "description": "Snippets, commands, and developer productivity tools for the Streak.js framework",
   "version": "0.9.3",
   "publisher": "Streak",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "homepage": "https://github.com/Janajith-D/streak-snippets#readme",
   "bugs": {
     "url": "https://github.com/Janajith-D/streak-snippets/issues"

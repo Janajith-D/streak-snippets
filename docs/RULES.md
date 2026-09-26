@@ -2,6 +2,11 @@
 
 This document provides detailed SonarQube-style descriptions, rationale, and compliant/non-compliant code examples for all diagnostic rules enforced by the **Streak Engine** Language Server.
 
+> [!IMPORTANT]
+> **Streak.js Framework User Documentation**
+> This file is a catalog of user-facing diagnostic rules enforced on Streak.js projects (e.g. `streak:S101`, `streak:S204`).
+> - **For AI Coding Agents & Extension Contributors**: DO NOT use this file for development instructions or project guidelines. Refer to `.agents/rules/` for extension coding rules and [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) for internal extension architecture.
+
 ---
 
 ## Catalog Overview
