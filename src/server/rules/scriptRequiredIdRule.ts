@@ -16,10 +16,7 @@ import {
  */
 function isValidNonEmptyId(value: string): boolean {
   return (
-    value.trim() !== "" &&
-    value.trim() !== '""' &&
-    value.trim() !== "''" &&
-    value.trim() !== "{}"
+    value.trim() !== "" && value.trim() !== '""' && value.trim() !== "''" && value.trim() !== "{}"
   );
 }
 
@@ -29,11 +26,7 @@ export const scriptRequiredIdRule: Rule = {
   description: "Ensures <Script> components have a non-empty 'id' attribute.",
   defaultSeverity: DiagnosticSeverity.Warning,
 
-  run(
-    sourceFile: SourceFile,
-    _analysis: AnalysisResult,
-    options?: RuleOptions,
-  ): RuleDiagnostic[] {
+  run(sourceFile: SourceFile, _analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
@@ -59,10 +52,7 @@ export const scriptRequiredIdRule: Rule = {
 
       let hasId = false;
       for (const attr of attributes) {
-        if (
-          Node.isJsxAttribute(attr) &&
-          attr.getNameNode()?.getText() === "id"
-        ) {
+        if (Node.isJsxAttribute(attr) && attr.getNameNode().getText() === "id") {
           hasId = isValidNonEmptyId(getJsxAttrValue(attr));
         }
       }

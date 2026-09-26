@@ -28,13 +28,64 @@ function unwrapParentheses(node: Node): Node {
   return curr;
 }
 
+function resolveTargetNodeByName(sourceFile: SourceFile, name: string): Node | undefined {
+  const fn = sourceFile.getFunction(name);
+  if (fn) {
+    return fn;
+  }
+  const varDecl = sourceFile.getVariableDeclaration(name);
+  if (varDecl) {
+    const init = varDecl.getInitializer();
+    if (init) {
+      const unwrappedInit = unwrapParentheses(init);
+      if (Node.isArrowFunction(unwrappedInit) || Node.isFunctionExpression(unwrappedInit)) {
+        return unwrappedInit;
+      }
+    }
+    return varDecl;
+  }
+  return undefined;
+}
+
+function getHandlerFromExportAssignment(sourceFile: SourceFile): Node | undefined {
+  const exportAssignments = sourceFile.getExportAssignments();
+  for (const ea of exportAssignments) {
+    const expr = unwrapParentheses(ea.getExpression());
+
+    if (Node.isArrowFunction(expr) || Node.isFunctionExpression(expr)) {
+      return expr;
+    }
+
+    if (Node.isIdentifier(expr)) {
+      const resolved = resolveTargetNodeByName(sourceFile, expr.getText());
+      if (resolved) {
+        return resolved;
+      }
+    }
+  }
+  return undefined;
+}
+
+function getHandlerFromNamedDefaultExport(sourceFile: SourceFile): Node | undefined {
+  for (const expDecl of sourceFile.getExportDeclarations()) {
+    for (const named of expDecl.getNamedExports()) {
+      if (named.getAliasNode()?.getText() === "default") {
+        const resolved = resolveTargetNodeByName(sourceFile, named.getName());
+        if (resolved) {
+          return resolved;
+        }
+      }
+    }
+  }
+  return undefined;
+}
+
 /**
  * Retrieves the default-exported handler function or node in a Streak data handler file.
  * Returns undefined if no default export function is found.
  */
 export function getDefaultExportedHandler(sourceFile: SourceFile): Node | undefined {
   // 1. Direct export default function declaration:
-  //    export default async function(...) {} or export default function handler(...) {}
   for (const fn of sourceFile.getFunctions()) {
     if (fn.isDefaultExport()) {
       return fn;
@@ -42,64 +93,11 @@ export function getDefaultExportedHandler(sourceFile: SourceFile): Node | undefi
   }
 
   // 2. Export assignment:
-  //    export default handler; or export default async () => {};
-  const exportAssignments = sourceFile.getExportAssignments();
-  for (const ea of exportAssignments) {
-    const rawExpr = ea.getExpression();
-    if (!rawExpr) {
-      continue;
-    }
-    const expr = unwrapParentheses(rawExpr);
-
-    if (Node.isArrowFunction(expr) || Node.isFunctionExpression(expr)) {
-      return expr;
-    }
-
-    if (Node.isIdentifier(expr)) {
-      const name = expr.getText();
-      const fn = sourceFile.getFunction(name);
-      if (fn) {
-        return fn;
-      }
-      const varDecl = sourceFile.getVariableDeclaration(name);
-      if (varDecl) {
-        const init = varDecl.getInitializer();
-        if (init) {
-          const unwrappedInit = unwrapParentheses(init);
-          if (Node.isArrowFunction(unwrappedInit) || Node.isFunctionExpression(unwrappedInit)) {
-            return unwrappedInit;
-          }
-        }
-        return varDecl;
-      }
-    }
+  const fromAssignment = getHandlerFromExportAssignment(sourceFile);
+  if (fromAssignment) {
+    return fromAssignment;
   }
 
   // 3. Named export with alias to default:
-  //    export { myHandler as default };
-  for (const expDecl of sourceFile.getExportDeclarations()) {
-    for (const named of expDecl.getNamedExports()) {
-      const alias = named.getAliasNode()?.getText();
-      if (alias === "default") {
-        const targetName = named.getName();
-        const fn = sourceFile.getFunction(targetName);
-        if (fn) {
-          return fn;
-        }
-        const varDecl = sourceFile.getVariableDeclaration(targetName);
-        if (varDecl) {
-          const init = varDecl.getInitializer();
-          if (init) {
-            const unwrappedInit = unwrapParentheses(init);
-            if (Node.isArrowFunction(unwrappedInit) || Node.isFunctionExpression(unwrappedInit)) {
-              return unwrappedInit;
-            }
-          }
-          return varDecl;
-        }
-      }
-    }
-  }
-
-  return undefined;
+  return getHandlerFromNamedDefaultExport(sourceFile);
 }

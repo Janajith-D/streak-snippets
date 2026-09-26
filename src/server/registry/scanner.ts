@@ -4,13 +4,8 @@ import * as fs from "node:fs";
 import { type WidgetProp, widgetRegistry } from "./widgets";
 import { sitemapRegistry } from "./sitemaps";
 import { gdomRegistry, scanGDomTypes } from "./gdomTypeScanner";
-import {
-  findStreakProjectRoot,
-  isStreakProjectDirectory,
-  isStreakFile,
-} from "./projectDetector";
-
-export { findStreakProjectRoot, isStreakProjectDirectory, isStreakFile };
+export { findStreakProjectRoot, isStreakProjectDirectory, isStreakFile } from "./projectDetector";
+import { findStreakProjectRoot, isStreakProjectDirectory } from "./projectDetector";
 
 // Single shared compiler project instance to avoid redundant instantiation overhead
 const scanProject = new Project({
@@ -33,19 +28,17 @@ function getDefaultExportComponentName(
   if (!defaultExportSymbol) {
     return undefined;
   }
-  const decl = defaultExportSymbol.getDeclarations()[0];
-  if (!decl) {
+  const decls = defaultExportSymbol.getDeclarations();
+  if (decls.length === 0) {
     return undefined;
   }
+  const decl = decls[0];
   if (Node.isExportAssignment(decl)) {
     const expr = decl.getExpression();
-    if (expr && Node.isIdentifier(expr)) {
+    if (Node.isIdentifier(expr)) {
       return expr.getText();
     }
-  } else if (
-    Node.isFunctionDeclaration(decl) ||
-    Node.isClassDeclaration(decl)
-  ) {
+  } else if (Node.isFunctionDeclaration(decl) || Node.isClassDeclaration(decl)) {
     return decl.getName() ?? "";
   }
   return undefined;
@@ -62,10 +55,7 @@ function getVariableDeclComponentName(
     const name = vd.getName();
     if (name && /^[A-Z]/.test(name)) {
       const init = vd.getInitializer();
-      if (
-        init &&
-        (Node.isArrowFunction(init) || Node.isFunctionExpression(init))
-      ) {
+      if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
         return name;
       }
     }
@@ -119,10 +109,7 @@ function resolveComponentNode(
   const vd = sourceFile.getVariableDeclaration(componentName);
   if (vd) {
     const init = vd.getInitializer();
-    if (
-      init &&
-      (Node.isArrowFunction(init) || Node.isFunctionExpression(init))
-    ) {
+    if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
       return init;
     }
   }
@@ -135,13 +122,8 @@ function resolveComponentNode(
  */
 function extractDocComment(componentNode: Node): string {
   let docNode: Node = componentNode;
-  if (
-    Node.isArrowFunction(componentNode) ||
-    Node.isFunctionExpression(componentNode)
-  ) {
-    const varStatement = componentNode.getFirstAncestorByKind(
-      SyntaxKind.VariableStatement,
-    );
+  if (Node.isArrowFunction(componentNode) || Node.isFunctionExpression(componentNode)) {
+    const varStatement = componentNode.getFirstAncestorByKind(SyntaxKind.VariableStatement);
     if (varStatement) {
       docNode = varStatement;
     }
@@ -170,10 +152,11 @@ function extractProps(componentNode: Node): WidgetProp[] {
     return [];
   }
 
-  const firstParam = componentNode.getParameters()[0];
-  if (!firstParam) {
+  const params = componentNode.getParameters();
+  if (params.length === 0) {
     return [];
   }
+  const firstParam = params[0];
 
   const propsList: WidgetProp[] = [];
   const type = firstParam.getType();
@@ -211,7 +194,7 @@ function extractProps(componentNode: Node): WidgetProp[] {
       name,
       type: typeText,
       isOptional,
-      docComment: propDoc || undefined,
+      docComment: propDoc.length > 0 ? propDoc : undefined,
     });
   }
 
@@ -229,17 +212,15 @@ export function resolveProjectRoot(uri: string, workspaceRoot?: string): string 
   } catch {
     /* ignore */
   }
-  return workspaceRoot || process.cwd();
+  return workspaceRoot ?? process.cwd();
 }
 
 export async function scanFile(filePath: string): Promise<void> {
   try {
     const content = await fs.promises.readFile(filePath, "utf-8");
-    const sourceFile = scanProject.createSourceFile(
-      `${filePath}.temp.tsx`,
-      content,
-      { overwrite: true },
-    );
+    const sourceFile = scanProject.createSourceFile(`${filePath}.temp.tsx`, content, {
+      overwrite: true,
+    });
 
     // 1. Resolve component name
     const componentName = resolveComponentName(sourceFile, filePath);
@@ -262,7 +243,7 @@ export async function scanFile(filePath: string): Promise<void> {
     widgetRegistry.set(componentName, {
       name: componentName,
       filePath,
-      docComment: docComment || undefined,
+      docComment: docComment.length > 0 ? docComment : undefined,
       props: propsList,
     });
 
@@ -274,14 +255,18 @@ export async function scanFile(filePath: string): Promise<void> {
 
 async function findWidgetDirectories(root: string, customWidgetDir?: string): Promise<string[]> {
   const dirs: string[] = [];
-  const targetDirName = customWidgetDir || "src/widgets";
+  const targetDirName = customWidgetDir ?? "src/widgets";
 
   const directPath = path.join(root, targetDirName);
   if (fs.existsSync(directPath)) {
     dirs.push(directPath);
   }
   const directFallback = path.join(root, "src", "components");
-  if (fs.existsSync(directFallback) && !dirs.includes(directFallback) && isStreakProjectDirectory(root)) {
+  if (
+    fs.existsSync(directFallback) &&
+    !dirs.includes(directFallback) &&
+    isStreakProjectDirectory(root)
+  ) {
     dirs.push(directFallback);
   }
 
@@ -447,7 +432,7 @@ async function findFilesRecursive(dir: string): Promise<string[]> {
     for (const file of list) {
       const filePath = path.join(dir, file);
       const stat = await fs.promises.stat(filePath);
-      if (stat?.isDirectory()) {
+      if (stat.isDirectory()) {
         results = results.concat(await findFilesRecursive(filePath));
       } else if (filePath.endsWith(".tsx") || filePath.endsWith(".ts")) {
         results.push(filePath);

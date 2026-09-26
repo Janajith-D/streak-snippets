@@ -65,67 +65,70 @@ function startLanguageServer(context: vscode.ExtensionContext) {
 let statusBarItem: vscode.StatusBarItem | undefined;
 let indexedWidgetCount = 0;
 
-function updateStreakStatusBar() {
-  if (!statusBarItem) {
-    return;
+function isStreakProjectActive(activeEditor: vscode.TextEditor | undefined): boolean {
+  if (activeEditor) {
+    return findStreakProjectRoot(activeEditor.document.uri.fsPath) !== null;
   }
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  return workspaceFolders?.some((f) => findStreakProjectRoot(f.uri.fsPath) !== null) ?? false;
+}
 
-  const activeEditor = vscode.window.activeTextEditor;
-  if (!activeEditor) {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    const hasStreakWorkspace = workspaceFolders?.some((f) =>
-      findStreakProjectRoot(f.uri.fsPath),
-    );
-    if (!hasStreakWorkspace) {
-      statusBarItem.hide();
-      return;
-    }
-  } else {
-    const filePath = activeEditor.document.uri.fsPath;
-    if (!findStreakProjectRoot(filePath)) {
-      statusBarItem.hide();
-      return;
-    }
-  }
+function countStreakDiagnostics(): { errors: number; warnings: number } {
+  let errors = 0;
+  let warnings = 0;
 
-  let streakErrors = 0;
-  let streakWarnings = 0;
-
-  const allDiagnostics = vscode.languages.getDiagnostics();
-  for (const [, diags] of allDiagnostics) {
+  for (const [, diags] of vscode.languages.getDiagnostics()) {
     for (const diag of diags) {
       if (diag.source === "Streak Engine") {
         if (diag.severity === vscode.DiagnosticSeverity.Error) {
-          streakErrors++;
+          errors++;
         } else if (diag.severity === vscode.DiagnosticSeverity.Warning) {
-          streakWarnings++;
+          warnings++;
         }
       }
     }
   }
 
-  if (streakErrors > 0) {
-    statusBarItem.text = `$(error) Streak: ${streakErrors} error${streakErrors === 1 ? "" : "s"}${
-      streakWarnings > 0 ? `, ${streakWarnings} warning${streakWarnings === 1 ? "" : "s"}` : ""
-    }`;
-    statusBarItem.backgroundColor = new vscode.ThemeColor(
-      "statusBarItem.errorBackground",
-    );
-    statusBarItem.tooltip = `Streak Engine Issues: ${streakErrors} error(s), ${streakWarnings} warning(s). Click to view Problems.`;
-  } else if (streakWarnings > 0) {
-    statusBarItem.text = `$(warning) Streak: ${streakWarnings} warning${streakWarnings === 1 ? "" : "s"}`;
-    statusBarItem.backgroundColor = new vscode.ThemeColor(
-      "statusBarItem.warningBackground",
-    );
-    statusBarItem.tooltip = `Streak Engine Issues: ${streakWarnings} warning(s). Click to view Problems.`;
+  return { errors, warnings };
+}
+
+function renderStatusBar(
+  item: vscode.StatusBarItem,
+  errors: number,
+  warnings: number,
+  widgetCount: number,
+): void {
+  if (errors > 0) {
+    const warningText = warnings > 0 ? `, ${warnings} warning${warnings === 1 ? "" : "s"}` : "";
+    item.text = `$(error) Streak: ${errors} error${errors === 1 ? "" : "s"}${warningText}`;
+    item.backgroundColor = new vscode.ThemeColor("statusBarItem.errorBackground");
+    item.tooltip = `Streak Engine Issues: ${errors} error(s), ${warnings} warning(s). Click to view Problems.`;
+  } else if (warnings > 0) {
+    item.text = `$(warning) Streak: ${warnings} warning${warnings === 1 ? "" : "s"}`;
+    item.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
+    item.tooltip = `Streak Engine Issues: ${warnings} warning(s). Click to view Problems.`;
   } else {
-    statusBarItem.text = `$(pass) Streak: All Clean (${indexedWidgetCount} widget${indexedWidgetCount === 1 ? "" : "s"})`;
-    statusBarItem.backgroundColor = undefined;
-    statusBarItem.tooltip = `Streak: All checks passed. ${indexedWidgetCount} widget(s) indexed. Click to view Problems.`;
+    item.text = `$(pass) Streak: All Clean (${widgetCount} widget${widgetCount === 1 ? "" : "s"})`;
+    item.backgroundColor = undefined;
+    item.tooltip = `Streak: All checks passed. ${widgetCount} widget(s) indexed. Click to view Problems.`;
   }
 
-  statusBarItem.command = "workbench.actions.view.problems";
-  statusBarItem.show();
+  item.command = "workbench.actions.view.problems";
+  item.show();
+}
+
+function updateStreakStatusBar(): void {
+  if (!statusBarItem) {
+    return;
+  }
+
+  if (!isStreakProjectActive(vscode.window.activeTextEditor)) {
+    statusBarItem.hide();
+    return;
+  }
+
+  const { errors, warnings } = countStreakDiagnostics();
+  renderStatusBar(statusBarItem, errors, warnings, indexedWidgetCount);
 }
 
 /**
@@ -135,104 +138,85 @@ export function activate(context: vscode.ExtensionContext) {
   outputChannel = vscode.window.createOutputChannel("Streak Snippets");
   outputChannel.appendLine("Streak Snippets extension activated");
 
-  context.subscriptions.push(outputChannel);
-
   // Status Bar Item
-  statusBarItem = vscode.window.createStatusBarItem(
-    vscode.StatusBarAlignment.Right,
-    100,
-  );
+  statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   statusBarItem.command = "workbench.actions.view.problems";
-  context.subscriptions.push(statusBarItem);
 
-  context.subscriptions.push(
-    vscode.languages.onDidChangeDiagnostics(() => {
-      updateStreakStatusBar();
-    }),
-  );
-
-  context.subscriptions.push(
-    vscode.window.onDidChangeActiveTextEditor(() => {
-      updateStreakStatusBar();
-    }),
-  );
+  const diagWatcher = vscode.languages.onDidChangeDiagnostics(() => {
+    updateStreakStatusBar();
+  });
+  const editorWatcher = vscode.window.onDidChangeActiveTextEditor(() => {
+    updateStreakStatusBar();
+  });
 
   updateStreakStatusBar();
 
   // Register Scaffolder Command
-  const scaffoldCmd = vscode.commands.registerCommand(
-    "streak.createWidget",
-    async () => {
-      const name = await vscode.window.showInputBox({
-        prompt: "Enter name of new widget (PascalCase)",
-        placeHolder: "e.g. ProductCard",
-        validateInput: (value) => {
-          if (!value || !/^[A-Z][a-zA-Z0-9]*$/.test(value)) {
-            return "Widget name must start with a capital letter and be alphanumeric (PascalCase).";
-          }
-          return null;
-        },
-      });
+  const scaffoldCmd = vscode.commands.registerCommand("streak.createWidget", async () => {
+    const name = await vscode.window.showInputBox({
+      prompt: "Enter name of new widget (PascalCase)",
+      placeHolder: "e.g. ProductCard",
+      validateInput: (value) => {
+        if (!value || !/^[A-Z][a-zA-Z0-9]*$/.test(value)) {
+          return "Widget name must start with a capital letter and be alphanumeric (PascalCase).";
+        }
+        return null;
+      },
+    });
 
-      if (!name) {
-        return;
-      }
+    if (!name) {
+      return;
+    }
 
-      const config = vscode.workspace.getConfiguration("streak");
-      const widgetSubdir =
-        config.get<string>("snippets.widgetDirectory") || "src/widgets";
+    const config = vscode.workspace.getConfiguration("streak");
+    const widgetSubdir = config.get<string>("snippets.widgetDirectory") ?? "src/widgets";
 
-      const workspaceFolders = vscode.workspace.workspaceFolders;
-      if (!workspaceFolders) {
-        vscode.window.showErrorMessage(
-          "Please open a workspace to create widgets.",
-        );
-        return;
-      }
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders) {
+      vscode.window.showErrorMessage("Please open a workspace to create widgets.");
+      return;
+    }
 
-      const rootPath = workspaceFolders[0].uri.fsPath;
-      const targetDir = path.join(rootPath, widgetSubdir);
+    const rootPath = workspaceFolders[0].uri.fsPath;
+    const targetDir = path.join(rootPath, widgetSubdir);
 
-      if (!fs.existsSync(targetDir)) {
-        fs.mkdirSync(targetDir, { recursive: true });
-      }
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
 
-      const filePath = path.join(targetDir, `${name}.tsx`);
-      if (fs.existsSync(filePath)) {
-        vscode.window.showErrorMessage(
-          `Widget ${name} already exists at ${widgetSubdir}/${name}.tsx`,
-        );
-        return;
-      }
+    const filePath = path.join(targetDir, `${name}.tsx`);
+    if (fs.existsSync(filePath)) {
+      vscode.window.showErrorMessage(
+        `Widget ${name} already exists at ${widgetSubdir}/${name}.tsx`,
+      );
+      return;
+    }
 
-      const template = [
-        `type ${name}Props = {`,
-        "  data?: {",
-        "    name?: string;",
-        "  };",
-        "};",
-        "",
-        `const ${name} = (props: ${name}Props) => {`,
-        `  return <div>Hello ${name} {props?.data?.name}</div>;`,
-        "};",
-        "",
-        `export default ${name};`,
-        "",
-      ].join("\n");
+    const template = [
+      `type ${name}Props = {`,
+      "  data?: {",
+      "    name?: string;",
+      "  };",
+      "};",
+      "",
+      `const ${name} = (props: ${name}Props) => {`,
+      `  return <div>Hello ${name} {props?.data?.name}</div>;`,
+      "};",
+      "",
+      `export default ${name};`,
+      "",
+    ].join("\n");
 
-      fs.writeFileSync(filePath, template, "utf-8");
+    fs.writeFileSync(filePath, template, "utf-8");
 
-      if (!process.env.STREAK_TEST_ENVIRONMENT) {
-        const doc = await vscode.workspace.openTextDocument(filePath);
-        await vscode.window.showTextDocument(doc);
-        vscode.window.showInformationMessage(
-          `Widget ${name} created successfully!`,
-        );
-      }
-    },
-  );
+    if (!process.env.STREAK_TEST_ENVIRONMENT) {
+      const doc = await vscode.workspace.openTextDocument(filePath);
+      await vscode.window.showTextDocument(doc);
+      vscode.window.showInformationMessage(`Widget ${name} created successfully!`);
+    }
+  });
 
-  context.subscriptions.push(scaffoldCmd);
+  context.subscriptions.push(outputChannel, statusBarItem, diagWatcher, editorWatcher, scaffoldCmd);
 
   // Start the Language Server
   startLanguageServer(context);

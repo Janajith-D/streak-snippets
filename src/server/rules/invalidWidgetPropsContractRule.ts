@@ -6,12 +6,7 @@ import {
 } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
 import type { AnalysisResult } from "../../shared/types";
-import {
-  getRangeFromNode,
-  type Rule,
-  type RuleDiagnostic,
-  type RuleOptions,
-} from "./types";
+import { getRangeFromNode, type Rule, type RuleDiagnostic, type RuleOptions } from "./types";
 
 function checkInterface(
   iface: InterfaceDeclaration,
@@ -48,8 +43,7 @@ function checkTypeAlias(
           const range = getRangeFromNode(sourceFile, member);
           diagnostics.push({
             code: "streak:S304",
-            message:
-              "Widget props should define 'data' as optional ('data?: T').",
+            message: "Widget props should define 'data' as optional ('data?: T').",
             range,
             severity,
             source: "Streak Engine",
@@ -67,11 +61,7 @@ export const invalidWidgetPropsContractRule: Rule = {
   description: "Ensures widget props define data as optional (data?: T).",
   defaultSeverity: DiagnosticSeverity.Warning,
 
-  run(
-    sourceFile: SourceFile,
-    analysis: AnalysisResult,
-    options?: RuleOptions,
-  ): RuleDiagnostic[] {
+  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 

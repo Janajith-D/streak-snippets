@@ -2,12 +2,7 @@ import { Node, SyntaxKind, type SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
 import type { AnalysisResult } from "../../shared/types";
 import { isDataHandlerFile } from "./dataHandlerUtils";
-import {
-  getRangeFromNode,
-  type Rule,
-  type RuleDiagnostic,
-  type RuleOptions,
-} from "./types";
+import { getRangeFromNode, type Rule, type RuleDiagnostic, type RuleOptions } from "./types";
 
 function validateStatusProperty(prop: Node): boolean {
   if (!Node.isPropertyAssignment(prop) || prop.getName() !== "status") {
@@ -28,11 +23,7 @@ export const dataHandlerStatusValueRule: Rule = {
     "Ensures data handler status property is a valid HTTP status code (e.g. 200, 404, 500).",
   defaultSeverity: DiagnosticSeverity.Warning,
 
-  run(
-    sourceFile: SourceFile,
-    analysis: AnalysisResult,
-    options?: RuleOptions,
-  ): RuleDiagnostic[] {
+  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
@@ -41,9 +32,7 @@ export const dataHandlerStatusValueRule: Rule = {
       return diagnostics;
     }
 
-    const objectLiterals = sourceFile.getDescendantsOfKind(
-      SyntaxKind.ObjectLiteralExpression,
-    );
+    const objectLiterals = sourceFile.getDescendantsOfKind(SyntaxKind.ObjectLiteralExpression);
     for (const obj of objectLiterals) {
       for (const prop of obj.getProperties()) {
         if (!validateStatusProperty(prop)) {

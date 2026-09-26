@@ -3,12 +3,7 @@ import { DiagnosticSeverity } from "vscode-languageserver/node";
 import type { AnalysisResult } from "../../shared/types";
 import { widgetRegistry } from "../registry/widgets";
 import { getDefaultExportedHandler, isDataHandlerFile } from "./dataHandlerUtils";
-import {
-  getRangeFromNode,
-  type Rule,
-  type RuleDiagnostic,
-  type RuleOptions,
-} from "./types";
+import { getRangeFromNode, type Rule, type RuleDiagnostic, type RuleOptions } from "./types";
 
 const IGNORED_RETURN_KEYS = new Set([
   "status",
@@ -28,9 +23,7 @@ function unwrapObjectLiteral(expr: Node | undefined): Node | null {
   if (!expr) {
     return null;
   }
-  const target = Node.isParenthesizedExpression(expr)
-    ? expr.getExpression()
-    : expr;
+  const target = Node.isParenthesizedExpression(expr) ? expr.getExpression() : expr;
   return Node.isObjectLiteralExpression(target) ? target : null;
 }
 
@@ -55,9 +48,7 @@ function getReturnedObjectLiterals(fn: Node): Node[] {
   return returnedObjects;
 }
 
-function getPropertyNameAndNode(
-  prop: Node,
-): { name: string; nameNode: Node | undefined } | null {
+function getPropertyNameAndNode(prop: Node): { name: string; nameNode: Node | undefined } | null {
   if (
     Node.isPropertyAssignment(prop) ||
     Node.isShorthandPropertyAssignment(prop) ||
@@ -107,11 +98,7 @@ export const dataHandlerWidgetKeyRule: Rule = {
     "Ensures top-level return object keys in default-exported data handler match valid registered widgets in src/widgets.",
   defaultSeverity: DiagnosticSeverity.Warning,
 
-  run(
-    sourceFile: SourceFile,
-    analysis: AnalysisResult,
-    options?: RuleOptions,
-  ): RuleDiagnostic[] {
+  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
@@ -125,19 +112,12 @@ export const dataHandlerWidgetKeyRule: Rule = {
       return diagnostics;
     }
 
-    const registeredWidgets = new Set(
-      widgetRegistry.getAll().map((w) => w.name),
-    );
+    const registeredWidgets = new Set(widgetRegistry.getAll().map((w) => w.name));
 
     const returnedObjects = getReturnedObjectLiterals(handler);
     for (const obj of returnedObjects) {
       diagnostics.push(
-        ...validateReturnObjectProperties(
-          obj,
-          sourceFile,
-          registeredWidgets,
-          severity,
-        ),
+        ...validateReturnObjectProperties(obj, sourceFile, registeredWidgets, severity),
       );
     }
 

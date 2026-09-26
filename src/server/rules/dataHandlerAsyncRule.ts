@@ -2,12 +2,7 @@ import { Node, type SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
 import type { AnalysisResult } from "../../shared/types";
 import { getDefaultExportedHandler, isDataHandlerFile } from "./dataHandlerUtils";
-import {
-  getRangeFromNode,
-  type Rule,
-  type RuleDiagnostic,
-  type RuleOptions,
-} from "./types";
+import { getRangeFromNode, type Rule, type RuleDiagnostic, type RuleOptions } from "./types";
 
 export const dataHandlerAsyncRule: Rule = {
   id: "streak:data-handler-async",
@@ -15,11 +10,7 @@ export const dataHandlerAsyncRule: Rule = {
   description: "Ensures Streak data handler default export is declared async.",
   defaultSeverity: DiagnosticSeverity.Error,
 
-  run(
-    sourceFile: SourceFile,
-    analysis: AnalysisResult,
-    options?: RuleOptions,
-  ): RuleDiagnostic[] {
+  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
@@ -42,10 +33,7 @@ export const dataHandlerAsyncRule: Rule = {
       isAsync = handler.isAsync();
     } else if (Node.isVariableDeclaration(handler)) {
       const init = handler.getInitializer();
-      if (
-        init &&
-        (Node.isArrowFunction(init) || Node.isFunctionExpression(init))
-      ) {
+      if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
         isAsync = init.isAsync();
       }
     }

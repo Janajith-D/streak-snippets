@@ -1,20 +1,15 @@
 import { Node, type SourceFile } from "ts-morph";
 import { DiagnosticSeverity } from "vscode-languageserver/node";
 import type { AnalysisResult } from "../../shared/types";
-import {
-  getRangeFromNode,
-  type Rule,
-  type RuleDiagnostic,
-  type RuleOptions,
-} from "./types";
+import { getRangeFromNode, type Rule, type RuleDiagnostic, type RuleOptions } from "./types";
 
 function hasValidStaticId(attributes: Node[]): boolean {
   for (const attr of attributes) {
-    if (Node.isJsxAttribute(attr) && attr.getNameNode()?.getText() === "id") {
+    if (Node.isJsxAttribute(attr) && attr.getNameNode().getText() === "id") {
       const initializer = attr.getInitializer();
       if (initializer && Node.isStringLiteral(initializer)) {
         const val = initializer.getLiteralValue();
-        return !!(val && val.trim().length > 0);
+        return val.trim().length > 0;
       }
     }
   }
@@ -42,8 +37,7 @@ function checkDynamicElement(
     const range = getRangeFromNode(sourceFile, node);
     return {
       code: "streak:S501",
-      message:
-        "<Dynamic> component must have a static, non-empty 'id' attribute.",
+      message: "<Dynamic> component must have a static, non-empty 'id' attribute.",
       range,
       severity,
       source: "Streak Engine",
@@ -55,15 +49,10 @@ function checkDynamicElement(
 export const dynamicComponentIdRule: Rule = {
   id: "streak:invalid-dynamic-component-id",
   name: "Invalid Dynamic Component ID",
-  description:
-    "Ensures <Dynamic> components have a static, non-empty 'id' attribute.",
+  description: "Ensures <Dynamic> components have a static, non-empty 'id' attribute.",
   defaultSeverity: DiagnosticSeverity.Error,
 
-  run(
-    sourceFile: SourceFile,
-    analysis: AnalysisResult,
-    options?: RuleOptions,
-  ): RuleDiagnostic[] {
+  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 

@@ -17,10 +17,7 @@ import {
  * Checks if the cursor is currently inside the first argument of a loadDynamicComponent call.
  * e.g., gDom.loadDynamicComponent("
  */
-export function isInsideLoadDynamicComponent(
-  text: string,
-  offset: number,
-): boolean {
+export function isInsideLoadDynamicComponent(text: string, offset: number): boolean {
   const textBeforeCursor = text.slice(0, offset);
   return LOAD_DYNAMIC_RE.test(textBeforeCursor);
 }
@@ -43,8 +40,7 @@ export function isInsideScriptCallback(text: string, offset: number): boolean {
     return false;
   }
 
-  const callbackStartOffset =
-    lastOpen + callbackStart.index + callbackStart[0].length;
+  const callbackStartOffset = lastOpen + callbackStart.index + callbackStart[0].length;
   if (offset < callbackStartOffset) {
     return false;
   }
@@ -69,10 +65,7 @@ export function isInsideScriptCallback(text: string, offset: number): boolean {
 export function getGDomCompletions(): CompletionItem[] {
   const customMethods = gdomRegistry.getMethods();
   const builtInNames = new Set(GDOM_METHODS.map((m) => m.name));
-  const merged = [
-    ...GDOM_METHODS,
-    ...customMethods.filter((m) => !builtInNames.has(m.name)),
-  ];
+  const merged = [...GDOM_METHODS, ...customMethods.filter((m) => !builtInNames.has(m.name))];
 
   return merged.map((method) => ({
     label: method.name,

@@ -22,11 +22,7 @@ function validateScriptChildren(
   elementRange: RangeLocation,
   severity: DiagnosticSeverity,
 ): RuleDiagnostic[] {
-  const make = (
-    code: string,
-    message: string,
-    range: RangeLocation,
-  ): RuleDiagnostic => ({
+  const make = (code: string, message: string, range: RangeLocation): RuleDiagnostic => ({
     code,
     message,
     range,
@@ -66,10 +62,7 @@ function validateScriptChildren(
   }
 
   const expr = child.getExpression();
-  if (
-    !expr ||
-    (!Node.isArrowFunction(expr) && !Node.isFunctionExpression(expr))
-  ) {
+  if (!expr || (!Node.isArrowFunction(expr) && !Node.isFunctionExpression(expr))) {
     return [
       make(
         "streak:S603",
@@ -89,11 +82,7 @@ export const scriptStructureRule: Rule = {
     "Ensures <Script> tags only contain a single JSX expression child wrapping a valid execution callback.",
   defaultSeverity: DiagnosticSeverity.Error,
 
-  run(
-    sourceFile: SourceFile,
-    _analysis: AnalysisResult,
-    options?: RuleOptions,
-  ): RuleDiagnostic[] {
+  run(sourceFile: SourceFile, _analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
@@ -115,12 +104,7 @@ export const scriptStructureRule: Rule = {
 
       const range = getRangeFromNode(sourceFile, node);
       diagnostics.push(
-        ...validateScriptChildren(
-          nonWhitespaceChildren,
-          sourceFile,
-          range,
-          severity,
-        ),
+        ...validateScriptChildren(nonWhitespaceChildren, sourceFile, range, severity),
       );
     });
 

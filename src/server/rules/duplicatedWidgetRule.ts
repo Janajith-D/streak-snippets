@@ -27,26 +27,22 @@ function getPathFromUri(uri: string): string {
  * Extracts the component name from a default export symbol, if one exists.
  * Extracted to reduce cognitive complexity of resolveWidgetComponentName.
  */
-function getDefaultExportComponentName(
-  sourceFile: SourceFile,
-): string | undefined {
+function getDefaultExportComponentName(sourceFile: SourceFile): string | undefined {
   const defaultExportSymbol = sourceFile.getDefaultExportSymbol();
   if (!defaultExportSymbol) {
     return undefined;
   }
-  const decl = defaultExportSymbol.getDeclarations()[0];
-  if (!decl) {
+  const decls = defaultExportSymbol.getDeclarations();
+  if (decls.length === 0) {
     return undefined;
   }
+  const decl = decls[0];
   if (Node.isExportAssignment(decl)) {
     const expr = decl.getExpression();
-    if (expr && Node.isIdentifier(expr)) {
+    if (Node.isIdentifier(expr)) {
       return expr.getText();
     }
-  } else if (
-    Node.isFunctionDeclaration(decl) ||
-    Node.isClassDeclaration(decl)
-  ) {
+  } else if (Node.isFunctionDeclaration(decl) || Node.isClassDeclaration(decl)) {
     return decl.getName() ?? "";
   }
   return undefined;
@@ -60,10 +56,7 @@ function getDefaultExportComponentName(
  *
  * Extracted to reduce cognitive complexity of the `run` method.
  */
-function resolveWidgetComponentName(
-  sourceFile: SourceFile,
-  uri: string,
-): string {
+function resolveWidgetComponentName(sourceFile: SourceFile, uri: string): string {
   const defaultName = getDefaultExportComponentName(sourceFile);
   if (defaultName) {
     return defaultName;
@@ -88,19 +81,14 @@ export const duplicatedWidgetRule: Rule = {
     "Checks if multiple widget source files in the project declare the same component name.",
   defaultSeverity: DiagnosticSeverity.Error,
 
-  run(
-    sourceFile: SourceFile,
-    analysis: AnalysisResult,
-    options?: RuleOptions,
-  ): RuleDiagnostic[] {
+  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
 
     const uri = analysis.uri;
     const normalizedUri = uri.replaceAll("\\", "/");
     const widgetDir =
-      (options?.ruleOptions?.widgetDirectory as string | undefined) ??
-      "src/widgets";
+      (options?.ruleOptions?.widgetDirectory as string | undefined) ?? "src/widgets";
     const normalizedWidgetDir = widgetDir.replaceAll("\\", "/");
     if (!normalizedUri.includes(normalizedWidgetDir)) {
       return diagnostics;
@@ -121,9 +109,7 @@ export const duplicatedWidgetRule: Rule = {
     );
 
     if (duplicates.length > 0) {
-      const duplicatePaths = duplicates
-        .map((d) => path.basename(d.filePath))
-        .join(", ");
+      const duplicatePaths = duplicates.map((d) => path.basename(d.filePath)).join(", ");
       diagnostics.push({
         code: "streak:S601",
         message: `Duplicated widget component name '${componentName}' detected. Also declared in: ${duplicatePaths}. Component names must be unique across all widget source files.`,

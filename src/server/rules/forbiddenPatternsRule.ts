@@ -12,7 +12,8 @@ export const forbiddenPatternsRule: Rule = {
   run(sourceFile: SourceFile, _analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[] {
     const diagnostics: RuleDiagnostic[] = [];
     const severity = options?.severity ?? this.defaultSeverity;
-    const forbidden: string[] = (options?.ruleOptions?.forbiddenPatterns as string[] | undefined) ?? [];
+    const forbidden: string[] =
+      (options?.ruleOptions?.forbiddenPatterns as string[] | undefined) ?? [];
 
     if (forbidden.length === 0) {
       return diagnostics;
@@ -45,9 +46,7 @@ export const forbiddenPatternsRule: Rule = {
           const matchLines = matchText.split("\n");
           const endLine = startLine + matchLines.length - 1;
           const endChar =
-            matchLines.length > 1
-              ? (matchLines.at(-1)?.length ?? 0)
-              : startChar + matchText.length;
+            matchLines.length > 1 ? (matchLines.at(-1)?.length ?? 0) : startChar + matchText.length;
 
           diagnostics.push({
             code: "streak:S702",

@@ -13,7 +13,7 @@ export interface WidgetMetadata {
 }
 
 export class WidgetRegistry {
-  private static instance: WidgetRegistry;
+  private static instance: WidgetRegistry | undefined;
   private readonly registry = new Map<string, WidgetMetadata>();
 
   private constructor() {
@@ -21,9 +21,7 @@ export class WidgetRegistry {
   }
 
   public static getInstance(): WidgetRegistry {
-    if (!WidgetRegistry.instance) {
-      WidgetRegistry.instance = new WidgetRegistry();
-    }
+    WidgetRegistry.instance ??= new WidgetRegistry();
     return WidgetRegistry.instance;
   }
 

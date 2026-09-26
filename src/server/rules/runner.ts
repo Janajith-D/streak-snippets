@@ -16,7 +16,7 @@ export interface RuleEngineConfig {
 export function runRules(
   sourceFile: SourceFile,
   analysis: AnalysisResult,
-  config?: RuleEngineConfig
+  config?: RuleEngineConfig,
 ): Diagnostic[] {
   if (config && !config.enabled) {
     return [];

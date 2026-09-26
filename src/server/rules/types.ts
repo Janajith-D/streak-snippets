@@ -27,17 +27,10 @@ export interface Rule {
   name: string;
   description: string;
   defaultSeverity: DiagnosticSeverity;
-  run(
-    sourceFile: SourceFile,
-    analysis: AnalysisResult,
-    options?: RuleOptions,
-  ): RuleDiagnostic[];
+  run(sourceFile: SourceFile, analysis: AnalysisResult, options?: RuleOptions): RuleDiagnostic[];
 }
 
-export function getRangeFromNode(
-  sourceFile: SourceFile,
-  node: Node,
-): RangeLocation {
+export function getRangeFromNode(sourceFile: SourceFile, node: Node): RangeLocation {
   const startPos = sourceFile.getLineAndColumnAtPos(node.getStart());
   const endPos = sourceFile.getLineAndColumnAtPos(node.getEnd());
   return {
