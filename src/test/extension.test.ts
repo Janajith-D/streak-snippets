@@ -58,7 +58,11 @@ import {
 } from "../server/completion/scriptCompletions";
 import { gdomRegistry, scanGDomTypes } from "../server/registry/gdomTypeScanner";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { buildRuleConfiguration } from "../server/rules/config";
+import {
+  buildRuleConfiguration,
+  loadProjectSettings,
+  mergeRuleConfigurations,
+} from "../server/rules/config";
 
 suite("Extension Test Suite", () => {
   vscode.window.showInformationMessage("Start all tests.");
@@ -1256,20 +1260,64 @@ suite("Extension Test Suite", () => {
     assert.strictEqual(flatDottedConfig.ruleSeverities["streak:forbidden-patterns"], "warning");
   });
 
-  test("VS Code configuration inspect test", async () => {
-    await vscode.workspace
-      .getConfiguration("streak")
-      .update("rules.forbiddenPatterns.patterns", ["sessionStorage\\.setItem\\s*\\("], vscode.ConfigurationTarget.Global);
-    await vscode.workspace
-      .getConfiguration("streak")
-      .update("rules.forbiddenPatterns.severity", "warning", vscode.ConfigurationTarget.Global);
+  test("loadProjectSettings reads and parses project-level .vscode/settings.json with comments and trailing commas", () => {
+    const tempProjectDir = path.join(__dirname, "..", "..", "test-monorepo-subproject");
+    const vscodeDir = path.join(tempProjectDir, ".vscode");
+    fs.mkdirSync(vscodeDir, { recursive: true });
 
-    const configA = vscode.workspace.getConfiguration("streak");
-    const getStreak = vscode.workspace.getConfiguration(undefined).get("streak");
-    console.log("=== DEBUG configA.get('rules') ===", JSON.stringify(configA.get("rules")));
-    console.log("=== DEBUG getStreak ===", JSON.stringify(getStreak));
-    console.log("=== DEBUG configA.rules ===", JSON.stringify((configA as unknown as Record<string, unknown>).rules));
-    console.log("=== DEBUG configA.get('rules.forbiddenPatterns.patterns') ===", JSON.stringify(configA.get("rules.forbiddenPatterns.patterns")));
+    const settingsContent = `{
+      // Subproject-specific streak rules in a monorepo
+      "streak.rules.forbiddenPatterns.severity": "error",
+      "streak.rules.forbiddenPatterns.patterns": [
+        "sessionStorage\\\\.setItem\\\\s*\\\\(", // inline comment
+      ],
+    }`;
+
+    fs.writeFileSync(path.join(vscodeDir, "settings.json"), settingsContent, "utf-8");
+
+    try {
+      const loaded = loadProjectSettings(tempProjectDir);
+      assert.ok(loaded, "Project settings should be loaded from disk");
+
+      const config = buildRuleConfiguration(loaded);
+      assert.deepStrictEqual(config.ruleOptions.forbiddenPatterns, [
+        "sessionStorage\\.setItem\\s*\\(",
+      ]);
+      assert.strictEqual(config.ruleSeverities["streak:forbidden-patterns"], "error");
+    } finally {
+      fs.rmSync(tempProjectDir, { recursive: true, force: true });
+    }
+  });
+
+  test("mergeRuleConfigurations overrides workspace settings with project-level settings", () => {
+    const workspaceConfig = {
+      ruleSeverities: {
+        "streak:forbidden-patterns": "warning",
+        "streak:widget-placeholder-props": "warning",
+      },
+      ruleOptions: {
+        forbiddenPatterns: ["eval\\("],
+      },
+    };
+
+    const projectConfig = {
+      ruleSeverities: {
+        "streak:forbidden-patterns": "error",
+      },
+      ruleOptions: {
+        forbiddenPatterns: ["sessionStorage\\.setItem\\s*\\("],
+      },
+    };
+
+    const merged = mergeRuleConfigurations(workspaceConfig, projectConfig);
+    // Project severity overrides workspace severity
+    assert.strictEqual(merged.ruleSeverities["streak:forbidden-patterns"], "error");
+    // Workspace-only severity is preserved
+    assert.strictEqual(merged.ruleSeverities["streak:widget-placeholder-props"], "warning");
+    // Project patterns override workspace patterns
+    assert.deepStrictEqual(merged.ruleOptions.forbiddenPatterns, [
+      "sessionStorage\\.setItem\\s*\\(",
+    ]);
   });
 
   test("streak.createWidget command is registered and scaffolds a widget file", async () => {

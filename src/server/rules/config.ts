@@ -1,3 +1,6 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+
 export interface RuleConfig {
   severity?: string;
   patterns?: string[];
@@ -120,15 +123,70 @@ function unflattenSettings(
   return result;
 }
 
+export interface ParsedRuleConfiguration {
+  ruleSeverities: Record<string, string>;
+  ruleOptions: Record<string, unknown>;
+}
+
+function parseJsonc(text: string): Record<string, unknown> | undefined {
+  try {
+    const cleaned = text.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, "").replace(/,\s*([\]}])/g, "$1");
+    return JSON.parse(cleaned) as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Loads project-specific configuration from <projectRoot>/.vscode/settings.json.
+ */
+export function loadProjectSettings(projectRoot: string): StreakSettings | undefined {
+  try {
+    const settingsPath = path.join(projectRoot, ".vscode", "settings.json");
+    if (!fs.existsSync(settingsPath)) {
+      return undefined;
+    }
+    const rawContent = fs.readFileSync(settingsPath, "utf-8");
+    const parsed = parseJsonc(rawContent);
+    if (!parsed) {
+      return undefined;
+    }
+    return unflattenSettings(parsed);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Merges two parsed rule configurations, where override takes precedence over base.
+ */
+export function mergeRuleConfigurations(
+  base: ParsedRuleConfiguration,
+  override?: ParsedRuleConfiguration,
+): ParsedRuleConfiguration {
+  if (!override) {
+    return base;
+  }
+  const ruleSeverities = {
+    ...base.ruleSeverities,
+    ...override.ruleSeverities,
+  };
+  const ruleOptions: Record<string, unknown> = {
+    ...base.ruleOptions,
+    ...override.ruleOptions,
+  };
+  if (!override.ruleOptions.forbiddenPatterns && base.ruleOptions.forbiddenPatterns) {
+    ruleOptions.forbiddenPatterns = base.ruleOptions.forbiddenPatterns;
+  }
+  return { ruleSeverities, ruleOptions };
+}
+
 /**
  * Extracts rule severities and options from the workspace StreakSettings object.
  */
 export function buildRuleConfiguration(
   rawSettings: StreakSettings | Record<string, unknown> | undefined,
-): {
-  ruleSeverities: Record<string, string>;
-  ruleOptions: Record<string, unknown>;
-} {
+): ParsedRuleConfiguration {
   const streakSettings = unflattenSettings(rawSettings);
   if (!streakSettings.rules) {
     return { ruleSeverities: {}, ruleOptions: {} };

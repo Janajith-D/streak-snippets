@@ -31,7 +31,13 @@ import { validateSitemap } from "./rules/sitemapRules";
 import { Node } from "ts-morph";
 import * as fs from "node:fs";
 
-import { type StreakSettings, buildRuleConfiguration } from "./rules/config";
+import {
+  type StreakSettings,
+  type ParsedRuleConfiguration,
+  buildRuleConfiguration,
+  loadProjectSettings,
+  mergeRuleConfigurations,
+} from "./rules/config";
 
 // Create a connection for the server, using Node's IPC / stdio communication
 const connection = createConnection(ProposedFeatures.all);
@@ -383,19 +389,24 @@ async function indexWidgetFile(uri: string): Promise<void> {
   }
 }
 
-async function fetchRuleConfiguration(scopeUri?: string): Promise<{
-  ruleSeverities: Record<string, string>;
-  ruleOptions: Record<string, unknown>;
-}> {
+async function fetchRuleConfiguration(uri?: string): Promise<ParsedRuleConfiguration> {
   try {
-    const streakSettings = (
-      scopeUri
-        ? await connection.workspace.getConfiguration({ scopeUri, section: "streak" })
-        : await connection.workspace.getConfiguration("streak")
-    ) as StreakSettings;
-    return buildRuleConfiguration(streakSettings);
+    let workspaceSettings: StreakSettings | undefined;
+    try {
+      workspaceSettings = (await connection.workspace.getConfiguration("streak")) as StreakSettings;
+    } catch {
+      /* ignore workspace failure */
+    }
+
+    const baseConfig = buildRuleConfiguration(workspaceSettings);
+
+    const projectRoot = uri ? findStreakProjectRoot(uri, workspaceRoot) : null;
+    const projectSettings = projectRoot ? loadProjectSettings(projectRoot) : undefined;
+    const projectConfig = projectSettings ? buildRuleConfiguration(projectSettings) : undefined;
+
+    return mergeRuleConfigurations(baseConfig, projectConfig);
   } catch (err) {
-    connection.console.log(
+    connection.console.error(
       `Failed to fetch configurations: ${err instanceof Error ? err.message : String(err)}`,
     );
     return { ruleSeverities: {}, ruleOptions: {} };
@@ -479,6 +490,13 @@ documents.onDidOpen((event) => {
 documents.onDidSave((event) => {
   connection.console.log(`[Lifecycle] Document saved: ${event.document.uri}`);
   validateDocument(event.document).catch((err) => connection.console.error(String(err)));
+  if (event.document.uri.endsWith("settings.json")) {
+    for (const doc of documents.all()) {
+      if (doc.uri !== event.document.uri) {
+        validateDocument(doc).catch((err) => connection.console.error(String(err)));
+      }
+    }
+  }
 });
 
 documents.onDidClose((event) => {
