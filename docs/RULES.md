@@ -689,13 +689,26 @@ export default function ProductListItem() {
 
 #### Description
 
-Flags disallowed code patterns matching configurable regular expressions defined in workspace settings (`streak.rules.forbiddenPatterns` or `streak.rules.forbiddenPatterns.patterns`).
+Flags disallowed code patterns matching configurable regular expressions defined in workspace settings (`streak.rules.forbiddenPatterns.patterns` and `streak.rules.forbiddenPatterns.severity`). Legacy array syntax (`"streak.rules.forbiddenPatterns": [...]`) is also supported for backward compatibility.
+
+#### Configuration Example (`.vscode/settings.json`)
+
+```json
+{
+  "streak.rules.forbiddenPatterns.severity": "warning",
+  "streak.rules.forbiddenPatterns.patterns": [
+    "console\\.(log|debug|info)\\s*\\(",
+    "\\beval\\s*\\(",
+    "\\blocalStorage\\b",
+    "document\\.(getElementById|querySelector)"
+  ]
+}
+```
 
 #### Non-compliant Code ❌
 
 ```tsx
-// Configured in .vscode/settings.json:
-// { "streak.rules.forbiddenPatterns": ["eval\\("] }
+// Flagged by streak:S702 [warning]: Banned code pattern matched forbidden expression /\beval\s*\//
 eval("dangerousCode()");
 ```
 

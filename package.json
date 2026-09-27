@@ -265,14 +265,6 @@
           "default": [],
           "description": "Disallowed code patterns as regular expression strings."
         },
-        "streak.rules.forbiddenPatterns": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "Disallowed code patterns as regular expression strings."
-        },
         "streak.rules.duplicateRoute.severity": {
           "type": "string",
           "enum": [
