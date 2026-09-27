@@ -1,8 +1,8 @@
 {
   "name": "streak-snippets",
-  "displayName": "Streak Snippets (Beta)",
+  "displayName": "Streak Snippets",
   "description": "Snippets, commands, and developer productivity tools for the Streak.js framework",
-  "version": "0.9.3",
+  "version": "1.0.0",
   "publisher": "Streak",
   "license": "Apache-2.0",
   "homepage": "https://github.com/Janajith-D/streak-snippets#readme",
@@ -20,6 +20,18 @@
   "categories": [
     "Snippets",
     "Programming Languages"
+  ],
+  "keywords": [
+    "streak",
+    "streak.js",
+    "streak-js",
+    "streak-forge",
+    "snippets",
+    "lsp",
+    "language-server",
+    "typescript",
+    "sitemap",
+    "widgets"
   ],
   "activationEvents": [
     "onLanguage:typescript",

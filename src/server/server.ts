@@ -228,7 +228,7 @@ connection.onDefinition(async (params) => {
 
     return await resolveDefinition(node, projectRoot, customWidgetDir, customPublicDir);
   } catch (err) {
-    connection.console.log(
+    connection.console.error(
       `[Definition] Error resolving definition: ${err instanceof Error ? err.message : String(err)}`,
     );
     return null;
@@ -447,8 +447,6 @@ async function validateDocument(document: TextDocument): Promise<void> {
   }
 
   const content = document.getText();
-
-  connection.console.log(`[Validation] Running diagnostics for: ${uri}`);
   const config = await fetchRuleConfiguration(uri);
 
   if (uri.endsWith(".json")) {
@@ -471,8 +469,6 @@ async function validateDocument(document: TextDocument): Promise<void> {
 
   await indexWidgetFile(uri);
 
-  connection.console.log(`[Validation] Found ${diagnostics.length} diagnostic(s) for ${uri}`);
-
   // Send the computed diagnostics to VS Code
   await connection.sendDiagnostics({ uri, diagnostics });
 }
@@ -483,12 +479,10 @@ documents.onDidChangeContent((change) => {
 });
 
 documents.onDidOpen((event) => {
-  connection.console.log(`[Lifecycle] Document opened: ${event.document.uri}`);
   validateDocument(event.document).catch((err) => connection.console.error(String(err)));
 });
 
 documents.onDidSave((event) => {
-  connection.console.log(`[Lifecycle] Document saved: ${event.document.uri}`);
   validateDocument(event.document).catch((err) => connection.console.error(String(err)));
   if (event.document.uri.endsWith("settings.json")) {
     for (const doc of documents.all()) {
@@ -500,7 +494,6 @@ documents.onDidSave((event) => {
 });
 
 documents.onDidClose((event) => {
-  connection.console.log(`[Lifecycle] Document closed: ${event.document.uri}`);
   cleanupDocumentSourceFile(event.document.uri);
 });
 
