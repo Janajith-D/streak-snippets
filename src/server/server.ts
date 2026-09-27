@@ -9,6 +9,7 @@ import {
   Location,
   type WorkspaceEdit,
   Range,
+  type Diagnostic,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -30,21 +31,13 @@ import { validateSitemap } from "./rules/sitemapRules";
 import { Node } from "ts-morph";
 import * as fs from "node:fs";
 
-// Define strict typing for configuration to satisfy ESLint
-interface RuleConfig {
-  severity?: string;
-}
-
-interface StreakSettings {
-  snippets?: {
-    widgetDirectory?: string;
-    publicDirectory?: string;
-  };
-  rules?: {
-    [key: string]: RuleConfig | string[] | undefined;
-    forbiddenPatterns?: string[] | (RuleConfig & { patterns?: string[] });
-  };
-}
+import {
+  type StreakSettings,
+  type ParsedRuleConfiguration,
+  buildRuleConfiguration,
+  loadProjectSettings,
+  mergeRuleConfigurations,
+} from "./rules/config";
 
 // Create a connection for the server, using Node's IPC / stdio communication
 const connection = createConnection(ProposedFeatures.all);
@@ -235,7 +228,7 @@ connection.onDefinition(async (params) => {
 
     return await resolveDefinition(node, projectRoot, customWidgetDir, customPublicDir);
   } catch (err) {
-    connection.console.log(
+    connection.console.error(
       `[Definition] Error resolving definition: ${err instanceof Error ? err.message : String(err)}`,
     );
     return null;
@@ -367,64 +360,6 @@ connection.onRenameRequest((params): WorkspaceEdit | null => {
   return { changes };
 });
 
-/**
- * Extracts rule severities and options from the workspace StreakSettings object.
- * Extracted to reduce cognitive complexity of validateDocument.
- */
-function buildRuleConfiguration(streakSettings: StreakSettings | undefined): {
-  ruleSeverities: Record<string, string>;
-  ruleOptions: Record<string, unknown>;
-} {
-  const ruleSeverities: Record<string, string> = {};
-  const ruleOptions: Record<string, unknown> = {};
-
-  if (streakSettings?.rules) {
-    const settingsMap: Record<string, string> = {
-      widgetPlaceholderProps: "streak:widget-placeholder-props",
-      dataHandlerStatus: "streak:data-handler-status",
-      missingDefaultExport: "streak:missing-default-export",
-      dataHandlerAsync: "streak:data-handler-async",
-      invalidHandlerStatus: "streak:invalid-handler-status",
-      reactHooksNotAllowed: "streak:react-hooks-not-allowed",
-      unsafeWidgetDataAccess: "streak:unsafe-widget-data-access",
-      invalidWidgetPropsContract: "streak:invalid-widget-props-contract",
-      scriptClosureCapture: "streak:script-closure-capture",
-      invalidScriptSignature: "streak:invalid-script-signature",
-      importInsideScript: "streak:import-inside-script",
-      asyncScriptCallback: "streak:async-script-callback",
-      scriptRequiredId: "streak:script-required-id",
-      invalidDynamicComponentId: "streak:invalid-dynamic-component-id",
-      duplicatedWidget: "streak:duplicated-widget",
-      componentNesting: "streak:component-nesting",
-      scriptStructure: "streak:script-structure",
-      forbiddenPatterns: "streak:forbidden-patterns",
-      duplicateRoute: "streak:duplicate-route",
-      missingWidget: "streak:missing-widget",
-      missingHandler: "streak:missing-handler",
-      deadWidget: "streak:dead-widget",
-      duplicateRenderId: "streak:duplicate-render-id",
-      missingLayout: "streak:missing-layout",
-      invalidLoadingStrategy: "streak:invalid-loading-strategy",
-      passiveEventListener: "streak:passive-event-listener",
-      dataHandlerWidgetKey: "streak:data-handler-widget-key",
-    };
-
-    for (const [settingsKey, ruleId] of Object.entries(settingsMap)) {
-      const ruleConf = streakSettings.rules[settingsKey];
-      if (ruleConf && !Array.isArray(ruleConf) && ruleConf.severity) {
-        ruleSeverities[ruleId] = ruleConf.severity;
-      }
-    }
-
-    const fbPatterns = streakSettings.rules.forbiddenPatterns;
-    if (Array.isArray(fbPatterns)) {
-      ruleOptions.forbiddenPatterns = fbPatterns;
-    }
-  }
-
-  return { ruleSeverities, ruleOptions };
-}
-
 async function indexWidgetFile(uri: string): Promise<void> {
   try {
     const filePath = fileURLToPath(uri);
@@ -454,17 +389,24 @@ async function indexWidgetFile(uri: string): Promise<void> {
   }
 }
 
-async function fetchRuleConfiguration(): Promise<{
-  ruleSeverities: Record<string, string>;
-  ruleOptions: Record<string, unknown>;
-}> {
+async function fetchRuleConfiguration(uri?: string): Promise<ParsedRuleConfiguration> {
   try {
-    const streakSettings = (await connection.workspace.getConfiguration(
-      "streak",
-    )) as StreakSettings;
-    return buildRuleConfiguration(streakSettings);
+    let workspaceSettings: StreakSettings | undefined;
+    try {
+      workspaceSettings = (await connection.workspace.getConfiguration("streak")) as StreakSettings;
+    } catch {
+      /* ignore workspace failure */
+    }
+
+    const baseConfig = buildRuleConfiguration(workspaceSettings);
+
+    const projectRoot = uri ? findStreakProjectRoot(uri, workspaceRoot) : null;
+    const projectSettings = projectRoot ? loadProjectSettings(projectRoot) : undefined;
+    const projectConfig = projectSettings ? buildRuleConfiguration(projectSettings) : undefined;
+
+    return mergeRuleConfigurations(baseConfig, projectConfig);
   } catch (err) {
-    connection.console.log(
+    connection.console.error(
       `Failed to fetch configurations: ${err instanceof Error ? err.message : String(err)}`,
     );
     return { ruleSeverities: {}, ruleOptions: {} };
@@ -505,9 +447,7 @@ async function validateDocument(document: TextDocument): Promise<void> {
   }
 
   const content = document.getText();
-
-  connection.console.log(`[Validation] Running diagnostics for: ${uri}`);
-  const config = await fetchRuleConfiguration();
+  const config = await fetchRuleConfiguration(uri);
 
   if (uri.endsWith(".json")) {
     await validateJsonDocument(document, config.ruleSeverities);
@@ -516,15 +456,18 @@ async function validateDocument(document: TextDocument): Promise<void> {
 
   const { analysis, sourceFile } = analyzeAndParseDocument(uri, content);
 
+  let diagnostics: Diagnostic[] = [];
+  try {
+    diagnostics = runRules(sourceFile, analysis, {
+      enabled: true,
+      ruleSeverities: config.ruleSeverities,
+      ruleOptions: config.ruleOptions,
+    });
+  } catch (err) {
+    connection.console.error(`[Validation] Rule evaluation error for ${uri}: ${String(err)}`);
+  }
+
   await indexWidgetFile(uri);
-
-  const diagnostics = runRules(sourceFile, analysis, {
-    enabled: true,
-    ruleSeverities: config.ruleSeverities,
-    ruleOptions: config.ruleOptions,
-  });
-
-  connection.console.log(`[Validation] Found ${diagnostics.length} diagnostic(s) for ${uri}`);
 
   // Send the computed diagnostics to VS Code
   await connection.sendDiagnostics({ uri, diagnostics });
@@ -536,18 +479,34 @@ documents.onDidChangeContent((change) => {
 });
 
 documents.onDidOpen((event) => {
-  connection.console.log(`[Lifecycle] Document opened: ${event.document.uri}`);
   validateDocument(event.document).catch((err) => connection.console.error(String(err)));
 });
 
 documents.onDidSave((event) => {
-  connection.console.log(`[Lifecycle] Document saved: ${event.document.uri}`);
   validateDocument(event.document).catch((err) => connection.console.error(String(err)));
+  if (event.document.uri.endsWith("settings.json")) {
+    for (const doc of documents.all()) {
+      if (doc.uri !== event.document.uri) {
+        validateDocument(doc).catch((err) => connection.console.error(String(err)));
+      }
+    }
+  }
 });
 
 documents.onDidClose((event) => {
-  connection.console.log(`[Lifecycle] Document closed: ${event.document.uri}`);
   cleanupDocumentSourceFile(event.document.uri);
+});
+
+// Re-validate open documents when workspace configuration changes
+connection.onDidChangeConfiguration(async () => {
+  connection.console.log("[Config] Workspace settings changed. Revalidating open documents...");
+  for (const doc of documents.all()) {
+    try {
+      await validateDocument(doc);
+    } catch (err) {
+      connection.console.error(String(err));
+    }
+  }
 });
 
 // Make the text document manager listen on the connection

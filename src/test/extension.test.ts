@@ -58,6 +58,11 @@ import {
 } from "../server/completion/scriptCompletions";
 import { gdomRegistry, scanGDomTypes } from "../server/registry/gdomTypeScanner";
 import { TextDocument } from "vscode-languageserver-textdocument";
+import {
+  buildRuleConfiguration,
+  loadProjectSettings,
+  mergeRuleConfigurations,
+} from "../server/rules/config";
 
 suite("Extension Test Suite", () => {
   vscode.window.showInformationMessage("Start all tests.");
@@ -1103,6 +1108,38 @@ suite("Extension Test Suite", () => {
     assert.ok(diags[1].message.includes("Nesting `<WidgetPlaceholder>`"));
   });
 
+  test("streak:S602 flags nested WidgetPlaceholder inside WidgetPlaceholder", () => {
+    const code = `
+      import { WidgetPlaceholder } from "streak-forge/components";
+      export default function AboutUsLayout() {
+        return (
+          <WidgetPlaceholder id="GlobalInteractions" type="GlobalInteractions">
+            <WidgetPlaceholder id="AnalyticsHelpers" type="AnalyticsHelpers" />
+          </WidgetPlaceholder>
+        );
+      }
+    `;
+    const { sourceFile } = analyzeAndParseDocument(
+      "file:///workspace/src/layouts/AboutUsLayout.tsx",
+      code,
+    );
+    const diags = componentNestingRule.run(sourceFile, {
+      uri: "file:///workspace/src/layouts/AboutUsLayout.tsx",
+      exports: [],
+      components: [],
+      imports: [],
+      jsxElements: [],
+      errors: [],
+    });
+    assert.strictEqual(diags.length, 1);
+    assert.strictEqual(diags[0].code, "streak:S602");
+    assert.ok(
+      diags[0].message.includes(
+        "Nesting `<WidgetPlaceholder>` inside another `<WidgetPlaceholder>`",
+      ),
+    );
+  });
+
   test("streak:S603 flags invalid Script child structure", () => {
     const code = `
       import { Script } from "streak-forge/components";
@@ -1177,12 +1214,117 @@ suite("Extension Test Suite", () => {
     assert.ok(diags[1].message.includes("setTimeout\\("));
   });
 
+  test("buildRuleConfiguration parses array and object forbiddenPatterns configurations", () => {
+    // 1. Direct array of regex patterns
+    const arrayConfig = buildRuleConfiguration({
+      rules: {
+        forbiddenPatterns: ["eval\\(", "dangerouslySetInnerHTML"],
+      },
+    });
+    assert.deepStrictEqual(arrayConfig.ruleOptions.forbiddenPatterns, [
+      "eval\\(",
+      "dangerouslySetInnerHTML",
+    ]);
+
+    // 2. Object with patterns array and custom severity
+    const objectConfig = buildRuleConfiguration({
+      rules: {
+        forbiddenPatterns: {
+          severity: "warning",
+          patterns: ["eval\\("],
+        },
+      },
+    });
+    assert.deepStrictEqual(objectConfig.ruleOptions.forbiddenPatterns, ["eval\\("]);
+    assert.strictEqual(objectConfig.ruleSeverities["streak:forbidden-patterns"], "warning");
+
+    // 3. Object with severity only (default state from schema)
+    const severityOnlyConfig = buildRuleConfiguration({
+      rules: {
+        forbiddenPatterns: {
+          severity: "error",
+        },
+      },
+    });
+    assert.strictEqual(severityOnlyConfig.ruleSeverities["streak:forbidden-patterns"], "error");
+    assert.strictEqual(severityOnlyConfig.ruleOptions.forbiddenPatterns, undefined);
+
+    // 4. Flat dotted keys as written in .vscode/settings.json
+    const flatDottedConfig = buildRuleConfiguration({
+      "streak.rules.forbiddenPatterns.severity": "warning",
+      "streak.rules.forbiddenPatterns.patterns": ["sessionStorage\\.setItem\\s*\\("],
+    });
+    assert.deepStrictEqual(flatDottedConfig.ruleOptions.forbiddenPatterns, [
+      "sessionStorage\\.setItem\\s*\\(",
+    ]);
+    assert.strictEqual(flatDottedConfig.ruleSeverities["streak:forbidden-patterns"], "warning");
+  });
+
+  test("loadProjectSettings reads and parses project-level .vscode/settings.json with comments and trailing commas", () => {
+    const tempProjectDir = path.join(__dirname, "..", "..", "test-monorepo-subproject");
+    const vscodeDir = path.join(tempProjectDir, ".vscode");
+    fs.mkdirSync(vscodeDir, { recursive: true });
+
+    const settingsContent = `{
+      // Subproject-specific streak rules in a monorepo
+      "streak.rules.forbiddenPatterns.severity": "error",
+      "streak.rules.forbiddenPatterns.patterns": [
+        "sessionStorage\\\\.setItem\\\\s*\\\\(", // inline comment
+      ],
+    }`;
+
+    fs.writeFileSync(path.join(vscodeDir, "settings.json"), settingsContent, "utf-8");
+
+    try {
+      const loaded = loadProjectSettings(tempProjectDir);
+      assert.ok(loaded, "Project settings should be loaded from disk");
+
+      const config = buildRuleConfiguration(loaded);
+      assert.deepStrictEqual(config.ruleOptions.forbiddenPatterns, [
+        "sessionStorage\\.setItem\\s*\\(",
+      ]);
+      assert.strictEqual(config.ruleSeverities["streak:forbidden-patterns"], "error");
+    } finally {
+      fs.rmSync(tempProjectDir, { recursive: true, force: true });
+    }
+  });
+
+  test("mergeRuleConfigurations overrides workspace settings with project-level settings", () => {
+    const workspaceConfig = {
+      ruleSeverities: {
+        "streak:forbidden-patterns": "warning",
+        "streak:widget-placeholder-props": "warning",
+      },
+      ruleOptions: {
+        forbiddenPatterns: ["eval\\("],
+      },
+    };
+
+    const projectConfig = {
+      ruleSeverities: {
+        "streak:forbidden-patterns": "error",
+      },
+      ruleOptions: {
+        forbiddenPatterns: ["sessionStorage\\.setItem\\s*\\("],
+      },
+    };
+
+    const merged = mergeRuleConfigurations(workspaceConfig, projectConfig);
+    // Project severity overrides workspace severity
+    assert.strictEqual(merged.ruleSeverities["streak:forbidden-patterns"], "error");
+    // Workspace-only severity is preserved
+    assert.strictEqual(merged.ruleSeverities["streak:widget-placeholder-props"], "warning");
+    // Project patterns override workspace patterns
+    assert.deepStrictEqual(merged.ruleOptions.forbiddenPatterns, [
+      "sessionStorage\\.setItem\\s*\\(",
+    ]);
+  });
+
   test("streak.createWidget command is registered and scaffolds a widget file", async () => {
     process.env.STREAK_TEST_ENVIRONMENT = "1";
     const originalShowInputBox = vscode.window.showInputBox;
-    // eslint-disable-next-line @typescript-eslint/require-await
-    (vscode.window as unknown as { showInputBox: () => Promise<string> }).showInputBox = async () =>
-      "MyScaffoldedWidget";
+    (vscode.window as unknown as { showInputBox: () => Promise<string> }).showInputBox = () =>
+      Promise.resolve("MyScaffoldedWidget");
 
     const tempDir = path.join(__dirname, "..", "..", "test-scaffold-temp");
     fs.mkdirSync(tempDir, { recursive: true });

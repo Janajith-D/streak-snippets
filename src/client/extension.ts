@@ -40,6 +40,7 @@ function startLanguageServer(context: vscode.ExtensionContext) {
       { scheme: "file", language: "json" },
     ],
     synchronize: {
+      configurationSection: "streak",
       fileEvents: vscode.workspace.createFileSystemWatcher("**/*.{ts,tsx,json}"),
     },
   };

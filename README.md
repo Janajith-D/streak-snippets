@@ -1,9 +1,9 @@
 # Streak Snippets
 
-[![Version](https://img.shields.io/badge/version-0.9.3-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 [![VS Code](https://img.shields.io/badge/VS%20Code-%5E1.107.0-purple.svg)](https://code.visualstudio.com)
-[![Status](https://img.shields.io/badge/tests-78%20passing-brightgreen.svg)](src/test/extension.test.ts)
+[![Status](https://img.shields.io/badge/tests-82%20passing-brightgreen.svg)](src/test/extension.test.ts)
 
 A full-featured Language Support and Productivity Extension for the [Streak.js](https://streakjs.com) framework. Combines high-velocity code snippets with an embedded **Language Server Protocol (LSP)** engine for real-time validation, intelligent completions, contextual hovers, and cross-file navigation.
 
