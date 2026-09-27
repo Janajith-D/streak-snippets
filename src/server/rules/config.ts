@@ -55,9 +55,10 @@ function parseRuleSeverities(rules: NonNullable<StreakSettings["rules"]>): Recor
   return severities;
 }
 
-function parseForbiddenPatterns(
-  fbConf: string[] | RuleConfig | undefined,
-): { patterns?: string[]; severity?: string } {
+function parseForbiddenPatterns(fbConf: string[] | RuleConfig | undefined): {
+  patterns?: string[];
+  severity?: string;
+} {
   if (Array.isArray(fbConf)) {
     return { patterns: fbConf };
   }
@@ -70,14 +71,66 @@ function parseForbiddenPatterns(
   return {};
 }
 
+function ensureChildObject(parent: Record<string, unknown>, key: string): Record<string, unknown> {
+  if (typeof parent[key] !== "object" || parent[key] === null || Array.isArray(parent[key])) {
+    parent[key] = {};
+  }
+  return parent[key] as Record<string, unknown>;
+}
+
+function setDottedProperty(
+  target: Record<string, unknown>,
+  dottedKey: string,
+  value: unknown,
+): void {
+  const normalizedKey = dottedKey.startsWith("streak.") ? dottedKey.slice(7) : dottedKey;
+  const parts = normalizedKey.split(".");
+  let current = target;
+  for (let i = 0; i < parts.length - 1; i++) {
+    current = ensureChildObject(current, parts[i]);
+  }
+  const lastKey = parts.at(-1);
+  if (!lastKey) {
+    return;
+  }
+  const existing = current[lastKey];
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    typeof existing === "object" &&
+    existing !== null
+  ) {
+    Object.assign(existing, value);
+  } else {
+    current[lastKey] = value;
+  }
+}
+
+function unflattenSettings(
+  raw: StreakSettings | Record<string, unknown> | undefined,
+): StreakSettings {
+  if (!raw || typeof raw !== "object") {
+    return {};
+  }
+  const result: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    setDottedProperty(result, k, v);
+  }
+  return result;
+}
+
 /**
  * Extracts rule severities and options from the workspace StreakSettings object.
  */
-export function buildRuleConfiguration(streakSettings: StreakSettings | undefined): {
+export function buildRuleConfiguration(
+  rawSettings: StreakSettings | Record<string, unknown> | undefined,
+): {
   ruleSeverities: Record<string, string>;
   ruleOptions: Record<string, unknown>;
 } {
-  if (!streakSettings?.rules) {
+  const streakSettings = unflattenSettings(rawSettings);
+  if (!streakSettings.rules) {
     return { ruleSeverities: {}, ruleOptions: {} };
   }
 

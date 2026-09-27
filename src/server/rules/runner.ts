@@ -1,4 +1,4 @@
-import type { Diagnostic } from "vscode-languageserver/node";
+import { DiagnosticSeverity, type Diagnostic } from "vscode-languageserver/node";
 import type { SourceFile } from "ts-morph";
 import type { AnalysisResult } from "../../shared/types";
 import { allRules } from "./index";
@@ -8,6 +8,25 @@ export interface RuleEngineConfig {
   enabled: boolean;
   ruleSeverities?: Record<string, string>;
   ruleOptions?: Record<string, unknown>;
+}
+
+function toDiagnosticSeverity(severity?: string): DiagnosticSeverity | undefined {
+  if (!severity) {
+    return undefined;
+  }
+  switch (severity.toLowerCase()) {
+    case "error":
+      return DiagnosticSeverity.Error;
+    case "warning":
+      return DiagnosticSeverity.Warning;
+    case "info":
+    case "information":
+      return DiagnosticSeverity.Information;
+    case "hint":
+      return DiagnosticSeverity.Hint;
+    default:
+      return undefined;
+  }
 }
 
 /**
@@ -32,6 +51,7 @@ export function runRules(
 
     const options: RuleOptions = {
       enabled: true,
+      severity: toDiagnosticSeverity(userSeverity),
       ruleOptions: config?.ruleOptions,
     };
 

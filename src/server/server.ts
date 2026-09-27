@@ -9,6 +9,7 @@ import {
   Location,
   type WorkspaceEdit,
   Range,
+  type Diagnostic,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -446,13 +447,18 @@ async function validateDocument(document: TextDocument): Promise<void> {
 
   const { analysis, sourceFile } = analyzeAndParseDocument(uri, content);
 
-  await indexWidgetFile(uri);
+  let diagnostics: Diagnostic[] = [];
+  try {
+    diagnostics = runRules(sourceFile, analysis, {
+      enabled: true,
+      ruleSeverities: config.ruleSeverities,
+      ruleOptions: config.ruleOptions,
+    });
+  } catch (err) {
+    connection.console.error(`[Validation] Rule evaluation error for ${uri}: ${String(err)}`);
+  }
 
-  const diagnostics = runRules(sourceFile, analysis, {
-    enabled: true,
-    ruleSeverities: config.ruleSeverities,
-    ruleOptions: config.ruleOptions,
-  });
+  await indexWidgetFile(uri);
 
   connection.console.log(`[Validation] Found ${diagnostics.length} diagnostic(s) for ${uri}`);
 

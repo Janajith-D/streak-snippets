@@ -1244,6 +1244,32 @@ suite("Extension Test Suite", () => {
     });
     assert.strictEqual(severityOnlyConfig.ruleSeverities["streak:forbidden-patterns"], "error");
     assert.strictEqual(severityOnlyConfig.ruleOptions.forbiddenPatterns, undefined);
+
+    // 4. Flat dotted keys as written in .vscode/settings.json
+    const flatDottedConfig = buildRuleConfiguration({
+      "streak.rules.forbiddenPatterns.severity": "warning",
+      "streak.rules.forbiddenPatterns.patterns": ["sessionStorage\\.setItem\\s*\\("],
+    });
+    assert.deepStrictEqual(flatDottedConfig.ruleOptions.forbiddenPatterns, [
+      "sessionStorage\\.setItem\\s*\\(",
+    ]);
+    assert.strictEqual(flatDottedConfig.ruleSeverities["streak:forbidden-patterns"], "warning");
+  });
+
+  test("VS Code configuration inspect test", async () => {
+    await vscode.workspace
+      .getConfiguration("streak")
+      .update("rules.forbiddenPatterns.patterns", ["sessionStorage\\.setItem\\s*\\("], vscode.ConfigurationTarget.Global);
+    await vscode.workspace
+      .getConfiguration("streak")
+      .update("rules.forbiddenPatterns.severity", "warning", vscode.ConfigurationTarget.Global);
+
+    const configA = vscode.workspace.getConfiguration("streak");
+    const getStreak = vscode.workspace.getConfiguration(undefined).get("streak");
+    console.log("=== DEBUG configA.get('rules') ===", JSON.stringify(configA.get("rules")));
+    console.log("=== DEBUG getStreak ===", JSON.stringify(getStreak));
+    console.log("=== DEBUG configA.rules ===", JSON.stringify((configA as unknown as Record<string, unknown>).rules));
+    console.log("=== DEBUG configA.get('rules.forbiddenPatterns.patterns') ===", JSON.stringify(configA.get("rules.forbiddenPatterns.patterns")));
   });
 
   test("streak.createWidget command is registered and scaffolds a widget file", async () => {
