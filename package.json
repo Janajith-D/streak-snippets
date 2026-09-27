@@ -257,6 +257,14 @@
           "default": "error",
           "description": "Severity for forbidden code patterns linter rule (streak:S702)"
         },
+        "streak.rules.forbiddenPatterns.patterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Disallowed code patterns as regular expression strings."
+        },
         "streak.rules.forbiddenPatterns": {
           "type": "array",
           "items": {

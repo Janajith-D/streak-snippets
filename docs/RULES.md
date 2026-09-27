@@ -16,7 +16,6 @@ This document provides detailed SonarQube-style descriptions, rationale, and com
 | ----------------------------------------------------------------------------- | --------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------- |
 | [`streak:S101`](#streaks101---widgetplaceholder-missing-id-or-type-attribute) | Widget Component      | Error            | `<WidgetPlaceholder>` elements must have non-empty `id` and `type` attributes.                                |
 | [`streak:S102`](#streaks102---widgetplaceholder-layout-location-only)         | Widget Component      | Error            | `<WidgetPlaceholder>` can only be used inside layout files (`src/layout` or `src/layouts`).                   |
-| [`streak:S103`](#streaks103---widgetplaceholder-id-type-exact-match-descoped) | Widget / Sitemap      | Removed          | _(Descoped in v0.9.2)_ Widgets are reusable across multiple placeholders with different IDs.                  |
 | [`streak:S201`](#streaks201---data-handler-missing-status-property)           | Data Handler          | Warning          | Data handler default export must return an object containing a `status` property.                             |
 | [`streak:S202`](#streaks202---data-handler-must-be-async)                     | Data Handler          | Error            | Data handlers must default-export an `async` function.                                                        |
 | [`streak:S203`](#streaks203---invalid-handler-status)                         | Data Handler          | Warning          | Data handler `status` should be a valid numeric HTTP status code (100–599).                                   |
@@ -33,7 +32,7 @@ This document provides detailed SonarQube-style descriptions, rationale, and com
 | [`streak:S406`](#streaks406---passive-event-listeners)                        | Performance / Script  | Warning          | Scroll, mousemove, and touch event listeners must specify `{ passive: true }`.                                |
 | [`streak:S501`](#streaks501---invalid-dynamic-component-id)                   | Dynamic Component     | Error            | `<Dynamic>` must have a static, non-empty `id`.                                                               |
 | [`streak:S601`](#streaks601---duplicated-widget)                              | Workspace Registry    | Error            | Custom widget names must be unique across all widget source files.                                            |
-| [`streak:S602`](#streaks602---component-nesting)                              | Jsx Nesting           | Error            | Nested `<Script>` tags or `<WidgetPlaceholder>` inside scripts are not allowed.                               |
+| [`streak:S602`](#streaks602---component-nesting)                              | Jsx Nesting           | Error            | Nested `<WidgetPlaceholder>`, `<Script>`, or `<Dynamic>` components are not allowed.                          |
 | [`streak:S603`](#streaks603---script-structure)                               | Script Component      | Error            | `<Script>` tags must contain exactly one child wrapping the client callback.                                  |
 | [`streak:S702`](#streaks702---forbidden-patterns)                             | Security / Code Smell | Error            | Banned code patterns matched by forbidden regular expressions.                                                |
 | [`streak:S801`](#streaks801---widget-filename-matches-component)              | Widget Component      | Error            | Widget filename and declared default component name must match.                                               |
@@ -111,19 +110,6 @@ export default function MainLayout() {
   );
 }
 ```
-
----
-
-### `streak:S103` — `<WidgetPlaceholder>` `id` and `type` Exact Match _(Descoped)_
-
-- **Category**: Widget Component / Sitemap
-- **Severity**: `Removed` (Descoped in v0.9.2)
-- **Source**: `Streak Engine`
-
-#### Description
-
-> [!NOTE]
-> This rule has been **descoped and removed in v0.9.2**. In real-world Streak applications, widgets are reusable components that can appear multiple times across a page layout with distinct placeholder `id`s (e.g., `<WidgetPlaceholder id="topBanner" type="Banner" />` and `<WidgetPlaceholder id="bottomBanner" type="Banner" />`). Enforcing `id === type` prevented widget reuse and led to build errors. Refer to the [Streak WidgetPlaceholder Documentation](https://docs.streakjs.com/components/widget-placeholder).
 
 ---
 
@@ -703,12 +689,13 @@ export default function ProductListItem() {
 
 #### Description
 
-Flags disallowed code patterns matching configurable regular expressions defined in workspace settings (`streak.rules.forbiddenPatterns`).
+Flags disallowed code patterns matching configurable regular expressions defined in workspace settings (`streak.rules.forbiddenPatterns` or `streak.rules.forbiddenPatterns.patterns`).
 
 #### Non-compliant Code ❌
 
 ```tsx
-// Configured: ["eval\\("]
+// Configured in .vscode/settings.json:
+// { "streak.rules.forbiddenPatterns": ["eval\\("] }
 eval("dangerousCode()");
 ```
 

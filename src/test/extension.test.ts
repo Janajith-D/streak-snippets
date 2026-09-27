@@ -58,6 +58,7 @@ import {
 } from "../server/completion/scriptCompletions";
 import { gdomRegistry, scanGDomTypes } from "../server/registry/gdomTypeScanner";
 import { TextDocument } from "vscode-languageserver-textdocument";
+import { buildRuleConfiguration } from "../server/rules/config";
 
 suite("Extension Test Suite", () => {
   vscode.window.showInformationMessage("Start all tests.");
@@ -1103,6 +1104,38 @@ suite("Extension Test Suite", () => {
     assert.ok(diags[1].message.includes("Nesting `<WidgetPlaceholder>`"));
   });
 
+  test("streak:S602 flags nested WidgetPlaceholder inside WidgetPlaceholder", () => {
+    const code = `
+      import { WidgetPlaceholder } from "streak-forge/components";
+      export default function AboutUsLayout() {
+        return (
+          <WidgetPlaceholder id="GlobalInteractions" type="GlobalInteractions">
+            <WidgetPlaceholder id="AnalyticsHelpers" type="AnalyticsHelpers" />
+          </WidgetPlaceholder>
+        );
+      }
+    `;
+    const { sourceFile } = analyzeAndParseDocument(
+      "file:///workspace/src/layouts/AboutUsLayout.tsx",
+      code,
+    );
+    const diags = componentNestingRule.run(sourceFile, {
+      uri: "file:///workspace/src/layouts/AboutUsLayout.tsx",
+      exports: [],
+      components: [],
+      imports: [],
+      jsxElements: [],
+      errors: [],
+    });
+    assert.strictEqual(diags.length, 1);
+    assert.strictEqual(diags[0].code, "streak:S602");
+    assert.ok(
+      diags[0].message.includes(
+        "Nesting `<WidgetPlaceholder>` inside another `<WidgetPlaceholder>`",
+      ),
+    );
+  });
+
   test("streak:S603 flags invalid Script child structure", () => {
     const code = `
       import { Script } from "streak-forge/components";
@@ -1177,12 +1210,47 @@ suite("Extension Test Suite", () => {
     assert.ok(diags[1].message.includes("setTimeout\\("));
   });
 
+  test("buildRuleConfiguration parses array and object forbiddenPatterns configurations", () => {
+    // 1. Direct array of regex patterns
+    const arrayConfig = buildRuleConfiguration({
+      rules: {
+        forbiddenPatterns: ["eval\\(", "dangerouslySetInnerHTML"],
+      },
+    });
+    assert.deepStrictEqual(arrayConfig.ruleOptions.forbiddenPatterns, [
+      "eval\\(",
+      "dangerouslySetInnerHTML",
+    ]);
+
+    // 2. Object with patterns array and custom severity
+    const objectConfig = buildRuleConfiguration({
+      rules: {
+        forbiddenPatterns: {
+          severity: "warning",
+          patterns: ["eval\\("],
+        },
+      },
+    });
+    assert.deepStrictEqual(objectConfig.ruleOptions.forbiddenPatterns, ["eval\\("]);
+    assert.strictEqual(objectConfig.ruleSeverities["streak:forbidden-patterns"], "warning");
+
+    // 3. Object with severity only (default state from schema)
+    const severityOnlyConfig = buildRuleConfiguration({
+      rules: {
+        forbiddenPatterns: {
+          severity: "error",
+        },
+      },
+    });
+    assert.strictEqual(severityOnlyConfig.ruleSeverities["streak:forbidden-patterns"], "error");
+    assert.strictEqual(severityOnlyConfig.ruleOptions.forbiddenPatterns, undefined);
+  });
+
   test("streak.createWidget command is registered and scaffolds a widget file", async () => {
     process.env.STREAK_TEST_ENVIRONMENT = "1";
     const originalShowInputBox = vscode.window.showInputBox;
-    // eslint-disable-next-line @typescript-eslint/require-await
-    (vscode.window as unknown as { showInputBox: () => Promise<string> }).showInputBox = async () =>
-      "MyScaffoldedWidget";
+    (vscode.window as unknown as { showInputBox: () => Promise<string> }).showInputBox = () =>
+      Promise.resolve("MyScaffoldedWidget");
 
     const tempDir = path.join(__dirname, "..", "..", "test-scaffold-temp");
     fs.mkdirSync(tempDir, { recursive: true });
