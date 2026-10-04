@@ -63,6 +63,17 @@ import {
   loadProjectSettings,
   mergeRuleConfigurations,
 } from "../server/rules/config";
+import { runtimePackageRegistry } from "../server/registry/packages";
+import {
+  packageInvalidExtensionRule,
+  packageAbsolutePathRule,
+  packagePublicPathRule,
+  packageNotFoundRule,
+} from "../server/rules/packageRules";
+import {
+  findPackageReferences,
+  resolvePackageNameFromContext,
+} from "../server/references/packageReferences";
 
 suite("Extension Test Suite", () => {
   vscode.window.showInformationMessage("Start all tests.");
@@ -2408,4 +2419,308 @@ suite("Extension Test Suite", () => {
       fs.rmSync(monorepoRoot, { recursive: true, force: true });
     }
   });
+
+  test("RuntimePackageRegistry indexes and queries packages correctly", () => {
+    runtimePackageRegistry.clear();
+    runtimePackageRegistry.set({
+      relativePath: "js/motion.js",
+      absolutePath: "/app/public/assets/js/motion.js",
+      fileName: "motion.js",
+      urlPath: "/assets/js/motion.js",
+    });
+
+    const pkg = runtimePackageRegistry.get("js/motion.js");
+    assert.ok(pkg);
+    assert.strictEqual(pkg.fileName, "motion.js");
+    assert.strictEqual(pkg.urlPath, "/assets/js/motion.js");
+    assert.strictEqual(runtimePackageRegistry.getAll().length, 1);
+
+    runtimePackageRegistry.deleteByPath("/app/public/assets/js/motion.js");
+    assert.strictEqual(runtimePackageRegistry.get("js/motion.js"), undefined);
+    assert.strictEqual(runtimePackageRegistry.getAll().length, 0);
+  });
+
+  test("scanWorkspace automatically discovers JavaScript packages under public/assets/", async () => {
+    const tempDir = path.join(__dirname, "temp_scan_package_test");
+    const assetsJsDir = path.join(tempDir, "public", "assets", "js");
+    const assetsVendorDir = path.join(tempDir, "public", "assets", "vendor");
+    fs.mkdirSync(assetsJsDir, { recursive: true });
+    fs.mkdirSync(assetsVendorDir, { recursive: true });
+
+    try {
+      fs.writeFileSync(
+        path.join(tempDir, "package.json"),
+        JSON.stringify({ name: "pkg-test", dependencies: { "streak-forge": "1.0.0" } }),
+      );
+      fs.writeFileSync(path.join(assetsJsDir, "motion.js"), "console.log('motion');");
+      fs.writeFileSync(path.join(assetsVendorDir, "chart.js"), "console.log('chart');");
+
+      await scanWorkspace(tempDir);
+
+      const motionPkg = runtimePackageRegistry.get("js/motion.js");
+      assert.ok(motionPkg);
+      assert.strictEqual(motionPkg.fileName, "motion.js");
+      assert.strictEqual(motionPkg.urlPath, "/assets/js/motion.js");
+
+      const chartPkg = runtimePackageRegistry.get("vendor/chart.js");
+      assert.ok(chartPkg);
+      assert.strictEqual(chartPkg.fileName, "chart.js");
+      assert.strictEqual(chartPkg.urlPath, "/assets/vendor/chart.js");
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("getCompletions provides runtime package completions inside gDom.loadPackage() with performance < 50ms", () => {
+    runtimePackageRegistry.clear();
+    runtimePackageRegistry.set({
+      relativePath: "js/motion.js",
+      absolutePath: "/app/public/assets/js/motion.js",
+      fileName: "motion.js",
+      urlPath: "/assets/js/motion.js",
+    });
+    runtimePackageRegistry.set({
+      relativePath: "js/analytics.js",
+      absolutePath: "/app/public/assets/js/analytics.js",
+      fileName: "analytics.js",
+      urlPath: "/assets/js/analytics.js",
+    });
+
+    const code = `const fn = () => { gDom.loadPackage("`;
+    const offset = code.length;
+    const { sourceFile } = analyzeAndParseDocument("file:///test.tsx", code);
+    const doc = TextDocument.create("file:///test.tsx", "typescriptreact", 1, code);
+
+    try {
+      const completionContext = {
+        text: code,
+        uri: "file:///test.tsx",
+        offset,
+        line: 0,
+        character: offset,
+      };
+      const items = getCompletions(completionContext, doc, sourceFile, undefined);
+      const motionItem = items.find((i) => i.label === "js/motion.js");
+      const analyticsItem = items.find((i) => i.label === "js/analytics.js");
+
+      assert.ok(motionItem, "Expected js/motion.js in completions");
+      assert.ok(analyticsItem, "Expected js/analytics.js in completions");
+      assert.strictEqual(motionItem.insertText, "js/motion.js");
+
+      // Performance test: ensure fast completion resolution
+      const start = Date.now();
+      for (let i = 0; i < 50; i++) {
+        getCompletions(completionContext, doc, sourceFile, undefined);
+      }
+      const duration = Date.now() - start;
+      const avgDuration = duration / 50;
+      assert.ok(avgDuration < 50, `Average completion time ${avgDuration}ms exceeded 50ms threshold`);
+    } finally {
+      sourceFile.delete();
+    }
+  });
+
+  test("resolveDefinition navigates to public/assets/js/motion.js", async () => {
+    const tempDir = path.join(__dirname, "temp_def_pkg_test");
+    const motionFile = path.join(tempDir, "public", "assets", "js", "motion.js");
+    fs.mkdirSync(path.dirname(motionFile), { recursive: true });
+    fs.writeFileSync(motionFile, "// motion code");
+
+    try {
+      const code = `gDom.loadPackage("js/motion.js");`;
+      const { sourceFile } = analyzeAndParseDocument("file:///test.tsx", code);
+      try {
+        const node = sourceFile.getDescendantAtPos(code.indexOf("motion.js") + 2);
+        assert.ok(node);
+        const def = await resolveDefinition(node, tempDir);
+        assert.ok(def);
+        const targetUri = "uri" in def ? def.uri : (def as { targetUri: string }).targetUri;
+        assert.strictEqual(path.resolve(targetUri), path.resolve(pathToFileURL(motionFile).toString()));
+      } finally {
+        sourceFile.delete();
+      }
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("resolveHover displays rich markdown documentation for runtime packages", () => {
+    runtimePackageRegistry.clear();
+    runtimePackageRegistry.set({
+      relativePath: "js/motion.js",
+      absolutePath: "C:/project/public/assets/js/motion.js",
+      fileName: "motion.js",
+      urlPath: "/assets/js/motion.js",
+    });
+
+    const code = `gDom.loadPackage("js/motion.js");`;
+    const { sourceFile } = analyzeAndParseDocument("file:///test.tsx", code);
+    try {
+      const node = sourceFile.getDescendantAtPos(code.indexOf("motion.js") + 2);
+      assert.ok(node);
+      const hover = resolveHover(node, "C:/project");
+      assert.ok(hover);
+      const contents = (hover.contents as { value: string }).value;
+      assert.ok(contents.includes("**motion.js**"));
+      assert.ok(contents.includes("*Runtime Package*"));
+      assert.ok(contents.includes("/assets/js/motion.js"));
+      assert.ok(contents.includes("public/assets/js/motion.js"));
+    } finally {
+      sourceFile.delete();
+    }
+  });
+
+  test("Diagnostic rules validate runtime packages correctly", () => {
+    runtimePackageRegistry.clear();
+    runtimePackageRegistry.set({
+      relativePath: "js/motion.js",
+      absolutePath: "/app/public/assets/js/motion.js",
+      fileName: "motion.js",
+      urlPath: "/assets/js/motion.js",
+    });
+
+    // 1. Invalid extension (streak/packages/invalid-extension)
+    const codeInvalid = `gDom.loadPackage("styles/main.css");`;
+    const parseInvalid = analyzeAndParseDocument("file:///test.tsx", codeInvalid);
+    try {
+      const diags = packageInvalidExtensionRule.run(parseInvalid.sourceFile, parseInvalid.analysis);
+      assert.strictEqual(diags.length, 1);
+      assert.strictEqual(diags[0].code, "streak/packages/invalid-extension");
+      assert.strictEqual(diags[0].severity, DiagnosticSeverity.Error);
+    } finally {
+      parseInvalid.sourceFile.delete();
+    }
+
+    // 2. Absolute path (streak/packages/absolute-path)
+    const codeAbs = `gDom.loadPackage("/assets/js/motion.js");`;
+    const parseAbs = analyzeAndParseDocument("file:///test.tsx", codeAbs);
+    try {
+      const diags = packageAbsolutePathRule.run(parseAbs.sourceFile, parseAbs.analysis);
+      assert.strictEqual(diags.length, 1);
+      assert.strictEqual(diags[0].code, "streak/packages/absolute-path");
+      assert.strictEqual((diags[0].data as { fixedPath: string }).fixedPath, "js/motion.js");
+    } finally {
+      parseAbs.sourceFile.delete();
+    }
+
+    // 3. Public path (streak/packages/public-path)
+    const codePub = `gDom.loadPackage("public/assets/js/motion.js");`;
+    const parsePub = analyzeAndParseDocument("file:///test.tsx", codePub);
+    try {
+      const diags = packagePublicPathRule.run(parsePub.sourceFile, parsePub.analysis);
+      assert.strictEqual(diags.length, 1);
+      assert.strictEqual(diags[0].code, "streak/packages/public-path");
+      assert.strictEqual((diags[0].data as { fixedPath: string }).fixedPath, "js/motion.js");
+    } finally {
+      parsePub.sourceFile.delete();
+    }
+
+    // 4. Not found (streak/packages/not-found)
+    const codeNotFound = `gDom.loadPackage("js/missing.js");`;
+    const parseNotFound = analyzeAndParseDocument("file:///test.tsx", codeNotFound);
+    try {
+      const diags = packageNotFoundRule.run(parseNotFound.sourceFile, parseNotFound.analysis);
+      assert.strictEqual(diags.length, 1);
+      assert.strictEqual(diags[0].code, "streak/packages/not-found");
+      assert.strictEqual(diags[0].severity, DiagnosticSeverity.Warning);
+    } finally {
+      parseNotFound.sourceFile.delete();
+    }
+
+    // 5. Valid package -> 0 diagnostics
+    const codeValid = `gDom.loadPackage("js/motion.js");`;
+    const parseValid = analyzeAndParseDocument("file:///test.tsx", codeValid);
+    try {
+      const notFoundDiags = packageNotFoundRule.run(parseValid.sourceFile, parseValid.analysis);
+      const absDiags = packageAbsolutePathRule.run(parseValid.sourceFile, parseValid.analysis);
+      const pubDiags = packagePublicPathRule.run(parseValid.sourceFile, parseValid.analysis);
+      const extDiags = packageInvalidExtensionRule.run(parseValid.sourceFile, parseValid.analysis);
+      assert.strictEqual(notFoundDiags.length, 0);
+      assert.strictEqual(absDiags.length, 0);
+      assert.strictEqual(pubDiags.length, 0);
+      assert.strictEqual(extDiags.length, 0);
+    } finally {
+      parseValid.sourceFile.delete();
+    }
+  });
+
+  test("resolveCodeActions provides Quick Fixes for package path mistakes", () => {
+    const uri = "file:///test.tsx";
+    const code = `gDom.loadPackage("/assets/js/motion.js");`;
+    const doc = TextDocument.create(uri, "typescriptreact", 1, code);
+    const { sourceFile, analysis } = analyzeAndParseDocument(uri, code);
+
+    try {
+      const diags = packageAbsolutePathRule.run(sourceFile, analysis);
+      const lspDiag: Diagnostic = {
+        code: diags[0].code,
+        message: diags[0].message,
+        range: diags[0].range,
+        severity: diags[0].severity,
+        source: diags[0].source,
+        data: diags[0].data,
+      };
+
+      const actions = resolveCodeActions([lspDiag], doc, sourceFile);
+      assert.strictEqual(actions.length, 1);
+      assert.ok(actions[0].title.includes("js/motion.js"));
+      const edit = actions[0].edit?.changes?.[uri];
+      assert.ok(edit && edit.length > 0);
+      assert.strictEqual(edit[0].newText, '"js/motion.js"');
+    } finally {
+      sourceFile.delete();
+    }
+  });
+
+  test("findPackageReferences discovers all loadPackage call sites across the project", () => {
+    const tempDir = path.join(__dirname, "temp_pkg_refs_test");
+    const srcDir = path.join(tempDir, "src", "widgets");
+    const assetsDir = path.join(tempDir, "public", "assets", "js");
+    fs.mkdirSync(srcDir, { recursive: true });
+    fs.mkdirSync(assetsDir, { recursive: true });
+
+    try {
+      fs.writeFileSync(path.join(assetsDir, "motion.js"), "// motion asset");
+      fs.writeFileSync(
+        path.join(srcDir, "WidgetA.tsx"),
+        `export default function WidgetA() {\n  gDom.loadPackage("js/motion.js");\n}\n`,
+      );
+      fs.writeFileSync(
+        path.join(srcDir, "WidgetB.tsx"),
+        `export default function WidgetB() {\n  loadPackage("js/motion.js");\n}\n`,
+      );
+
+      const refs = findPackageReferences("js/motion.js", tempDir, true);
+      // 2 call sites + 1 declaration
+      assert.strictEqual(refs.length, 3);
+      const uriA = refs.find((r) => r.uri.includes("WidgetA.tsx"));
+      const uriB = refs.find((r) => r.uri.includes("WidgetB.tsx"));
+      const uriDecl = refs.find((r) => r.uri.includes("motion.js"));
+
+      assert.ok(uriA, "WidgetA should be found");
+      assert.ok(uriB, "WidgetB should be found");
+      assert.ok(uriDecl, "Declaration should be found");
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("resolvePackageNameFromContext identifies package from AST node or public asset URI", () => {
+    const code = `gDom.loadPackage("js/motion.js");`;
+    const { sourceFile } = analyzeAndParseDocument("file:///test.tsx", code);
+    try {
+      const node = sourceFile.getDescendantAtPos(code.indexOf("motion.js") + 2);
+      assert.ok(node);
+      const pkgName = resolvePackageNameFromContext(node, "file:///test.tsx");
+      assert.strictEqual(pkgName, "js/motion.js");
+
+      // Direct public asset URI test
+      const assetUri = "file:///app/public/assets/js/chart.js";
+      const fromUri = resolvePackageNameFromContext(undefined, assetUri);
+      assert.strictEqual(fromUri, "js/chart.js");
+    } finally {
+      sourceFile.delete();
+    }
+  });
 });
+

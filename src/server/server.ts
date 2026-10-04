@@ -38,6 +38,10 @@ import {
   loadProjectSettings,
   mergeRuleConfigurations,
 } from "./rules/config";
+import {
+  resolvePackageNameFromContext,
+  findPackageReferences,
+} from "./references/packageReferences";
 
 // Create a connection for the server, using Node's IPC / stdio communication
 const connection = createConnection(ProposedFeatures.all);
@@ -79,15 +83,17 @@ connection.onInitialized(async () => {
   connection.console.log("Streak Language Server initialized successfully.");
   if (workspaceRoot) {
     let customWidgetDir: string | undefined;
+    let customPublicDir: string | undefined;
     try {
       const streakSettings = (await connection.workspace.getConfiguration(
         "streak",
       )) as StreakSettings;
       customWidgetDir = streakSettings.snippets?.widgetDirectory;
+      customPublicDir = streakSettings.snippets?.publicDirectory;
     } catch {
       /* ignore */
     }
-    await scanWorkspace(workspaceRoot, customWidgetDir);
+    await scanWorkspace(workspaceRoot, customWidgetDir, customPublicDir);
 
     await connection.sendNotification("streak/didIndexWidgets", {
       count: widgetRegistry.getAll().length,
@@ -186,7 +192,8 @@ connection.onHover((params): Hover | null => {
     return null;
   }
 
-  return resolveHover(node);
+  const projectRoot = resolveProjectRoot(uri, workspaceRoot);
+  return resolveHover(node, projectRoot);
 });
 
 connection.onDefinition(async (params) => {
@@ -336,6 +343,23 @@ connection.onReferences((params): Location[] => {
     return [];
   }
   const offset = document.offsetAt(params.position);
+  const projectRoot = resolveProjectRoot(uri, workspaceRoot);
+
+  let pkgNode: Node | undefined;
+  if (!uri.endsWith(".json")) {
+    try {
+      const { sourceFile } = analyzeAndParseDocument(uri, document.getText());
+      pkgNode = sourceFile.getDescendantAtPos(offset);
+    } catch {
+      // ignore
+    }
+  }
+
+  const pkgName = resolvePackageNameFromContext(pkgNode, uri, projectRoot);
+  if (pkgName) {
+    return findPackageReferences(pkgName, projectRoot, params.context.includeDeclaration);
+  }
+
   const wName = resolveWidgetNameAtOffset(uri, document, offset);
   if (!wName) {
     return [];

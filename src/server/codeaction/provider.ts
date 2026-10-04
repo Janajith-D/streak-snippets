@@ -214,11 +214,60 @@ function buildCodeActionsForDiag(
       }
       break;
     }
+    case "streak/packages/absolute-path":
+      actions.push(buildPackageFixAction(diag, document, uri, "/assets/"));
+      break;
+    case "streak/packages/public-path":
+      actions.push(buildPackageFixAction(diag, document, uri, "public/assets/"));
+      break;
     case undefined:
     default:
       break;
   }
   return actions;
+}
+
+function getCleanPackagePath(raw: string): string {
+  let cleaned = raw.replace(/^["'`]|["'`]$/g, "");
+  if (cleaned.startsWith("public/assets/")) {
+    cleaned = cleaned.slice("public/assets/".length);
+  } else if (cleaned.startsWith("public/")) {
+    cleaned = cleaned.slice("public/".length);
+  } else if (cleaned.startsWith("/assets/")) {
+    cleaned = cleaned.slice("/assets/".length);
+  } else if (cleaned.startsWith("/")) {
+    cleaned = cleaned.replace(/^\/+/, "");
+  }
+  return cleaned;
+}
+
+function buildPackageFixAction(
+  diag: Diagnostic,
+  document: TextDocument,
+  uri: string,
+  prefixDescription: string,
+): CodeAction {
+  const fixedPath =
+    diag.data && typeof (diag.data as { fixedPath?: unknown }).fixedPath === "string"
+      ? (diag.data as { fixedPath: string }).fixedPath
+      : getCleanPackagePath(document.getText(diag.range));
+
+  return {
+    title: `Strip '${prefixDescription}' and use relative path '${fixedPath}'`,
+    kind: CodeActionKind.QuickFix,
+    diagnostics: [diag],
+    isPreferred: true,
+    edit: {
+      changes: {
+        [uri]: [
+          {
+            range: diag.range,
+            newText: `"${fixedPath}"`,
+          },
+        ],
+      },
+    },
+  };
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

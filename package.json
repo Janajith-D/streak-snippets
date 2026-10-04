@@ -376,6 +376,50 @@
           "default": "warning",
           "description": "Severity for data handler return keys not matching registered widgets rule (streak:S204)"
         },
+        "streak.rules.packageNotFound.severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
+          "default": "warning",
+          "description": "Severity for runtime package not found in public/assets/ rule (streak/packages/not-found)"
+        },
+        "streak.rules.packageAbsolutePath.severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
+          "default": "error",
+          "description": "Severity for runtime package absolute path rule (streak/packages/absolute-path)"
+        },
+        "streak.rules.packagePublicPath.severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
+          "default": "error",
+          "description": "Severity for runtime package public path rule (streak/packages/public-path)"
+        },
+        "streak.rules.packageInvalidExtension.severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "off"
+          ],
+          "default": "error",
+          "description": "Severity for runtime package invalid extension rule (streak/packages/invalid-extension)"
+        },
         "streak.snippets.widgetDirectory": {
           "type": "string",
           "default": "src/widgets",

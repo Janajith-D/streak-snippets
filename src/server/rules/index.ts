@@ -23,6 +23,12 @@ import { widgetFilenameMatchesComponentRule } from "./widgetFilenameMatchesCompo
 import { deadWidgetRule } from "./deadWidgetRule";
 import { passiveEventListenerRule } from "./passiveEventListenerRule";
 import { dataHandlerWidgetKeyRule } from "./dataHandlerWidgetKeyRule";
+import {
+  packageInvalidExtensionRule,
+  packageAbsolutePathRule,
+  packagePublicPathRule,
+  packageNotFoundRule,
+} from "./packageRules";
 
 export * from "./types";
 export * from "./widgetPlaceholderRule";
@@ -43,6 +49,7 @@ export * from "./widgetFilenameMatchesComponentRule";
 export * from "./deadWidgetRule";
 export * from "./passiveEventListenerRule";
 export * from "./dataHandlerWidgetKeyRule";
+export * from "./packageRules";
 
 export const allRules: Rule[] = [
   widgetPlaceholderRule,
@@ -67,4 +74,8 @@ export const allRules: Rule[] = [
   deadWidgetRule,
   passiveEventListenerRule,
   dataHandlerWidgetKeyRule,
+  packageInvalidExtensionRule,
+  packageAbsolutePathRule,
+  packagePublicPathRule,
+  packageNotFoundRule,
 ];

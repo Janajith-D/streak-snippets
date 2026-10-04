@@ -23,6 +23,13 @@ export const GDOM_ACCESS_RE = /\bgDom\.(\w*)$/;
 export const LOAD_DYNAMIC_RE = /\bloadDynamicComponent\s*\(\s*["'][^"']*$/;
 
 /**
+ * Matches the start of a loadPackage() call with an open string argument.
+ * e.g. `gDom.loadPackage("` or `loadPackage('js/`
+ * Uses \b word boundary and deterministic character class [^"']*.
+ */
+export const LOAD_PACKAGE_RE = /\bloadPackage\s*\(\s*["']([^"']*)$/;
+
+/**
  * Matches the opening brace+signature of a Script element callback.
  * Handles all valid forms:
  *   {(gDom) => {

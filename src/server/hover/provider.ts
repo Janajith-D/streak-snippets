@@ -3,6 +3,7 @@ import { type Hover } from "vscode-languageserver/node";
 import { GDOM_METHODS } from "../completion/runtimeApi";
 import { type WidgetMetadata, widgetRegistry } from "../registry/widgets";
 import { sitemapRegistry, type SitemapPage } from "../registry/sitemaps";
+import { runtimePackageRegistry } from "../registry/packages";
 import { type TextDocument } from "vscode-languageserver-textdocument";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -345,15 +346,92 @@ function resolvePropsDataHover(node: Node): Hover | null {
   return null;
 }
 
+function isLoadPackageCall(parent: Node | undefined): boolean {
+  if (!parent || !Node.isCallExpression(parent)) {
+    return false;
+  }
+  const callExpr = parent.getExpression();
+  if (Node.isPropertyAccessExpression(callExpr)) {
+    return (
+      callExpr.getExpression().getText() === "gDom" && callExpr.getName() === "loadPackage"
+    );
+  }
+  if (Node.isIdentifier(callExpr)) {
+    return callExpr.getText() === "loadPackage";
+  }
+  return false;
+}
+
+function extractLoadPackageArg(node: Node): Node | undefined {
+  if (Node.isStringLiteral(node) || Node.isNoSubstitutionTemplateLiteral(node)) {
+    const parent = node.getParent();
+    if (isLoadPackageCall(parent)) {
+      return node;
+    }
+  } else if (Node.isIdentifier(node)) {
+    const parent = node.getParent();
+    if (Node.isCallExpression(parent) && parent.getExpression() === node && node.getText() === "loadPackage") {
+      const args = parent.getArguments();
+      if (args.length > 0 && (Node.isStringLiteral(args[0]) || Node.isNoSubstitutionTemplateLiteral(args[0]))) {
+        return args[0];
+      }
+    } else if (Node.isPropertyAccessExpression(parent) && parent.getName() === "loadPackage") {
+      const call = parent.getParent();
+      if (call && Node.isCallExpression(call)) {
+        const args = call.getArguments();
+        if (args.length > 0 && (Node.isStringLiteral(args[0]) || Node.isNoSubstitutionTemplateLiteral(args[0]))) {
+          return args[0];
+        }
+      }
+    }
+  }
+  return undefined;
+}
+
+function resolveLoadPackageHover(node: Node, workspaceRoot?: string): Hover | null {
+  const argNode = extractLoadPackageArg(node);
+  if (!argNode) {
+    return null;
+  }
+
+  if (!Node.isStringLiteral(argNode) && !Node.isNoSubstitutionTemplateLiteral(argNode)) {
+    return null;
+  }
+  const pkgVal = argNode.getLiteralValue();
+
+  const pkg = runtimePackageRegistry.get(pkgVal);
+  const fileName = pkg?.fileName ?? path.basename(pkgVal);
+  const relFile = pkg?.relativePath ?? pkgVal;
+  const resolvedFile = pkg
+    ? (workspaceRoot ? path.relative(workspaceRoot, pkg.absolutePath).replaceAll("\\", "/") : pkg.absolutePath)
+    : `public/assets/${relFile}`;
+  const resolvedUrl = pkg?.urlPath ?? `/assets/${relFile}`;
+
+  const hoverLines = [
+    `**${fileName}**`,
+    "",
+    `*Runtime Package*`,
+    "",
+    `**Resolved File:**`,
+    `\`${resolvedFile}\``,
+    "",
+    `**Resolved URL:**`,
+    `\`${resolvedUrl}\``,
+  ];
+
+  return mkHover(hoverLines.join("\n"));
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
-export function resolveHover(node: Node): Hover | null {
+export function resolveHover(node: Node, workspaceRoot?: string): Hover | null {
   return (
     resolveWidgetTypeHover(node) ??
     resolveTagNameHover(node) ??
     resolveAttributeHover(node) ??
     resolveGDomMethodHover(node) ??
-    resolvePropsDataHover(node)
+    resolvePropsDataHover(node) ??
+    resolveLoadPackageHover(node, workspaceRoot)
   );
 }
 
