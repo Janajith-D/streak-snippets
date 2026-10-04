@@ -30,6 +30,10 @@ This document provides detailed SonarQube-style descriptions, rationale, and com
 | [`streak:S404`](#streaks404---async-script-callback)                          | Script Component      | Error            | `<Script>` callbacks must not be declared `async`.                                                            |
 | [`streak:S405`](#streaks405---script-required-id)                             | Script Component      | Warning          | Script component requires a non-empty `id` attribute.                                                         |
 | [`streak:S406`](#streaks406---passive-event-listeners)                        | Performance / Script  | Warning          | Scroll, mousemove, and touch event listeners must specify `{ passive: true }`.                                |
+| [`streak:S407`](#streaks407---runtime-package-not-found)                       | Runtime Package       | Warning          | Runtime package referenced in `loadPackage` must exist under `public/assets/`.                                |
+| [`streak:S408`](#streaks408---runtime-package-absolute-path)                  | Runtime Package       | Error            | Package path must be relative to `public/assets/` and not start with `/assets/` or `/`.                       |
+| [`streak:S409`](#streaks409---runtime-package-public-path)                    | Runtime Package       | Error            | Package path must not include `public/assets/` or `public/` prefix.                                           |
+| [`streak:S410`](#streaks410---runtime-package-invalid-extension)              | Runtime Package       | Error            | Runtime package must be a JavaScript file ending with `.js`.                                                  |
 | [`streak:S501`](#streaks501---invalid-dynamic-component-id)                   | Dynamic Component     | Error            | `<Dynamic>` must have a static, non-empty `id`.                                                               |
 | [`streak:S601`](#streaks601---duplicated-widget)                              | Workspace Registry    | Error            | Custom widget names must be unique across all widget source files.                                            |
 | [`streak:S602`](#streaks602---component-nesting)                              | Jsx Nesting           | Error            | Nested `<WidgetPlaceholder>`, `<Script>`, or `<Dynamic>` components are not allowed.                          |
@@ -560,6 +564,143 @@ window.addEventListener("mousemove", handleMove, { passive: true });
 
 ---
 
+### `streak:S407` — Runtime Package Not Found
+
+- **Category**: Runtime Package
+- **Severity**: `Warning`
+- **Source**: `Streak Engine`
+
+#### Description
+
+Flags runtime packages referenced via `gDom.loadPackage("...")` that do not exist under the `public/assets/` directory of the project.
+
+#### Non-compliant Code ❌
+
+```tsx
+<Script id="motion-script">
+  {() => {
+    // When public/assets/js/missing.js does not exist on disk
+    gDom.loadPackage("js/missing.js");
+  }}
+</Script>
+```
+
+#### Compliant Code ✅
+
+```tsx
+<Script id="motion-script">
+  {() => {
+    // When public/assets/js/motion.js exists in public/assets/
+    gDom.loadPackage("js/motion.js");
+  }}
+</Script>
+```
+
+---
+
+### `streak:S408` — Runtime Package Absolute Path
+
+- **Category**: Runtime Package
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+- **Quick Fix**: Remove leading `/` or `/assets/` prefix
+
+#### Description
+
+Package paths passed to `gDom.loadPackage` must be relative to the `public/assets/` directory. They must not include a leading slash `/` or start with `/assets/`.
+
+#### Non-compliant Code ❌
+
+```tsx
+<Script id="motion-script">
+  {() => {
+    gDom.loadPackage("/assets/js/motion.js");
+    gDom.loadPackage("/js/chart.js");
+  }}
+</Script>
+```
+
+#### Compliant Code ✅
+
+```tsx
+<Script id="motion-script">
+  {() => {
+    gDom.loadPackage("js/motion.js");
+    gDom.loadPackage("js/chart.js");
+  }}
+</Script>
+```
+
+---
+
+### `streak:S409` — Runtime Package Public Path
+
+- **Category**: Runtime Package
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+- **Quick Fix**: Remove `public/assets/` or `public/` prefix
+
+#### Description
+
+Package paths passed to `gDom.loadPackage` must be relative to the `public/assets/` directory. They must not include `public/assets/` or `public/` in their path string.
+
+#### Non-compliant Code ❌
+
+```tsx
+<Script id="motion-script">
+  {() => {
+    gDom.loadPackage("public/assets/js/motion.js");
+    gDom.loadPackage("public/js/chart.js");
+  }}
+</Script>
+```
+
+#### Compliant Code ✅
+
+```tsx
+<Script id="motion-script">
+  {() => {
+    gDom.loadPackage("js/motion.js");
+    gDom.loadPackage("js/chart.js");
+  }}
+</Script>
+```
+
+---
+
+### `streak:S410` — Runtime Package Invalid Extension
+
+- **Category**: Runtime Package
+- **Severity**: `Error`
+- **Source**: `Streak Engine`
+
+#### Description
+
+Streak 4.0 runtime package loader (`gDom.loadPackage`) only supports loading client-side JavaScript packages. All package paths must end with the `.js` file extension. Non-JavaScript assets (CSS, images, fonts) are not supported.
+
+#### Non-compliant Code ❌
+
+```tsx
+<Script id="anim-script">
+  {() => {
+    gDom.loadPackage("styles/theme.css");
+    gDom.loadPackage("assets/logo.png");
+  }}
+</Script>
+```
+
+#### Compliant Code ✅
+
+```tsx
+<Script id="anim-script">
+  {() => {
+    gDom.loadPackage("js/motion.js");
+  }}
+</Script>
+```
+
+---
+
 ### `streak:S501` — Invalid Dynamic Component ID
 
 - **Category**: Dynamic Component
@@ -949,3 +1090,5 @@ Ensures that any optional `loadingStrategy` attribute declared on sitemap widget
   "loadingStrategy": "lazy"
 }
 ```
+
+

@@ -385,7 +385,7 @@
             "off"
           ],
           "default": "warning",
-          "description": "Severity for runtime package not found in public/assets/ rule (streak/packages/not-found)"
+          "description": "Severity for runtime package not found in public/assets/ rule (streak:S407)"
         },
         "streak.rules.packageAbsolutePath.severity": {
           "type": "string",
@@ -396,7 +396,7 @@
             "off"
           ],
           "default": "error",
-          "description": "Severity for runtime package absolute path rule (streak/packages/absolute-path)"
+          "description": "Severity for runtime package absolute path rule (streak:S408)"
         },
         "streak.rules.packagePublicPath.severity": {
           "type": "string",
@@ -407,7 +407,7 @@
             "off"
           ],
           "default": "error",
-          "description": "Severity for runtime package public path rule (streak/packages/public-path)"
+          "description": "Severity for runtime package public path rule (streak:S409)"
         },
         "streak.rules.packageInvalidExtension.severity": {
           "type": "string",
@@ -418,7 +418,7 @@
             "off"
           ],
           "default": "error",
-          "description": "Severity for runtime package invalid extension rule (streak/packages/invalid-extension)"
+          "description": "Severity for runtime package invalid extension rule (streak:S410)"
         },
         "streak.snippets.widgetDirectory": {
           "type": "string",

@@ -2579,49 +2579,49 @@ suite("Extension Test Suite", () => {
       urlPath: "/assets/js/motion.js",
     });
 
-    // 1. Invalid extension (streak/packages/invalid-extension)
+    // 1. Invalid extension (streak:S410)
     const codeInvalid = `gDom.loadPackage("styles/main.css");`;
     const parseInvalid = analyzeAndParseDocument("file:///test.tsx", codeInvalid);
     try {
       const diags = packageInvalidExtensionRule.run(parseInvalid.sourceFile, parseInvalid.analysis);
       assert.strictEqual(diags.length, 1);
-      assert.strictEqual(diags[0].code, "streak/packages/invalid-extension");
+      assert.strictEqual(diags[0].code, "streak:S410");
       assert.strictEqual(diags[0].severity, DiagnosticSeverity.Error);
     } finally {
       parseInvalid.sourceFile.delete();
     }
 
-    // 2. Absolute path (streak/packages/absolute-path)
+    // 2. Absolute path (streak:S408)
     const codeAbs = `gDom.loadPackage("/assets/js/motion.js");`;
     const parseAbs = analyzeAndParseDocument("file:///test.tsx", codeAbs);
     try {
       const diags = packageAbsolutePathRule.run(parseAbs.sourceFile, parseAbs.analysis);
       assert.strictEqual(diags.length, 1);
-      assert.strictEqual(diags[0].code, "streak/packages/absolute-path");
+      assert.strictEqual(diags[0].code, "streak:S408");
       assert.strictEqual((diags[0].data as { fixedPath: string }).fixedPath, "js/motion.js");
     } finally {
       parseAbs.sourceFile.delete();
     }
 
-    // 3. Public path (streak/packages/public-path)
+    // 3. Public path (streak:S409)
     const codePub = `gDom.loadPackage("public/assets/js/motion.js");`;
     const parsePub = analyzeAndParseDocument("file:///test.tsx", codePub);
     try {
       const diags = packagePublicPathRule.run(parsePub.sourceFile, parsePub.analysis);
       assert.strictEqual(diags.length, 1);
-      assert.strictEqual(diags[0].code, "streak/packages/public-path");
+      assert.strictEqual(diags[0].code, "streak:S409");
       assert.strictEqual((diags[0].data as { fixedPath: string }).fixedPath, "js/motion.js");
     } finally {
       parsePub.sourceFile.delete();
     }
 
-    // 4. Not found (streak/packages/not-found)
+    // 4. Not found (streak:S407)
     const codeNotFound = `gDom.loadPackage("js/missing.js");`;
     const parseNotFound = analyzeAndParseDocument("file:///test.tsx", codeNotFound);
     try {
       const diags = packageNotFoundRule.run(parseNotFound.sourceFile, parseNotFound.analysis);
       assert.strictEqual(diags.length, 1);
-      assert.strictEqual(diags[0].code, "streak/packages/not-found");
+      assert.strictEqual(diags[0].code, "streak:S407");
       assert.strictEqual(diags[0].severity, DiagnosticSeverity.Warning);
     } finally {
       parseNotFound.sourceFile.delete();

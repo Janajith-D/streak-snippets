@@ -49,6 +49,10 @@ const SETTINGS_MAP: Readonly<Record<string, string>> = {
   packageAbsolutePath: "streak:package-absolute-path",
   packagePublicPath: "streak:package-public-path",
   packageInvalidExtension: "streak:package-invalid-extension",
+  S407: "streak:package-not-found",
+  S408: "streak:package-absolute-path",
+  S409: "streak:package-public-path",
+  S410: "streak:package-invalid-extension",
 };
 
 function parseRuleSeverities(rules: NonNullable<StreakSettings["rules"]>): Record<string, string> {

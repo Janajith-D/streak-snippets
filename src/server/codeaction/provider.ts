@@ -214,9 +214,11 @@ function buildCodeActionsForDiag(
       }
       break;
     }
+    case "streak:S408":
     case "streak/packages/absolute-path":
       actions.push(buildPackageFixAction(diag, document, uri, "/assets/"));
       break;
+    case "streak:S409":
     case "streak/packages/public-path":
       actions.push(buildPackageFixAction(diag, document, uri, "public/assets/"));
       break;

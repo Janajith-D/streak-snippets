@@ -76,7 +76,7 @@ export const packageInvalidExtensionRule: Rule = {
     for (const { argNode, rawPath } of calls) {
       if (rawPath.length > 0 && !rawPath.endsWith(".js")) {
         diagnostics.push({
-          code: "streak/packages/invalid-extension",
+          code: "streak:S410",
           message: `Runtime package must be a JavaScript file ending with .js (found "${rawPath}").`,
           range: getRangeFromNode(sourceFile, argNode),
           severity,
@@ -105,7 +105,7 @@ export const packageAbsolutePathRule: Rule = {
           ? rawPath.slice("/assets/".length)
           : rawPath.replace(/^\/+/, "");
         diagnostics.push({
-          code: "streak/packages/absolute-path",
+          code: "streak:S408",
           message: `Package path must be relative to public/assets/, do not include leading '/' or '/assets/'. Use '${fixedPath}'.`,
           range: getRangeFromNode(sourceFile, argNode),
           severity,
@@ -135,7 +135,7 @@ export const packagePublicPathRule: Rule = {
           ? rawPath.slice("public/assets/".length)
           : rawPath.slice("public/".length);
         diagnostics.push({
-          code: "streak/packages/public-path",
+          code: "streak:S409",
           message: `Package path must be relative to public/assets/, do not include 'public/' or 'public/assets/'. Use '${fixedPath}'.`,
           range: getRangeFromNode(sourceFile, argNode),
           severity,
@@ -179,7 +179,7 @@ export const packageNotFoundRule: Rule = {
       }
 
       diagnostics.push({
-        code: "streak/packages/not-found",
+        code: "streak:S407",
         message: `Runtime package '${rawPath}' not found in public/assets/.`,
         range: getRangeFromNode(sourceFile, argNode),
         severity,
