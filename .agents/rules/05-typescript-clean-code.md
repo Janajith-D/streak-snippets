@@ -1,9 +1,12 @@
 ---
+trigger: glob
 description: TypeScript clean code, ESLint standards, and SonarQube quality guidelines in Streak Snippets
-globs: src/**/*.ts, src/**/*.tsx
+globs: "src/**/*.ts, src/**/*.tsx"
 ---
 
 # TypeScript Clean Code & SonarQube Standards
+
+For automated auditing, invoke the skill at @.agents/skills/audit-code-quality/SKILL.md.
 
 ## 1. SonarQube Clean Code & Cognitive Complexity
 
@@ -25,7 +28,7 @@ globs: src/**/*.ts, src/**/*.tsx
 
 ## 2. ESLint Standards & Rules Compliance
 
-Always ensure code conforms strictly to `eslint.config.mjs`:
+Always ensure code conforms strictly to @eslint.config.mjs:
 - **Asynchronous Safety**:
   - Never leave unhandled promises (`@typescript-eslint/no-floating-promises`). Use `void client.start()` or `await` every asynchronous operation.
   - Never await a non-thenable value (`@typescript-eslint/await-thenable`).
@@ -39,7 +42,7 @@ Always ensure code conforms strictly to `eslint.config.mjs`:
 
 ## 3. Prettier Formatting Standards
 
-- Codebase formatting is enforced via Prettier (`.prettierrc.json`):
+- Codebase formatting is enforced via Prettier (@.prettierrc.json):
   - Semi-colons: required (`semi: true`)
   - Double quotes: required (`singleQuote: false`)
   - Tab width: 2 spaces
@@ -55,7 +58,7 @@ Always ensure code conforms strictly to `eslint.config.mjs`:
 
 - **No Untyped `any`**:
   - Prohibit `any` assignments (`@typescript-eslint/no-unsafe-assignment`) and member access (`@typescript-eslint/no-unsafe-member-access`).
-  - When parsing external data (such as `package.json` or `sitemap.json`), declare an explicit TypeScript interface (e.g. `PackageManifest`, `SitemapConfig`).
+  - When parsing external data (such as @package.json or `sitemap.json`), declare an explicit TypeScript interface (e.g. `PackageManifest`, `SitemapConfig`).
 - **No Non-Null Assertions (`!`)**:
   - Avoid using the non-null assertion operator (`!`).
   - Instead, use explicit null/undefined guards (`if (!value) return;`) or standard assertions (`assert.ok(value)` in test files).
