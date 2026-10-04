@@ -5,7 +5,7 @@ description: Comprehensive quality audit workflow checking TypeScript typing, ES
 
 # Code Quality Audit Workflow
 
-Use this skill to audit, diagnose, and resolve code quality issues, cognitive complexity bottlenecks, and linting errors before finalizing any changes.
+Use this skill to audit, diagnose, and resolve code quality issues, cognitive complexity bottlenecks, and linting errors before finalizing any changes. Governed by rules at @.agents/rules/05-typescript-clean-code.md and @.agents/rules/03-performance.md.
 
 ## Audit Checklist
 
@@ -20,7 +20,7 @@ cmd.exe /c "npm run compile-tests"
 ```bash
 cmd.exe /c "npm run lint"
 ```
-- Inspect output for:
+- Inspect output against @eslint.config.mjs for:
   - `@typescript-eslint/no-floating-promises`
   - `@typescript-eslint/no-unsafe-assignment` or `no-unsafe-member-access`
   - `@typescript-eslint/no-non-null-assertion`
@@ -33,7 +33,7 @@ Review modified functions for clean code principles:
 - **Clean Conditionals & Arrays**: Avoid checking truthiness on non-nullish types; check `.length === 0` instead of `!arr[0]`.
 - **No Nested Ternaries**: Ensure no nested ternaries exist, including within template literal interpolations (`${cond ? "" : "s"}`).
 - **Default Parameters**: Prefer ES6 default parameter syntax over internal `param ?? fallback` reassignment.
-- **Formatting**: Run Prettier formatting check:
+- **Formatting**: Run Prettier formatting check against @.prettierrc.json:
   ```bash
   cmd.exe /c "npm run format:check"
   ```

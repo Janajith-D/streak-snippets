@@ -5,6 +5,7 @@ import * as fs from "node:fs";
 import { pathToFileURL } from "node:url";
 import { sitemapRegistry, type SitemapPage } from "../registry/sitemaps";
 import { widgetRegistry } from "../registry/widgets";
+import { runtimePackageRegistry } from "../registry/packages";
 import { fileExistsStrictCase } from "../rules/sitemapRules";
 import { type TextDocument } from "vscode-languageserver-textdocument";
 
@@ -63,6 +64,53 @@ function isLoadDynamicComponentCall(parent: Node | undefined): boolean {
   return (
     callExpr.getExpression().getText() === "gDom" && callExpr.getName() === "loadDynamicComponent"
   );
+}
+
+/**
+ * Returns true if `parent` is a call expression of `gDom.loadPackage(...)` or `loadPackage(...)`.
+ */
+function isLoadPackageCall(parent: Node | undefined): boolean {
+  if (!parent || !Node.isCallExpression(parent)) {
+    return false;
+  }
+  const callExpr = parent.getExpression();
+  if (Node.isPropertyAccessExpression(callExpr)) {
+    return (
+      callExpr.getExpression().getText() === "gDom" && callExpr.getName() === "loadPackage"
+    );
+  }
+  if (Node.isIdentifier(callExpr)) {
+    return callExpr.getText() === "loadPackage";
+  }
+  return false;
+}
+
+/**
+ * Resolves the physical file location for a runtime package referenced in loadPackage("...").
+ */
+function resolveLoadPackageDefinition(
+  value: string,
+  workspaceRoot: string,
+  customPublicDir = "public",
+): Location | null {
+  const pkg = runtimePackageRegistry.get(value);
+  if (pkg && fs.existsSync(pkg.absolutePath)) {
+    return Location.create(
+      pathToFileURL(pkg.absolutePath).toString(),
+      Range.create(0, 0, 0, 0),
+    );
+  }
+
+  const normalized = value.replaceAll("\\", "/").replace(/^\.?\//, "");
+  const targetPath = path.join(workspaceRoot, customPublicDir, "assets", normalized);
+  if (fs.existsSync(targetPath)) {
+    return Location.create(
+      pathToFileURL(targetPath).toString(),
+      Range.create(0, 0, 0, 0),
+    );
+  }
+
+  return null;
 }
 
 /**
@@ -289,6 +337,11 @@ export async function resolveDefinition(
   // Case 1: gDom.loadDynamicComponent("X") → navigate to <Dynamic id="X">
   if (isLoadDynamicComponentCall(parent)) {
     return resolveLoadDynamicDefinition(value, workspaceRoot);
+  }
+
+  // Case 1b: gDom.loadPackage("js/motion.js") → navigate to public/assets/js/motion.js
+  if (isLoadPackageCall(parent)) {
+    return resolveLoadPackageDefinition(value, workspaceRoot, customPublicDir);
   }
 
   // Case 2: JSX attribute value → widget file or public asset

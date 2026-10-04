@@ -45,6 +45,10 @@ const SETTINGS_MAP: Readonly<Record<string, string>> = {
   invalidLoadingStrategy: "streak:invalid-loading-strategy",
   passiveEventListener: "streak:passive-event-listener",
   dataHandlerWidgetKey: "streak:data-handler-widget-key",
+  packageNotFound: "streak:package-not-found",
+  packageAbsolutePath: "streak:package-absolute-path",
+  packagePublicPath: "streak:package-public-path",
+  packageInvalidExtension: "streak:package-invalid-extension",
 };
 
 function parseRuleSeverities(rules: NonNullable<StreakSettings["rules"]>): Record<string, string> {
@@ -53,6 +57,11 @@ function parseRuleSeverities(rules: NonNullable<StreakSettings["rules"]>): Recor
     const ruleConf = rules[settingsKey];
     if (ruleConf && !Array.isArray(ruleConf) && ruleConf.severity) {
       severities[ruleId] = ruleConf.severity;
+    }
+  }
+  for (const [key, conf] of Object.entries(rules)) {
+    if (conf && !Array.isArray(conf) && conf.severity && key.startsWith("streak")) {
+      severities[key] = conf.severity;
     }
   }
   return severities;

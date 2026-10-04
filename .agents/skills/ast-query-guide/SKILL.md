@@ -5,7 +5,7 @@ description: Quick reference and best practices for querying and traversing ts-m
 
 # ts-morph AST Query Reference for Streak Rules
 
-Use this reference when writing or updating static analysis rules in `src/server/rules/`.
+Use this reference when writing or updating static analysis rules in @src/server/rules/. AST lifecycle constraints are governed by @.agents/rules/03-performance.md.
 
 ## 1. Document Parsing & Analysis
 
@@ -16,6 +16,8 @@ import { Node, type SourceFile, SyntaxKind } from "ts-morph";
 import type { StreakRule, DocumentAnalysis } from "./types";
 import { Range, Diagnostic, DiagnosticSeverity } from "vscode-languageserver/node";
 ```
+
+Defined in @src/server/rules/types.ts.
 
 ## 2. Common Query Patterns
 
@@ -62,6 +64,7 @@ if (handler) {
   }
 }
 ```
+Utility located at @src/server/rules/dataHandlerUtils.ts.
 
 ### Converting AST Node to LSP Range
 ```typescript

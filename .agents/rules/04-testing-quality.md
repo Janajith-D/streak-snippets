@@ -1,9 +1,12 @@
 ---
+trigger: glob
 description: Code quality, linting standards, and test verification in Streak Snippets
-globs: src/**/*.ts, src/test/**/*.ts
+globs: "src/**/*.ts, src/test/**/*.ts"
 ---
 
 # Code Quality & Testing Standards
+
+For the execution runbook, invoke the skill at @.agents/skills/run-and-verify/SKILL.md.
 
 ## 1. Quality Gate Commands
 
@@ -19,5 +22,5 @@ Any change to the codebase MUST pass all 4 verification steps before completion:
 
 - **Strict Null Checks**: Never use non-null assertions (`!`) where an explicit assertion (`assert.ok(val)`) or nullish check is appropriate.
 - **Template Literals**: Use template literals (`` `string-${val}` ``) rather than string concatenation (`"string-" + val`) to comply with ESLint `prefer-template`.
-- **Typing JSON & Manifests**: When parsing external files (`package.json`, `sitemap.json`), declare typed interfaces rather than casting to `any`.
+- **Typing JSON & Manifests**: When parsing external files (@package.json, `sitemap.json`), declare typed interfaces rather than casting to `any`.
 - **Unused Imports**: Ensure `unused-imports` plugin produces 0 warnings/errors.

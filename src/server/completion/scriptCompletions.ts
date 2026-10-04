@@ -7,9 +7,11 @@ import { type CompletionContext } from "./types";
 import { getDynamicComponentIds } from "./jsxAttributeCompletions";
 import { GDOM_METHODS } from "./runtimeApi";
 import { gdomRegistry } from "../registry/gdomTypeScanner";
+import { runtimePackageRegistry } from "../registry/packages";
 import {
   GDOM_ACCESS_RE,
   LOAD_DYNAMIC_RE,
+  LOAD_PACKAGE_RE,
   SCRIPT_CALLBACK_RE,
 } from "../../shared/completionConstants";
 
@@ -20,6 +22,32 @@ import {
 export function isInsideLoadDynamicComponent(text: string, offset: number): boolean {
   const textBeforeCursor = text.slice(0, offset);
   return LOAD_DYNAMIC_RE.test(textBeforeCursor);
+}
+
+/**
+ * Checks if the cursor is currently inside the first argument of a loadPackage call.
+ * e.g., gDom.loadPackage("
+ */
+export function isInsideLoadPackage(text: string, offset: number): boolean {
+  const textBeforeCursor = text.slice(0, offset);
+  return LOAD_PACKAGE_RE.test(textBeforeCursor);
+}
+
+/**
+ * Generates completions for runtime packages indexed under public/assets/js.
+ */
+export function getPackageCompletions(): CompletionItem[] {
+  const packages = runtimePackageRegistry.getAll();
+  return packages.map((pkg) => ({
+    label: pkg.relativePath,
+    kind: CompletionItemKind.File,
+    insertText: pkg.relativePath,
+    detail: `Runtime Package (${pkg.fileName})`,
+    documentation: {
+      kind: "markdown",
+      value: `**${pkg.fileName}**\n\nRuntime Package\n\n**Resolved File:**\n\`${pkg.absolutePath}\`\n\n**Resolved URL:**\n\`${pkg.urlPath}\``,
+    },
+  }));
 }
 
 /**
@@ -67,20 +95,29 @@ export function getGDomCompletions(): CompletionItem[] {
   const builtInNames = new Set(GDOM_METHODS.map((m) => m.name));
   const merged = [...GDOM_METHODS, ...customMethods.filter((m) => !builtInNames.has(m.name))];
 
-  return merged.map((method) => ({
-    label: method.name,
-    kind: CompletionItemKind.Method,
-    insertText: `${method.name}(${method.name === "loadDynamicComponent" ? '"$1"' : "$1"})`,
-    insertTextFormat: InsertTextFormat.Snippet,
-    detail: `${method.signature}: ${method.returnType}`,
-    documentation: method.documentation,
-  }));
+  return merged.map((method) => {
+    const isQuoted =
+      method.name === "loadDynamicComponent" || method.name === "loadPackage";
+    return {
+      label: method.name,
+      kind: CompletionItemKind.Method,
+      insertText: `${method.name}(${isQuoted ? '"$1"' : "$1"})`,
+      insertTextFormat: InsertTextFormat.Snippet,
+      detail: `${method.signature}: ${method.returnType}`,
+      documentation: method.documentation,
+    };
+  });
 }
 
 export function getScriptCompletions(
   context: CompletionContext,
   workspaceRoot: string | undefined,
 ): CompletionItem[] {
+  // Check if inside loadPackage("") call anywhere in file or in script callback
+  if (isInsideLoadPackage(context.text, context.offset)) {
+    return getPackageCompletions();
+  }
+
   if (!isInsideScriptCallback(context.text, context.offset)) {
     return [];
   }

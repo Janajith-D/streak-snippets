@@ -4,6 +4,7 @@ import * as fs from "node:fs";
 import { type WidgetProp, widgetRegistry } from "./widgets";
 import { sitemapRegistry } from "./sitemaps";
 import { gdomRegistry, scanGDomTypes } from "./gdomTypeScanner";
+import { runtimePackageRegistry } from "./packages";
 export { findStreakProjectRoot, isStreakProjectDirectory, isStreakFile } from "./projectDetector";
 import { findStreakProjectRoot, isStreakProjectDirectory } from "./projectDetector";
 
@@ -389,13 +390,102 @@ async function findDeclarationFiles(root: string): Promise<string[]> {
   return dtsFiles;
 }
 
+export function registerRuntimePackageFile(filePath: string): void {
+  if (!filePath.endsWith(".js")) {
+    return;
+  }
+  const norm = filePath.replaceAll("\\", "/");
+  const assetsIdx = norm.lastIndexOf("/assets/");
+  if (assetsIdx === -1) {
+    return;
+  }
+  const relativePath = norm.slice(assetsIdx + "/assets/".length);
+  runtimePackageRegistry.set({
+    relativePath,
+    absolutePath: filePath,
+    fileName: path.basename(filePath),
+    urlPath: `/assets/${relativePath}`,
+  });
+}
+
+export function unregisterRuntimePackageFile(filePath: string): void {
+  runtimePackageRegistry.deleteByPath(filePath);
+}
+
+async function findPackageDirectories(root: string, customPublicDir?: string): Promise<string[]> {
+  const dirs: string[] = [];
+  const publicDirName = customPublicDir ?? "public";
+
+  async function search(dir: string, depth: number): Promise<void> {
+    if (depth > 4) {
+      return;
+    }
+    try {
+      const items = await fs.promises.readdir(dir);
+      for (const item of items) {
+        if (
+          item === "node_modules" ||
+          item === ".git" ||
+          item === "dist" ||
+          item === "out" ||
+          item === ".vscode"
+        ) {
+          continue;
+        }
+        const full = path.join(dir, item);
+        const stat = await fs.promises.stat(full);
+        if (stat.isDirectory()) {
+          const directTarget = path.join(full, publicDirName, "assets");
+          if (fs.existsSync(directTarget) && isStreakProjectDirectory(full)) {
+            if (!dirs.includes(directTarget)) {
+              dirs.push(directTarget);
+            }
+          }
+          await search(full, depth + 1);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const rootTarget = path.join(root, publicDirName, "assets");
+  if (fs.existsSync(rootTarget) && !dirs.includes(rootTarget)) {
+    dirs.push(rootTarget);
+  }
+
+  await search(root, 0);
+  return dirs;
+}
+
+async function findJsFilesRecursive(dir: string): Promise<string[]> {
+  let results: string[] = [];
+  try {
+    const list = await fs.promises.readdir(dir);
+    for (const file of list) {
+      const filePath = path.join(dir, file);
+      const stat = await fs.promises.stat(filePath);
+      if (stat.isDirectory()) {
+        results = results.concat(await findJsFilesRecursive(filePath));
+      } else if (filePath.endsWith(".js")) {
+        results.push(filePath);
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return results;
+}
+
 export async function scanWorkspace(
   workspaceRoot: string,
   customWidgetDir?: string,
+  customPublicDir?: string,
 ): Promise<void> {
   widgetRegistry.clear();
   sitemapRegistry.clear();
   gdomRegistry.clear();
+  runtimePackageRegistry.clear();
 
   const widgetDirs = await findWidgetDirectories(workspaceRoot, customWidgetDir);
   for (const dir of widgetDirs) {
@@ -423,6 +513,14 @@ export async function scanWorkspace(
       gdomRegistry.registerMethods(methods);
     } catch {
       // ignore
+    }
+  }
+
+  const packageDirs = await findPackageDirectories(workspaceRoot, customPublicDir);
+  for (const dir of packageDirs) {
+    const files = await findJsFilesRecursive(dir);
+    for (const file of files) {
+      registerRuntimePackageFile(file);
     }
   }
 }
